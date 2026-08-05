@@ -45,7 +45,7 @@ services:
       RECORDER_ORIGIN: http://demo-target
     command: sh -c "npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - .:/app
       - sentinel-node-modules:/app/node_modules
