@@ -1,0 +1,201 @@
+# Sentinel Software Requirements Document
+
+**Version:** v1.0 planning baseline  
+**Date:** 2026-08-05  
+**Source:** `sentinel-detailed-requirements.md`
+
+## 1. Product summary
+
+Sentinel lets a person teach a browser-based test journey once, save it as a product-owned Test Case, replay it autonomously, and inspect a complete evidence bundle for every Run. Human approval remains required for checkpoints, proposed expectation changes, and other consequential decisions.
+
+## 2. Scope
+
+### In scope
+
+- Multiple internal web products in the QA environment.
+- Ten concurrent named users initially.
+- Organization-level shared login and individual logins, with named ownership retained.
+- Guided recording, replay, evidence capture, data variables, negative-test suggestions, test/release management, dashboards, notifications, JIRA, change approval, and read-only PostgreSQL insight.
+
+### Out of scope for v1
+
+- iOS and Android testing.
+- Any database write or delete access.
+- Migration of existing automated tests.
+- Source-control integration for root-cause correlation.
+
+## 3. Users, roles, and ownership
+
+| User or role | Required capability |
+|---|---|
+| Tester or feature expert | Create, teach, edit, run, inspect, and manage tests for products they can access. |
+| Test owner | The person who created a Test Case; owns it and approves expected-behavior changes. |
+| QA lead | Organize products and releases, trigger release runs, and review consolidated readiness. This is a capability, not a replacement for per-test approval. |
+| Developer | Inspect evidence, understand failures, and use JIRA output; may teach a test when they understand the feature. |
+| Product manager | May teach or inspect a test when appropriate. |
+
+Every Test Case stores its product, owner, creation timestamp, and change history. Shared authentication must not erase the individual actor identity.
+
+## 4. Domain terms
+
+- **Test Case:** A named, reusable journey taught by a person.
+- **Step:** One recorded action or checkpoint in a Test Case.
+- **Run:** One execution of a Test Case, whether manual-triggered, scheduled, or part of a Release Run.
+- **Evidence Bundle:** Video, network, console, storage, screenshots, and database context associated with a Run.
+- **Variable:** A value that is static, pooled, or supplied per Run.
+- **Checkpoint:** A step where automation pauses for human confirmation.
+- **Release Run:** A batch execution of all Test Cases tagged to a release.
+
+## 5. Product journey
+
+```mermaid
+flowchart TD
+    A["Create Test Case"] --> B["Record live website journey"]
+    B --> C["Annotate steps, variables, checkpoints"]
+    C --> D["Save with product and owner"]
+    D --> E{"Run mode"}
+    E --> F["On demand"]
+    E --> G["Schedule"]
+    E --> H["Release Run"]
+    F --> I["Autonomous replay"]
+    G --> I
+    H --> I
+    I --> J["Capture timeline-linked evidence"]
+    J --> K{"Result"}
+    K -->|Pass| L["Update dashboard"]
+    K -->|Failure| M{"Bug or intentional change?"}
+    M -->|Bug| N["Create or update JIRA"]
+    M -->|Change| O["Send proposal to owner"]
+    O --> P{"Owner decision"}
+    P -->|Approve| Q["Update baseline and history"]
+    P -->|Reject| N
+```
+
+## 6. Functional requirements
+
+### F1. Guided test creation and recording
+
+1. The dashboard provides **Add New Test**.
+2. The creation form requires Test Name and Website Link and associates the selected product and current named owner.
+3. The Recording Workspace shows an interactive live website beside a real-time plain-English Step Log.
+4. Clicks, text entry, navigation, and page loads create step entries automatically.
+5. Each step can be edited and can contain a description, expected outcome, conditional instruction, checkpoint flag, and important-screenshot flag.
+6. Typed values can be marked inline as variables.
+7. The tester can save at any point or discard the recording without creating a Test Case.
+
+### F2. Complete evidence capture
+
+For every teaching session and Run, capture and retain:
+
+- Full screen video synchronized to steps.
+- Network requests and responses with endpoint, status, timing, payload, and slow/error highlighting.
+- Timestamped console output, including errors and warnings.
+- localStorage, sessionStorage, and cookie state at step boundaries.
+- Screenshots at start, end, failure, and explicitly flagged steps.
+
+All evidence is accessible from one Run Detail view and is timeline-linked to the Step Log for passed and failed Runs.
+
+### F3. Autonomous replay
+
+- Run a saved Test Case without a human present unless a checkpoint is reached.
+- Tolerate small cosmetic changes without silently choosing an unsafe alternative.
+- Aim to execute no slower than the equivalent manual journey.
+- Run many Test Cases sequentially or concurrently.
+- Produce the complete F2 Evidence Bundle for every run mode.
+- Stop and clearly flag unresolved elements, ambiguity, or checkpoints.
+
+### F4. Test data and variables
+
+Support:
+
+- Static values safe to reuse.
+- Pooled values drawn from an existing reusable test-record pool.
+- Values supplied manually before a Run.
+
+Variables are markable during recording; Sentinel may suggest likely variables such as IDs, emails, and order numbers. Track each value’s safe/consumed/invalid lifecycle. Before reuse, verify relevant state through the read-only database integration where configured. Fresh data must come through an application workflow or existing pool, never a database write.
+
+### F5. Edge-case and negative testing
+
+After saving a happy-path Test Case, Sentinel may suggest high-confidence variations such as missing required fields, invalid input, and boundary values. Suggestions are drafts only. The tester can approve, edit, or dismiss each one. Approved suggestions become independently owned Test Cases.
+
+Default planning assumption: conservative suggestions to limit tester fatigue.
+
+### F6. Test and release management
+
+- Organize Test Cases by product and feature area.
+- Run any Test Case individually at any time.
+- Update an existing Test Case by changing affected steps or outcomes rather than re-recording everything.
+- Create releases and tag Test Cases across products.
+- Trigger a Release Run for all tagged Test Cases.
+- Produce a consolidated pass/fail release-readiness report.
+- Keep release use optional; ad hoc execution must work independently.
+
+### F7. Reporting, dashboard, and notifications
+
+The dashboard shows, per product, Test Cases, last Run, current status, and recent failure frequency. It also exposes Run Detail, flakiness trends, and coverage growth. At minimum, email notifications are required for failures, pending expectation proposals, and checkpoint pauses. Slack is an optional integration if available.
+
+### F8. JIRA integration
+
+For a likely genuine bug, automatically create a JIRA issue containing the tested journey, failure, reproduction steps, product/release context, and linked or attached evidence. Search for an existing open issue covering the same failure before creating a duplicate; add a comment and new evidence when one exists. Allow the owner to review or edit issue details before or immediately after filing.
+
+### F9. Change-aware maintenance and approval
+
+Classify failures as likely bugs or likely intentional changes. For likely changes, draft updated steps or expectations and send the proposal to the original Test Case owner. The old baseline remains active until explicit approval. The owner can compare, approve, or reject. Approval updates the baseline; rejection routes the failure to JIRA. Keep a complete proposal and decision history. Re-running after a known QA deployment is the primary trigger; source-control correlation remains optional future work.
+
+### F10. Read-only database insight
+
+When a Run fails, Sentinel may query relevant QA PostgreSQL data to explain record existence or state. Include the result in the Evidence Bundle and relevant JIRA issue. Database credentials must be read-only and technically incapable of insert, update, delete, schema change, or transaction write.
+
+## 7. Cross-cutting requirements
+
+### Security and privacy
+
+- Enforce product and Test Case authorization.
+- Protect credentials, cookies, tokens, video, payloads, and database results.
+- Redact configured secrets and sensitive fields from evidence and notifications.
+- Use least-privilege credentials for browser, JIRA, storage, and database integrations.
+- Audit ownership, approvals, Run actions, and external side effects.
+
+### Reliability and safety
+
+- A low-confidence replay must stop, not guess.
+- Checkpoints must block consequential continuation until a human confirms.
+- Evidence capture must be attempted even on failure and must report partial-capture errors.
+- Background jobs must expose state, retry safely, and avoid duplicate JIRA issues.
+
+### Performance and scale
+
+- Initial target is 10 concurrent users.
+- Batch Runs must support controlled parallelism.
+- Replay should not exceed equivalent manual duration for the same journey.
+- Evidence retention and concurrency limits require an operational decision before production.
+
+## 8. Acceptance criteria for the product baseline
+
+- A named user can create a product-specific Test Case and see their ownership recorded.
+- Recording captures navigation, click, and text-entry steps in order.
+- A tester can edit step text, add an expected outcome, mark a variable, save, or discard.
+- A saved Test Case can be opened and run independently of the recording screen.
+- A Run has a status, timestamps, step results, and a Run Detail location.
+- A failure stops safely, records available evidence, and exposes a clear reason.
+- A Release Run reports every included Test Case and its result.
+- A proposed expectation change cannot alter the baseline without owner approval.
+- JIRA integration never creates duplicate open issues for the same tracked failure.
+- Database insight cannot write to PostgreSQL.
+
+## 9. Ambiguities and conflicts to resolve
+
+1. Shared login is required while ownership must remain individual; the identity-mapping mechanism is unspecified.
+2. “Fully interactive” embedded websites may conflict with browser security headers, cross-origin isolation, third-party login, and payment flows.
+3. Full network payload capture may expose credentials or personal data; redaction and retention policy are unspecified.
+4. “No slower than manual” needs a measurement definition and benchmark set.
+5. Pooled-data invalidation may be inferred from the application, database, or both; precedence is unspecified.
+6. The policy for ownership reassignment is unspecified.
+7. The exact JIRA project, issue type, fields, duplicate-matching rule, and evidence size limits are unspecified.
+8. Email provider, Slack availability, schedules, release deployment signals, and database query configuration are unspecified.
+9. “Conservative” edge-case suggestions needs an operational confidence threshold.
+10. Evidence retention, storage budget, concurrency limits, and target success metrics are unspecified.
+
+## 10. Explicit non-scope and assumptions
+
+Mobile is intentionally deferred. Database access is read-only. Source-control access is not a v1 dependency. The requirements’ conservative edge-case suggestion assumption is adopted until product data supports revision. Ownership reassignment and success metrics must be resolved before launch.
