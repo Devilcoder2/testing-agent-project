@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RecordingStatus {
+  DRAFT
+  ACTIVE
+  SAVED
+  DISCARDED
+}
+
+enum StepKind {
+  NAVIGATION
+  CLICK
+  TEXT_ENTRY
+}
+
+model User {
+  id           String              @id @default(cuid())
+  email        String              @unique
+  displayName  String
+  devPassword  String
+  memberships  ProductMembership[]
+  products     Product[]
+  recordings   RecordingSession[]  @relation("RecordingOwner")
+  testCases    TestCase[]          @relation("TestCaseOwner")
+  auditEvents  AuditEvent[]        @relation("AuditActor")
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model Product {
+  id           String              @id @default(cuid())
+  name         String
+  createdById  String
+  createdBy    User                @relation(fields: [createdById], references: [id])
+  memberships  ProductMembership[]
+  recordings   RecordingSession[]
+  testCases    TestCase[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@unique([createdById, name])
+}
+
+model ProductMembership {
+  userId      String
+  productId   String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@id([userId, productId])
+}
+
+model RecordingSession {
+  id            String          @id @default(cuid())
+  productId     String
+  ownerId       String
+  testName      String
+  targetUrl     String
+  tokenHash     String          @unique
+  status        RecordingStatus @default(DRAFT)
+  product       Product         @relation(fields: [productId], references: [id])
+  owner         User            @relation("RecordingOwner", fields: [ownerId], references: [id])
+  steps         RecordedStep[]
+  testCase      TestCase?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model RecordedStep {
+  id                  String           @id @default(cuid())
+  recordingSessionId  String
+  order               Int
+  kind                StepKind
+  timestamp           DateTime
+  target              Json
+  value               String?
+  isRedacted          Boolean          @default(false)
+  description         String?
+  expectedOutcome     String?
+  variableName        String?
+  recordingSession    RecordingSession @relation(fields: [recordingSessionId], references: [id], onDelete: Cascade)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@unique([recordingSessionId, order])
+}
+
+model TestCase {
+  id                  String           @id @default(cuid())
+  productId           String
+  ownerId             String
+  recordingSessionId  String           @unique
+  name                String
+  currentVersion      Int              @default(1)
+  product             Product          @relation(fields: [productId], references: [id])
+  owner               User             @relation("TestCaseOwner", fields: [ownerId], references: [id])
+  recordingSession    RecordingSession @relation(fields: [recordingSessionId], references: [id])
+  versions            TestCaseVersion[]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model TestCaseVersion {
+  id          String     @id @default(cuid())
+  testCaseId  String
+  version     Int
+  testCase    TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  steps       TestStep[]
+  createdAt   DateTime   @default(now())
+
+  @@unique([testCaseId, version])
+}
+
+model TestStep {
+  id                  String          @id @default(cuid())
+  testCaseVersionId   String
+  order               Int
+  kind                StepKind
+  timestamp           DateTime
+  target              Json
+  value               String?
+  isRedacted          Boolean         @default(false)
+  description         String?
+  expectedOutcome     String?
+  variableName        String?
+  testCaseVersion     TestCaseVersion @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([testCaseVersionId, order])
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  actorId     String
+  action      String
+  entityType  String
+  entityId    String
+  details     Json?
+  actor       User     @relation("AuditActor", fields: [actorId], references: [id])
+  createdAt   DateTime @default(now())
+}
