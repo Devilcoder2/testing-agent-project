@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD: sentinel
+      POSTGRES_DB: sentinel
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5432:5432"
+    volumes:
+      - sentinel-postgres:/var/lib/postgresql/data
+
+  demo-target:
+    build: ./demo-target
+    ports:
+      - "8080:80"
+
+  browser:
+    image: selenium/standalone-chromium:latest
+    shm_size: 2gb
+    environment:
+      SE_VNC_NO_PASSWORD: "true"
+    ports:
+      - "7900:7900"
+      - "4444:4444"
+
+  sentinel:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      demo-target:
+        condition: service_started
+      browser:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/sentinel?schema=public
+      SESSION_SECRET: sentinel-phase-1-development-secret
+      DEMO_TARGET_URL: http://demo-target
+      BROWSER_SELENIUM_URL: http://browser:4444/wd/hub
+      BROWSER_VIEWER_URL: http://localhost:7900/?autoconnect=true&resize=scale&view_only=false
+      RECORDER_ORIGIN: http://demo-target
+    command: sh -c "npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - sentinel-node-modules:/app/node_modules
+
+volumes:
+  sentinel-postgres:
+  sentinel-node-modules:
