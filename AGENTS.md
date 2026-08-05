@@ -225,3 +225,14 @@ For this project’s initial GitHub setup:
 - Use `main` as the default branch.
 - Make the initial commit and push it to GitHub.
 - Verify the remote, pushed branch, and resulting GitHub repository URL.
+
+## Mandatory single-file GitHub synchronization
+
+This project uses one-file commits as a learning and review boundary. For every project change:
+
+- A commit must contain exactly one changed project file.
+- Review and validate that file independently before committing it.
+- Push the commit to `origin` immediately after it is created.
+- Do not combine unrelated or related files into one commit; each file gets its own commit and push.
+- Before moving to the next file, verify that the push succeeded and record the commit hash, branch, push result, and verification output.
+- Final reports must list every commit hash and its corresponding file, push result, branch, and validation evidence.
