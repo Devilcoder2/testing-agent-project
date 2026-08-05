@@ -30,6 +30,7 @@ flowchart LR
 ### In scope
 
 - Local/development named-user authentication boundary.
+- Docker Compose development stack with PostgreSQL, a remote Chromium/noVNC session, and an isolated demo target.
 - Product creation and selection.
 - Test Case creation with name, website link, product, owner, and timestamps.
 - Recording Workspace with a live browser surface and Step Log.
@@ -38,6 +39,7 @@ flowchart LR
 - Inline variable marker stored as metadata, without variable-pool automation yet.
 - Save and discard behavior.
 - Versioned persistence foundation and audit event for creation.
+- One active browser-in-browser recording session against the local sign-in and create-customer demo flow.
 
 ### Acceptance checklist
 
