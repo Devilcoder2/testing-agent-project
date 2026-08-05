@@ -15,7 +15,9 @@ export function readSession(value?: string): SessionUser | null {
   const [payload, signature] = value.split(".");
   if (!payload || !signature) return null;
   const expected = crypto.createHmac("sha256", secret()).update(payload).digest("base64url");
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+  const providedBytes = Buffer.from(signature);
+  const expectedBytes = Buffer.from(expected);
+  if (providedBytes.length !== expectedBytes.length || !crypto.timingSafeEqual(providedBytes, expectedBytes)) return null;
   try {
     return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as SessionUser;
   } catch {
