@@ -66,6 +66,30 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Impact:** Documentation and future implementation work must be sequenced file by file; multi-file commits are prohibited.
 - **Status:** Project governance rule, recorded in `AGENTS.md`.
 
+## D-009 — Phase 1 uses a local browser-in-browser session
+
+- **Date:** 2026-08-05
+- **Decision:** Phase 1 will use Docker Compose to run one Chromium session in a Selenium container with noVNC, embedded inside Sentinel’s Recording Workspace.
+- **Reason:** This matches the cloud-browser recording experience requested for Sentinel without a browser extension and keeps the first target fully reproducible.
+- **Impact:** Phase 1 supports one active local recording session. Browser concurrency, remote runner allocation, and private-network access are deferred.
+- **Status:** Confirmed by project owner.
+
+## D-010 — Phase 1 persistence and development environment
+
+- **Date:** 2026-08-05
+- **Decision:** Use PostgreSQL 16 through Docker Compose and Prisma for Phase 1 persistence. Docker Desktop is a required development dependency.
+- **Reason:** This validates the production-aligned relational model while keeping setup repeatable.
+- **Impact:** The repository will include a Compose stack, Prisma migrations, seeded development users, and no dependency on the host Node runtime.
+- **Status:** Confirmed by project owner.
+
+## D-011 — Phase 1 demo target
+
+- **Date:** 2026-08-05
+- **Decision:** Build an isolated local demo application with sign-in and customer creation as the only allowlisted recording target.
+- **Reason:** It gives recording tests deterministic behavior and avoids real credentials or QA-environment dependencies.
+- **Impact:** Connections to organization QA websites remain a later, explicit runner-network decision.
+- **Status:** Confirmed by project owner.
+
 ## Open decisions before production
 
 - Identity provider and mapping from shared login to a named actor.
