@@ -24,7 +24,7 @@ flowchart LR
 
 ## Phase 1 — Foundation and guided recording
 
-**Status:** Not started  
+**Status:** In progress — local recording slice implemented; integration and learning review remain.
 **Goal:** Prove the smallest useful teach-and-save workflow with named ownership.
 
 ### In scope
