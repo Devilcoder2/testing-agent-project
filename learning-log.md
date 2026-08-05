@@ -1,6 +1,16 @@
-# Learning Log
+# Sentinel Learning Log
 
 This file records what the project owner learns while building features with AI assistance. Add one entry for every completed feature or meaningful technical change.
+
+## Documentation-stage baseline
+
+- **Date:** 2026-08-05
+- **Status:** Project documents prepared; no product feature is complete yet.
+- **Related documents:** [`problem-brief.md`](problem-brief.md), [`srd.md`](srd.md), [`architecture.md`](architecture.md), [`phases.md`](phases.md), [`techstack.md`](techstack.md), [`decisions-log.md`](decisions-log.md)
+
+The documentation stage established the problem, requirements, provisional architecture, technology choices, implementation order, and explicit open decisions before code. The owner should use the ten-question checks below for every later feature. Unanswered questions are follow-up learning tasks, not evidence that the feature is understood.
+
+The documentation files themselves are governance artifacts rather than completed product features, so no feature-learning entry is marked complete here.
 
 ## Feature: [feature name]
 
@@ -83,4 +93,3 @@ Answer all 10 questions before marking this feature as understood. If an answer 
 #### Follow-up learning tasks
 
 - [Unresolved question or topic]
-
