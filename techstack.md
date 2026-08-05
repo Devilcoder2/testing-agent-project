@@ -20,7 +20,7 @@
 | Area | Provisional choice | Planning version/range | Why |
 |---|---|---|---|
 | Application database | PostgreSQL | 16.x or compatible managed version | Relational ownership, versioning, audit, release, and Run data. |
-| ORM/query layer | Prisma or typed SQL layer | Select one during Phase 1 spike | Provides migrations and typed access; the final choice must preserve explicit transaction and query control. |
+| ORM/query layer | Prisma | Compatible stable major pinned in the lockfile | Provides migrations, typed access, and a clear relational model for the first slice. |
 | Job queue | Redis plus BullMQ or equivalent durable queue | Compatible stable major | Separates browser work from HTTP requests and supports retries/concurrency. |
 | Evidence storage | S3-compatible object storage | Provider selected before evidence phase | Handles large video, screenshots, and logs with lifecycle policies. |
 | Browser automation | Playwright | Compatible stable release pinned in Phase 1 | Recording, browser contexts, network events, screenshots, video, and cross-browser web control. |
@@ -37,6 +37,7 @@
 - Git and GitHub `origin` on `main`.
 - `.env.example` for configuration names only; never commit secrets.
 - Docker Compose may provide local PostgreSQL and Redis during development if the selected app setup benefits from it.
+- Docker Desktop is required for Phase 1: Compose runs PostgreSQL, Sentinel, the isolated demo target, and the browser-in-browser session.
 - CI should run formatting/lint checks, unit tests, type checks, and browser smoke tests.
 - Structured logs should include correlation IDs for a Test Case, Run, job, evidence event, and external integration request.
 
@@ -62,7 +63,6 @@ Phase 1 must confirm:
 ## 7. Deliberately deferred choices
 
 - Final Next.js deployment target.
-- Prisma versus typed SQL after the first persistence spike.
 - Redis/BullMQ versus an equivalent managed queue.
 - Object-storage provider, retention period, and redaction implementation.
 - Identity provider and named identity mapping for shared login.
