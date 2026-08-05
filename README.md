@@ -26,7 +26,7 @@ The attached requirements document is the current product source of truth. Archi
 ## Readiness status
 
 - Product documentation: prepared.
-- Phase 1: not started.
+- Phase 1: implementation in progress; local Docker recording slice is available.
 - Application code: not started.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -34,6 +34,18 @@ The attached requirements document is the current product source of truth. Archi
 ## Project rules
 
 Read [`AGENTS.md`](AGENTS.md) before planning or changing the project. In particular, each changed file must be independently validated, committed alone, and pushed immediately to `origin`.
+
+## Run Phase 1 locally
+
+Docker Desktop is required. Start the local stack, then open [http://localhost:3001](http://localhost:3001).
+
+```text
+docker compose up --build -d
+docker compose logs -f sentinel
+docker compose down
+```
+
+Use `ava.tester@example.test` with password `sentinel-dev`. Create a recording for the built-in Demo CRM, launch the browser panel, then complete the demo target’s sign-in and customer-creation journey. The local browser viewer runs on port 7900.
 
 ## Status
 
