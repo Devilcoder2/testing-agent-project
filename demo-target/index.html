@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sentinel Demo CRM</title>
+    <style>
+      :root { color-scheme: light; font-family: Inter, system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #f4f7fb; color: #172033; }
+      .shell { min-height: 100vh; display: grid; place-items: center; padding: 32px; }
+      .card { width: min(100%, 680px); background: white; border-radius: 18px; box-shadow: 0 18px 50px #17203320; padding: 32px; }
+      .logo { color: #3758f9; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 12px; }
+      h1 { margin: 10px 0 8px; font-size: 30px; } p { color: #5d6a82; line-height: 1.55; }
+      label { display: grid; gap: 7px; margin: 16px 0; color: #35415c; font-size: 14px; font-weight: 650; }
+      input { width: 100%; border: 1px solid #cbd3e2; border-radius: 9px; padding: 11px 12px; font: inherit; }
+      input:focus { outline: 3px solid #3758f933; border-color: #3758f9; }
+      button { border: 0; border-radius: 9px; background: #3758f9; color: white; padding: 11px 16px; font: inherit; font-weight: 700; cursor: pointer; }
+      button.secondary { background: #e9edff; color: #263a9d; }
+      .message { min-height: 24px; color: #bc2f4a; font-size: 14px; }
+      .app { display: grid; grid-template-columns: 190px 1fr; min-height: 100vh; }
+      nav { background: #172033; color: white; padding: 24px 16px; } nav button { width: 100%; text-align: left; margin-top: 22px; background: #26344f; }
+      main { padding: 38px; } .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+      .panel { background: white; border-radius: 14px; padding: 24px; margin-top: 24px; box-shadow: 0 8px 24px #17203310; }
+      .success { border-left: 4px solid #15956b; background: #e9fff7; color: #0e6c4e; padding: 12px; border-radius: 6px; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      const root = document.getElementById('root');
+      const state = { signedIn: false, route: 'login', customers: [] };
+      const go = (route) => { state.route = route; history.pushState({ route }, '', '#' + route); render(); };
+      window.addEventListener('popstate', () => { state.route = location.hash.slice(1) || 'login'; render(); });
+
+      function renderLogin() {
+        root.innerHTML = `
+          <div class="shell"><form class="card" id="sign-in-form">
+            <div class="logo">Sentinel demo target</div>
+            <h1>Welcome back</h1><p>Sign in to the demo CRM workspace.</p>
+            <label>Email<input name="email" type="email" autocomplete="username" placeholder="qa.tester@example.test" required /></label>
+            <label>Password<input name="password" type="password" autocomplete="current-password" required /></label>
+            <div class="message" id="login-message"></div>
+            <button type="submit">Sign in</button>
+          </form></div>`;
+        document.getElementById('sign-in-form').addEventListener('submit', (event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          if (data.get('email') === 'qa.tester@example.test' && data.get('password') === 'TestPassword!') {
+            state.signedIn = true; go('dashboard');
+          } else document.getElementById('login-message').textContent = 'Use qa.tester@example.test and TestPassword!';
+        });
+      }
+
+      function renderApp() {
+        const create = state.route === 'customer-new';
+        const confirmation = state.route === 'customer-saved';
+        root.innerHTML = `
+          <div class="app"><nav><div class="logo">Demo CRM</div>
+            <button id="dashboard-link" type="button">Dashboard</button>
+            <button id="customers-link" type="button">Customers</button>
+          </nav><main>
+            <div class="top"><div><div class="logo">Customer operations</div><h1>${create ? 'Create customer' : 'Customer dashboard'}</h1></div>
+              ${!create ? '<button id="new-customer" type="button">New customer</button>' : '<button class="secondary" id="back" type="button">Back</button>'}</div>
+            <section class="panel">
+              ${confirmation ? '<div class="success" role="status">Customer created successfully.</div>' : ''}
+              ${create ? `<form id="customer-form">
+                <label>First name<input name="firstName" required /></label>
+                <label>Last name<input name="lastName" required /></label>
+                <label>Email address<input name="email" type="email" required /></label>
+                <div class="message" id="customer-message"></div>
+                <button type="submit">Create customer</button>
+              </form>` : '<p>Create a customer to verify the core sign-in, navigation, form, validation, and confirmation journey.</p>'}
+            </section>
+          </main></div>`;
+        document.getElementById('dashboard-link').onclick = () => go('dashboard');
+        document.getElementById('customers-link').onclick = () => go('dashboard');
+        if (!create) document.getElementById('new-customer').onclick = () => go('customer-new');
+        if (create) {
+          document.getElementById('back').onclick = () => go('dashboard');
+          document.getElementById('customer-form').addEventListener('submit', (event) => {
+            event.preventDefault(); const data = new FormData(event.currentTarget);
+            if (!data.get('firstName') || !data.get('lastName') || !data.get('email')) {
+              document.getElementById('customer-message').textContent = 'All customer fields are required.'; return;
+            }
+            state.customers.push(Object.fromEntries(data)); go('customer-saved');
+          });
+        }
+      }
+
+      function render() { state.signedIn ? renderApp() : renderLogin(); }
+      render();
+    </script>
+  </body>
+</html>
