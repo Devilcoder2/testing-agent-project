@@ -9,6 +9,7 @@ dist/
 build/
 .next/
 coverage/
+*.tsbuildinfo
 
 # macOS and editor files
 .DS_Store
