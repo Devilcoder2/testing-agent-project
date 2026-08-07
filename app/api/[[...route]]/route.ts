@@ -132,7 +132,14 @@ async function route(request: Request, context: Context) {
       }
       if (request.method === "PATCH" && path[2] === "steps" && path[3]) {
         if (!recording.steps.some((step) => step.id === path[3])) return json({ error: "Step not found." }, 404);
-        const step = await prisma.recordedStep.update({ where: { id: path[3] }, data: { description: body.description ?? null, expectedOutcome: body.expectedOutcome ?? null, variableName: body.variableName ?? null } });
+        const step = await prisma.recordedStep.update({
+          where: { id: path[3] },
+          data: {
+            ...(body.description !== undefined ? { description: body.description || null } : {}),
+            ...(body.expectedOutcome !== undefined ? { expectedOutcome: body.expectedOutcome || null } : {}),
+            ...(body.variableName !== undefined ? { variableName: body.variableName || null } : {})
+          }
+        });
         return json(step);
       }
       if (request.method === "POST" && path[2] === "save") {
