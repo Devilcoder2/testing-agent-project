@@ -24,7 +24,7 @@ flowchart LR
 
 ## Phase 1 — Foundation and guided recording
 
-**Status:** In progress — local recording slice implemented; integration and learning review remain.
+**Status:** Acceptance criteria verified; owner learning review remains pending.
 **Goal:** Prove the smallest useful teach-and-save workflow with named ownership.
 
 ### In scope
@@ -43,20 +43,20 @@ flowchart LR
 
 ### Acceptance checklist
 
-- [ ] A named user can sign in using the development identity path.
+- [x] A named user can sign in using the development identity path.
 - [x] A user can create and select a Product.
-- [ ] **Add New Test** accepts a name and approved website URL.
-- [ ] The workspace shows the live target and an initially empty Step Log.
-- [ ] A navigation creates a navigation step with timestamp and target context.
-- [ ] A click creates a click step with target metadata.
-- [ ] Text entry creates a text step without persisting unredacted secrets by default.
-- [ ] Steps appear in action order and remain associated with the current Test Case draft.
-- [ ] A tester can edit description and expected outcome for each step.
-- [ ] A tester can mark a text value as a variable placeholder.
-- [ ] Save creates a Test Case linked to exactly one product and named owner.
-- [ ] Discard leaves no saved Test Case or orphaned draft.
-- [ ] Refreshing the saved Test Case shows the same ordered steps and annotations.
-- [ ] Unauthorized users cannot open another product’s Test Case.
+- [x] **Add New Test** accepts a name and approved website URL.
+- [x] The workspace shows the live target and an initially empty Step Log.
+- [x] A navigation creates a navigation step with timestamp and target context.
+- [x] A click creates a click step with target metadata.
+- [x] Text entry creates a text step without persisting unredacted secrets by default.
+- [x] Steps appear in action order and remain associated with the current Test Case draft.
+- [x] A tester can edit description and expected outcome for each step.
+- [x] A tester can mark a text value as a variable placeholder.
+- [x] Save creates a Test Case linked to exactly one product and named owner.
+- [x] Discard leaves no saved Test Case or orphaned draft.
+- [x] Refreshing the saved Test Case shows the same ordered steps and annotations.
+- [x] Unauthorized users cannot open another product’s Test Case.
 
 ### Verification
 
