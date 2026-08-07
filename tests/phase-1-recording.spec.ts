@@ -45,6 +45,7 @@ test("records the remote demo journey and preserves saved annotations after refr
     const createResponse = page.waitForResponse((response) => response.url().endsWith("/api/recordings") && response.request().method() === "POST");
     await page.getByRole("button", { name: "Create recording workspace" }).click();
     const created = await (await createResponse).json() as RecordingResponse;
+    await expect(page.locator(".step")).toHaveCount(0);
 
     await prisma.recordingSession.update({ where: { id: created.recording.id }, data: { status: RecordingStatus.ACTIVE } });
     remoteDriver = await launchBrowser(demoUrl, created.token);
