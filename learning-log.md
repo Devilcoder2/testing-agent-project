@@ -376,3 +376,103 @@ The user enters a Product name in the inline form. The browser sends it to `POST
 - Owner answers the ten questions above.
 - Add direct API integration tests for Product authorization and database transaction behavior.
 - Bake Playwright browser dependencies into the reproducible test image instead of installing them interactively.
+
+---
+
+## Feature: Phase 1 automated verification and recorder hardening
+
+- Date: 2026-08-07
+- Phase: 1
+- Status: Verification implemented and passed; understanding review pending owner answers.
+- Relevant files: `lib/browser.ts`, `app/api/[[...route]]/route.ts`, `prisma/migrations/20260807155500_redact_password_metadata/migration.sql`, `Dockerfile`, `tests/recording-api.test.ts`, `tests/phase-1-recording.spec.ts`.
+- Related tests: `npm run lint`, `npm run typecheck`, `npm test`, and `npx playwright test tests/phase-1-recording.spec.ts` inside the Sentinel Docker service.
+- Related decisions: D-013 in `decisions-log.md`.
+
+### What this feature does
+
+It proves the Phase 1 recording workflow with automated tests and closes two recorder safety gaps. Password text is redacted both as a recorded value and as target metadata, while event delivery survives a browser navigation. The full browser journey also proves that a saved Test Case can be reopened after a page refresh without losing any recorded step or its annotations.
+
+### End-to-end flow
+
+The API/database suite creates signed-in users, Products, and draft recordings in PostgreSQL, then verifies event intake, redaction, step editing, save, discard, and cross-user authorization. The Playwright journey signs in through the Sentinel UI, creates a draft, uses one instrumented remote Chromium session against the demo target, waits for meaningful recorded steps, annotates the redacted password step, saves it, returns to the dashboard, reopens it, reloads the page, signs in again, and verifies the same saved data.
+
+The recorder script in the remote page posts events to Sentinel's internal endpoint with the draft token. `keepalive` asks the browser to finish sending an in-flight event during navigation. The server stores only `[REDACTED]` for password values, and the database migration overwrites any old password target metadata that was stored before this hardening.
+
+### Technologies and patterns
+
+| Technology / pattern | Why it is used | How it helps | Important limitation |
+|---|---|---|---|
+| Vitest + Prisma | API and persistence contract testing | Exercises real database records without a browser UI | The test controls draft status directly to avoid consuming the one remote browser session. |
+| Playwright | Full browser acceptance test | Verifies Sentinel UI, remote Chromium, demo app, recording API, and persistence together | It uses the controlled local demo target only. |
+| Playwright Chromium in Docker | Reproducible test runtime | A fresh Sentinel image contains the browser required for the E2E test | It increases image size and build time. |
+| `keepalive` fetch + redaction migration | Reliable, private recorder events | Preserves navigation-time events and removes legacy secret metadata | It does not provide a complete sensitive-data classification policy. |
+
+### Key implementation details
+
+- `lib/browser.ts` is the recorder boundary. Its page script identifies password fields and substitutes `[REDACTED]` before posting a text-entry event or target description.
+- `app/api/[[...route]]/route.ts` updates only annotation fields supplied by the client, so changing a variable marker cannot unintentionally erase the description or expected outcome.
+- The migration updates both `RecordedStep` and immutable `TestStep` JSON targets, which protects legacy drafts and already saved Test Cases.
+- `tests/phase-1-recording.spec.ts` asserts ordered meaningful event categories, annotation persistence, page-reload persistence, and absence of the real password text.
+
+### Tradeoffs and alternatives
+
+- Tradeoff taken: use a direct controlled remote-browser driver inside the E2E test after creating the draft through the UI.
+- Why this tradeoff was acceptable: the browser service allows one active Selenium session; this still verifies the production recorder path without competing with the noVNC launch session.
+- Alternative considered: drive the noVNC canvas entirely through Playwright.
+- Why the alternative was not chosen: canvas-level VNC interaction is less deterministic and would make the acceptance test fragile without improving product coverage.
+
+### Risks and future improvements
+
+- The current redaction rule recognizes password fields; future evidence capture needs broader rules for tokens, payment data, and user-defined sensitive fields.
+- `keepalive` improves best-effort delivery but cannot guarantee every event in abrupt browser or network failures; a later runner may need acknowledgement and retry semantics.
+- The test operates against Docker-local services. Private QA targets, cross-origin frames, and concurrent recordings remain later work.
+
+### Ten-question understanding check
+
+1. Why does the recorder redact password target metadata as well as the recorded field value?
+2. What problem does `keepalive: true` solve for a recorder event posted during navigation, and what does it not guarantee?
+3. Which API behavior ensures that updating only a variable marker preserves a step's description and expected outcome?
+4. Why does the migration update both `RecordedStep` and `TestStep` records?
+5. How do the API/database tests prove that saving creates the correct durable records and audit event?
+6. Why does the browser E2E test use one instrumented driver rather than launch the noVNC session and another driver simultaneously?
+7. What exact persistence facts are checked after the test page reloads and the user signs in again?
+8. What sensitive information could still require redaction in future phases even after password protection is in place?
+9. What would need to change if recorder delivery required guaranteed acknowledgement rather than best-effort posting?
+10. Which files and tests should be reviewed first before changing event normalization or saved-step annotations?
+
+#### Answers
+
+1. **Answer:**
+2. **Answer:**
+3. **Answer:**
+4. **Answer:**
+5. **Answer:**
+6. **Answer:**
+7. **Answer:**
+8. **Answer:**
+9. **Answer:**
+10. **Answer:**
+
+### Priority-based diff review
+
+| Priority | File | What changed | Why it needs attention | Review action |
+|---|---|---|---|---|
+| Highest | `lib/browser.ts` | Redacts password target metadata, keeps event posts alive during navigation, and exposes the launched driver for verification | It crosses the remote-browser, recorder, privacy, and reliability boundaries | Read now |
+| Highest | `app/api/[[...route]]/route.ts` | Makes step annotation updates partial instead of destructive | A subtle API update could otherwise erase saved user data | Read now |
+| Highest | `prisma/migrations/20260807155500_redact_password_metadata/migration.sql` | Removes legacy password metadata from draft and saved steps | It mutates persisted sensitive data and must stay safe on production-sized databases | Read now |
+| Medium | `tests/recording-api.test.ts` | Covers recording, save, discard, redaction, and authorization | It documents the server-side Phase 1 contract | Read next |
+| Medium | `tests/phase-1-recording.spec.ts` | Covers the remote-browser journey and reload persistence | It coordinates several services and is the main user-journey proof | Read next |
+| Medium | `Dockerfile` | Installs Chromium with Playwright dependencies in the test image | Affects every image build and verification environment | Read next |
+| Lower | `phases.md`, `decisions-log.md`, `README.md` | Records status, choices, and commands | Important operational context but no runtime behavior | Skim |
+
+#### Highest-priority concepts to understand
+
+- Password protection must apply to every persisted representation, not only the visible field value.
+- Recorder events can be lost when a page leaves; `keepalive` is a targeted reliability improvement, not a delivery guarantee.
+- Partial API updates must distinguish omitted fields from fields intentionally cleared by the user.
+
+#### Follow-up learning tasks
+
+- Owner answers all ten questions above before this work is considered understood.
+- Define a broader sensitive-data policy before collecting evidence, console, storage, or network details.
+- Decide whether later replay and evidence phases need acknowledged event delivery or event retry.
