@@ -278,3 +278,101 @@ Saving returns a Test Case ID. The web app fetches its detail, shows its current
 
 - Owner answers the ten questions above.
 - Add automated list/detail authorization and persistence tests.
+
+---
+
+## Feature: Phase 1 Product creation
+
+- Date: 2026-08-07
+- Phase: 1
+- Status: Implemented; understanding review pending owner answers.
+- Relevant files: `app/api/[[...route]]/route.ts`, `app/page.tsx`, `tests/product-creation.spec.ts`, `vitest.config.ts`.
+- Related tests: Docker lint, type-check, unit-test suite, and Product creation Playwright acceptance test.
+- Related decision: D-012 (Phase 1 Product creation behavior).
+
+### What this feature does
+
+An authenticated named user can create a Product from the dashboard without leaving the Test Case workflow. The Product is stored in PostgreSQL, the creator becomes a member, and the new Product is immediately selected for the next recording.
+
+### End-to-end flow
+
+The user enters a Product name in the inline form. The browser sends it to `POST /api/products` with the session cookie. The API trims and validates the name, creates the Product and membership through Prisma, and returns the Product. The dashboard adds it to the sorted selector and selects its ID. Later dashboard loads call `GET /api/products`, so the Product remains available after refresh and sign-in. A different named user sees only Products for which they have membership.
+
+### Technologies and patterns
+
+| Technology / pattern | Why it is used | How it helps | Important limitation |
+|---|---|---|---|
+| Next.js client form | Matches the existing dashboard interaction | Provides immediate success/error feedback and selection | Product management is currently dashboard-local rather than a dedicated route. |
+| Next.js API route | Keeps authentication and writes server-side | Prevents the browser from choosing its own owner or membership | The route handler still serves multiple domain endpoints. |
+| Prisma nested create | Creates Product and creator membership in one database operation | Avoids a Product that its creator cannot access | Broader product sharing is deferred. |
+| PostgreSQL unique constraint | Enforces one same-named Product per owner | Prevents duplicate owner-scoped names even under concurrent requests | Names are compared using the database’s existing exact-match behavior. |
+| Playwright Test and Vitest configuration | Separates browser acceptance tests from unit tests | Keeps `npm test` focused while the portal path is tested explicitly | Browser dependencies must be installed in a fresh test container. |
+
+### Key implementation details
+
+- Blank or non-string names return HTTP 400 with `Product name is required.`.
+- A duplicate owner-scoped name returns HTTP 409 with `You already have a Product with this name.`.
+- The API continues to require the named-user session and creates creator membership atomically.
+- The UI disables Test Case creation if no Product is available and shows a first-create prompt.
+- The Playwright test verifies creation, selector selection, recording-draft use, persistence, validation, duplicate handling, and cross-user visibility.
+
+### Tradeoffs and alternatives
+
+- Tradeoff taken: an inline dashboard form instead of a dedicated Product management page.
+- Why acceptable: Product creation is currently only a prerequisite for Test Case recording.
+- Alternative considered: reuse an existing Product when the same name is submitted.
+- Why not chosen: silently reusing a Product could hide an accidental duplicate and weaken ownership clarity.
+
+### Risks and future improvements
+
+- Product names have no richer metadata, descriptions, archival state, or sharing controls yet.
+- The current development identity flow is seeded and is not production authentication.
+- The Docker image does not bundle Playwright’s test browser libraries; the test setup currently installs them in the running container.
+- Add a dedicated Product management experience and explicit membership administration when team collaboration is implemented.
+
+### Ten-question understanding check
+
+1. Which server-side identity determines the owner of a newly created Product?
+2. Why does Product creation create a membership at the same time as the Product?
+3. What does the API do when the submitted Product name contains leading or trailing spaces?
+4. Which HTTP statuses represent blank-name validation and duplicate-name rejection?
+5. What database rule prevents two same-named Products for one owner?
+6. Why does the UI update and select the returned Product instead of only appending the typed name locally?
+7. How does a later `GET /api/products` call enforce Product visibility?
+8. What prevents a user from creating a Test Case without a Product selected?
+9. Which acceptance test proves that another seeded user cannot see the new Product?
+10. Why is `vitest.config.ts` needed after adding the Playwright `.spec.ts` file?
+
+#### Answers
+
+1. **Answer:**
+2. **Answer:**
+3. **Answer:**
+4. **Answer:**
+5. **Answer:**
+6. **Answer:**
+7. **Answer:**
+8. **Answer:**
+9. **Answer:**
+10. **Answer:**
+
+### Priority-based diff review
+
+| Priority | File | What changed | Why it needs attention | Review action |
+|---|---|---|---|---|
+| Highest | `app/api/[[...route]]/route.ts` | Validates Product names and maps Prisma uniqueness errors to API responses | Owns authentication, ownership, membership, and duplicate behavior | Read now |
+| Highest | `app/page.tsx` | Adds the inline creation form and selector state updates | Controls the user’s Product-to-Test Case path | Read now |
+| Medium | `tests/product-creation.spec.ts` | Exercises the real portal and cross-user visibility | Encodes the Product acceptance contract | Read next |
+| Lower | `vitest.config.ts` | Restricts Vitest to unit-test naming patterns | Prevents Playwright tests from being collected by the unit runner | Skim |
+
+#### Highest-priority concepts to understand
+
+- Server-side ownership and membership creation cannot be trusted to client-submitted IDs.
+- Database uniqueness errors must become intentional user-facing API responses.
+- The UI’s selected Product ID is what associates the next recording with the new Product.
+
+#### Follow-up learning tasks
+
+- Owner answers the ten questions above.
+- Add direct API integration tests for Product authorization and database transaction behavior.
+- Bake Playwright browser dependencies into the reproducible test image instead of installing them interactively.
