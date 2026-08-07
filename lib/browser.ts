@@ -20,12 +20,14 @@ function recorderScript(endpoint: string, token: string) {
 
 export async function launchBrowser(targetUrl: string, token: string) {
   if (driver) await driver.quit().catch(() => undefined);
-  driver = await new Builder().usingServer(process.env.BROWSER_SELENIUM_URL ?? "http://browser:4444/wd/hub").forBrowser("chrome").build();
+  const launchedDriver = await new Builder().usingServer(process.env.BROWSER_SELENIUM_URL ?? "http://browser:4444/wd/hub").forBrowser("chrome").build();
+  driver = launchedDriver;
   try {
-    await driver.get(targetUrl);
-    await driver.executeScript(recorderScript("http://sentinel:3000/api/internal/events", token));
+    await launchedDriver.get(targetUrl);
+    await launchedDriver.executeScript(recorderScript("http://sentinel:3000/api/internal/events", token));
+    return launchedDriver;
   } catch (error) {
-    await driver.quit().catch(() => undefined);
+    await launchedDriver.quit().catch(() => undefined);
     driver = undefined;
     throw error;
   }
