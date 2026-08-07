@@ -44,7 +44,7 @@ flowchart LR
 ### Acceptance checklist
 
 - [ ] A named user can sign in using the development identity path.
-- [ ] A user can create and select a Product.
+- [x] A user can create and select a Product.
 - [ ] **Add New Test** accepts a name and approved website URL.
 - [ ] The workspace shows the live target and an initially empty Step Log.
 - [ ] A navigation creates a navigation step with timestamp and target context.
