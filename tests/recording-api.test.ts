@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { RecordingStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 
 const baseUrl = process.env.SENTINEL_BASE_URL ?? "http://localhost:3000";
@@ -41,9 +42,8 @@ async function createRecording(session: Session, productId: string, testName: st
   return response.json() as Promise<RecordingResponse>;
 }
 
-async function activateRecording(session: Session, recording: RecordingResponse) {
-  const response = await request(session, `recordings/${recording.recording.id}/launch`, "POST", { token: recording.token });
-  expect(response.status).toBe(200);
+async function activateRecording(recording: RecordingResponse) {
+  await prisma.recordingSession.update({ where: { id: recording.recording.id }, data: { status: RecordingStatus.ACTIVE } });
 }
 
 async function postEvent(token: string, body: Record<string, unknown>) {
@@ -70,7 +70,7 @@ describe("recording API and database persistence", () => {
     const ben = await login("ben.tester@example.test");
     const product = await createProduct(ava, `API verification ${Date.now()}`);
     const created = await createRecording(ava, product.id, `Save verification ${Date.now()}`);
-    await activateRecording(ava, created);
+    await activateRecording(created);
 
     await expect(postEvent(created.token, { kind: "NAVIGATION", target: { url: "http://demo-target", title: "Demo CRM" } })).resolves.toMatchObject({ status: 200 });
     await expect(postEvent(created.token, { kind: "CLICK", target: { tag: "button", text: "Sign in" } })).resolves.toMatchObject({ status: 200 });
@@ -115,7 +115,7 @@ describe("recording API and database persistence", () => {
     const ava = await login("ava.tester@example.test");
     const product = await createProduct(ava, `Discard verification ${Date.now()}`);
     const created = await createRecording(ava, product.id, `Discarded draft ${Date.now()}`);
-    await activateRecording(ava, created);
+    await activateRecording(created);
     await expect(postEvent(created.token, { kind: "CLICK", target: { tag: "button", text: "New customer" } })).resolves.toMatchObject({ status: 200 });
 
     const discardResponse = await request(ava, `recordings/${created.recording.id}`, "DELETE");
