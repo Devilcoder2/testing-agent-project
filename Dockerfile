@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -
 
 COPY package.json package-lock.json ./
 RUN npm ci
+RUN npx playwright install --with-deps chromium
 
 COPY . .
 
