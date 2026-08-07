@@ -109,3 +109,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** This completes the existing Phase 1 Product creation checklist without adding fields or a separate management area to the MVP.
 - **Impact:** The API trims names, rejects blank input, preserves the per-owner uniqueness constraint, and creates the creator’s Product membership atomically. Product sharing and richer metadata remain future decisions.
 - **Status:** Confirmed by project owner.
+
+## D-013 — Phase 1 recorder verification and secret handling
+
+- **Date:** 2026-08-07
+- **Decision:** Bundle Playwright Chromium and its Linux dependencies in the Sentinel Docker image for reproducible verification. Recorder event posts use `keepalive`, and password-field values and metadata are stored as `[REDACTED]`.
+- **Reason:** The Phase 1 remote-browser journey must be testable from a fresh Docker build, and navigation must not lose pending recording events or expose password content through element metadata.
+- **Impact:** The test image is larger, while browser lifecycle reliability and secret protection improve. A migration redacts existing password metadata in both draft and saved steps.
+- **Status:** Verified by the Phase 1 API/database tests, remote-browser journey test, and live UI check.
