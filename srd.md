@@ -85,15 +85,16 @@ flowchart TD
 
 ### F2. Complete evidence capture
 
-For every teaching session and Run, capture and retain:
+Every Run must persist its pass/fail status, timestamps, step results, and linked evidence. A teaching session persists its recorded steps, not a browser-video recording.
 
-- Full screen video synchronized to steps.
+For every Run, capture and retain the applicable evidence bundle:
+
 - Network requests and responses with endpoint, status, timing, payload, and slow/error highlighting.
 - Timestamped console output, including errors and warnings.
 - localStorage, sessionStorage, and cookie state at step boundaries.
 - Screenshots at start, end, failure, and explicitly flagged steps.
 
-All evidence is accessible from one Run Detail view and is timeline-linked to the Step Log for passed and failed Runs.
+Full browser-video recordings must not be captured or retained. All evidence is accessible from one Run Detail view and is timeline-linked to the Step Log for passed and failed Runs.
 
 ### F3. Autonomous replay
 
@@ -151,7 +152,7 @@ When a Run fails, Sentinel may query relevant QA PostgreSQL data to explain reco
 ### Security and privacy
 
 - Enforce product and Test Case authorization.
-- Protect credentials, cookies, tokens, video, payloads, and database results.
+- Protect credentials, cookies, tokens, evidence artifacts, payloads, and database results.
 - Redact configured secrets and sensitive fields from evidence and notifications.
 - Use least-privilege credentials for browser, JIRA, storage, and database integrations.
 - Audit ownership, approvals, Run actions, and external side effects.
@@ -176,7 +177,7 @@ When a Run fails, Sentinel may query relevant QA PostgreSQL data to explain reco
 - Recording captures navigation, click, and text-entry steps in order.
 - A tester can edit step text, add an expected outcome, mark a variable, save, or discard.
 - A saved Test Case can be opened and run independently of the recording screen.
-- A Run has a status, timestamps, step results, and a Run Detail location.
+- A Run has a pass/fail status, timestamps, step results, linked evidence, and a Run Detail location; it has no stored full browser-video recording.
 - A failure stops safely, records available evidence, and exposes a clear reason.
 - A Release Run reports every included Test Case and its result.
 - A proposed expectation change cannot alter the baseline without owner approval.
