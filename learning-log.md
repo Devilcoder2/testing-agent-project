@@ -189,3 +189,92 @@ The tester signs in with a seeded development account. Sentinel checks product m
 
 - Owner must answer all ten questions before Phase 1 is marked understood.
 - Add database/API integration tests and full remote-browser end-to-end coverage before Phase 1 is marked complete.
+
+---
+
+## Feature: Saved Test Case navigation
+
+- Date: 2026-08-07
+- Phase: 1
+- Status: Implemented; understanding review pending owner answers.
+- Relevant files: `app/api/[[...route]]/route.ts`, `app/page.tsx`.
+- Related tests: live authorized list/detail API checks, lint, type-check, and unit-test suite.
+- Related decisions: D-003 (human ownership) and D-008 (single-file commits).
+
+### What this feature does
+
+After a recording is saved, Sentinel opens its saved Test Case view. The dashboard also lists every Test Case available to the signed-in user, and the user can reopen one after signing in again or refreshing the browser.
+
+### End-to-end flow
+
+Saving returns a Test Case ID. The web app fetches its detail, shows its current version and saved steps, then offers a Back to dashboard button. On a later visit, sign-in loads the authorized Test Case list; opening an item fetches the same persisted version and annotations from PostgreSQL.
+
+### Technologies and patterns
+
+| Technology / pattern | Why it is used | How it helps | Important limitation |
+|---|---|---|---|
+| Authorized API list/detail routes | Product membership is checked server-side | Prevents a user from reading another product’s tests | Automated authorization coverage is still pending. |
+| Immutable Test Case versions | Saved steps are copied from the recording draft | Past test definitions remain inspectable | Editing saved versions is deferred. |
+| Client-side detail state | Keeps Phase 1 navigation simple | Adds dashboard/back/open flows without a routing framework | Direct deep links are deferred. |
+
+### Key implementation details
+
+- `GET /api/test-cases` filters through the signed-in user’s product memberships.
+- `GET /api/test-cases/:id` checks product membership again before returning versions and ordered steps.
+- The detail view selects `currentVersion` and renders persisted descriptions, outcomes, and variables read-only.
+
+### Tradeoffs and alternatives
+
+- Tradeoff taken: one-page dashboard/detail state instead of separate URL routes.
+- Why acceptable: it is the smallest way to satisfy Phase 1 persistence verification.
+- Alternative considered: a dedicated `/test-cases/:id` page.
+- Why not chosen: deep-linking is useful, but not required for the first teach-and-save slice.
+
+### Risks and future improvements
+
+- A saved test with no recorded steps correctly shows an empty list; the UI should later make that state clearer.
+- Add automated integration tests covering product authorization and saved-step persistence.
+- Add direct detail URLs and a Test Case edit flow in a later phase.
+
+### Ten-question understanding check
+
+1. Why does the saved-test list filter by product membership instead of Test Case owner alone?
+2. What is returned by the saved-test detail endpoint that the list endpoint does not return?
+3. Why does the detail view select the current version rather than always render the newest array item?
+4. What happens after saving a recording in the UI?
+5. How can a user verify persistence after a browser refresh?
+6. Which server-side check prevents cross-product Test Case access?
+7. Why are saved steps read-only in this feature?
+8. What does an empty saved-step list mean?
+9. Which files must change to add a direct URL for a Test Case?
+10. Which tests are still needed before this feature is fully verified?
+
+#### Answers
+
+1. **Answer:**
+2. **Answer:**
+3. **Answer:**
+4. **Answer:**
+5. **Answer:**
+6. **Answer:**
+7. **Answer:**
+8. **Answer:**
+9. **Answer:**
+10. **Answer:**
+
+### Priority-based diff review
+
+| Priority | File | What changed | Why it needs attention | Review action |
+|---|---|---|---|---|
+| Highest | `app/api/[[...route]]/route.ts` | Authorized saved Test Case list and detail API | Access control and persisted data exposure | Read now |
+| Medium | `app/page.tsx` | Dashboard list, detail view, and post-save navigation | Main user path and persistence visibility | Read next |
+
+#### Highest-priority concepts to understand
+
+- Product-membership authorization on both list and detail endpoints.
+- Current-version selection and immutable saved steps.
+
+#### Follow-up learning tasks
+
+- Owner answers the ten questions above.
+- Add automated list/detail authorization and persistence tests.
