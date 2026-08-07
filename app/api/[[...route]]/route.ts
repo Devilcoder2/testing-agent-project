@@ -9,6 +9,14 @@ import { prisma } from "@/lib/prisma";
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
 const hash = (value: string) => crypto.createHash("sha256").update(value).digest("hex");
+const recorderJson = (body: unknown, status = 200) => NextResponse.json(body, {
+  status,
+  headers: {
+    "access-control-allow-origin": process.env.RECORDER_ORIGIN ?? "http://demo-target",
+    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-allow-headers": "content-type, x-recording-token"
+  }
+});
 
 async function currentUser(): Promise<SessionUser | null> {
   return readSession((await cookies()).get("sentinel_session")?.value);
@@ -33,6 +41,8 @@ async function route(request: Request, context: Context) {
   const path = (await context.params).route ?? [];
   const body = request.method === "GET" ? {} : await request.json().catch(() => ({}));
 
+  if (request.method === "OPTIONS" && path.join("/") === "internal/events") return recorderJson({});
+
   if (request.method === "POST" && path.join("/") === "auth/dev-login") {
     const user = await prisma.user.findUnique({ where: { email: body.email } });
     if (!user || user.devPassword !== body.password) return json({ error: "Invalid development credentials." }, 401);
@@ -43,18 +53,18 @@ async function route(request: Request, context: Context) {
 
   if (request.method === "POST" && path.join("/") === "internal/events") {
     const token = request.headers.get("x-recording-token");
-    if (!token) return json({ error: "Missing recording token." }, 401);
+    if (!token) return recorderJson({ error: "Missing recording token." }, 401);
     const recording = await prisma.recordingSession.findUnique({ where: { tokenHash: hash(token) } });
-    if (!recording || recording.status !== RecordingStatus.ACTIVE) return json({ error: "Inactive recording." }, 401);
+    if (!recording || recording.status !== RecordingStatus.ACTIVE) return recorderJson({ error: "Inactive recording." }, 401);
     const kind = body.kind as StepKind;
-    if (!Object.values(StepKind).includes(kind)) return json({ error: "Unsupported step." }, 400);
+    if (!Object.values(StepKind).includes(kind)) return recorderJson({ error: "Unsupported step." }, 400);
     const prior = await prisma.recordedStep.findFirst({ where: { recordingSessionId: recording.id }, orderBy: { order: "desc" } });
     const target = (body.target ?? {}) as Prisma.InputJsonValue;
-    if (prior && prior.kind === kind && JSON.stringify(prior.target) === JSON.stringify(target) && kind !== StepKind.TEXT_ENTRY) return json({ skipped: true });
+    if (prior && prior.kind === kind && JSON.stringify(prior.target) === JSON.stringify(target) && kind !== StepKind.TEXT_ENTRY) return recorderJson({ skipped: true });
     const step = await prisma.recordedStep.create({
       data: { recordingSessionId: recording.id, order: (prior?.order ?? 0) + 1, kind, timestamp: new Date(body.timestamp ?? Date.now()), target, value: body.value ?? null, isRedacted: Boolean(body.isRedacted) }
     });
-    return json({ step });
+    return recorderJson({ step });
   }
 
   try {
@@ -83,8 +93,15 @@ async function route(request: Request, context: Context) {
         const token = body.token;
         if (!token || hash(token) !== recording.tokenHash) return json({ error: "Invalid recording launch token." }, 403);
         await prisma.recordingSession.update({ where: { id: recording.id }, data: { status: RecordingStatus.ACTIVE } });
-        await prisma.recordedStep.create({ data: { recordingSessionId: recording.id, order: 1, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: recording.targetUrl, title: "Demo CRM" } } });
-        await launchBrowser(recording.targetUrl, token);
+        if (!recording.steps.some((step) => step.kind === StepKind.NAVIGATION && JSON.stringify(step.target).includes(recording.targetUrl))) {
+          await prisma.recordedStep.create({ data: { recordingSessionId: recording.id, order: (recording.steps.at(-1)?.order ?? 0) + 1, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: recording.targetUrl, title: "Demo CRM" } } });
+        }
+        try {
+          await launchBrowser(recording.targetUrl, token);
+        } catch (error) {
+          await prisma.recordingSession.update({ where: { id: recording.id }, data: { status: RecordingStatus.DRAFT } });
+          throw error;
+        }
         return json({ viewerUrl: process.env.BROWSER_VIEWER_URL });
       }
       if (request.method === "PATCH" && path[2] === "steps" && path[3]) {
@@ -110,7 +127,10 @@ async function route(request: Request, context: Context) {
     }
   } catch (error) {
     const code = error instanceof Error ? error.message : "UNKNOWN";
-    return json({ error: code === "UNAUTHORIZED" ? "Sign in required." : "You do not have access to this resource." }, code === "UNAUTHORIZED" ? 401 : 403);
+    if (code === "UNAUTHORIZED") return json({ error: "Sign in required." }, 401);
+    if (code === "FORBIDDEN") return json({ error: "You do not have access to this resource." }, 403);
+    console.error("Sentinel API failure", error);
+    return json({ error: "The recording browser could not be launched. Check the Sentinel container logs for details." }, 500);
   }
   return json({ error: "Not found." }, 404);
 }
@@ -119,3 +139,4 @@ export const GET = (request: Request, context: Context) => route(request, contex
 export const POST = (request: Request, context: Context) => route(request, context);
 export const PATCH = (request: Request, context: Context) => route(request, context);
 export const DELETE = (request: Request, context: Context) => route(request, context);
+export const OPTIONS = (request: Request, context: Context) => route(request, context);
