@@ -8,7 +8,7 @@ function recorderScript(endpoint: string, token: string) {
       if (window.__sentinelRecorderInstalled) return;
       window.__sentinelRecorderInstalled = true;
       const emit = (kind, target, value, isRedacted) => fetch(${JSON.stringify(endpoint)}, {
-        method: 'POST', mode: 'cors', headers: {'content-type':'application/json', 'x-recording-token': ${JSON.stringify(token)}},
+        method: 'POST', mode: 'cors', keepalive: true, headers: {'content-type':'application/json', 'x-recording-token': ${JSON.stringify(token)}},
         body: JSON.stringify({kind, target, value, isRedacted, timestamp: new Date().toISOString()})
       }).catch(() => undefined);
       const describe = (element) => ({ tag: element.tagName.toLowerCase(), name: element.getAttribute('aria-label') || element.getAttribute('name') || '', text: element instanceof HTMLInputElement && element.type === 'password' ? '[REDACTED]' : (element.innerText || element.value || '').trim().slice(0, 120), testId: element.getAttribute('data-testid') || '' });
