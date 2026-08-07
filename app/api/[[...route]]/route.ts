@@ -73,8 +73,17 @@ async function route(request: Request, context: Context) {
       return json(await prisma.product.findMany({ where: { memberships: { some: { userId: user.id } } }, orderBy: { name: "asc" } }));
     }
     if (request.method === "POST" && path.join("/") === "products") {
-      const product = await prisma.product.create({ data: { name: body.name, createdById: user.id, memberships: { create: { userId: user.id } } } });
-      return json(product, 201);
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name) return json({ error: "Product name is required." }, 400);
+      try {
+        const product = await prisma.product.create({ data: { name, createdById: user.id, memberships: { create: { userId: user.id } } } });
+        return json(product, 201);
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          return json({ error: "You already have a Product with this name." }, 409);
+        }
+        throw error;
+      }
     }
     if (request.method === "POST" && path.join("/") === "recordings") {
       await assertProductMember(user.id, body.productId);
