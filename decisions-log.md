@@ -101,3 +101,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - Existing pooled test-data interfaces and invalidation signals.
 - Approved database diagnostic queries and QA database connection policy.
 - Success metrics for the first three months.
+
+## D-012 — Phase 1 Product creation behavior
+
+- **Date:** 2026-08-07
+- **Decision:** Products created in the Phase 1 portal use a required name-only form. The form is inline on the dashboard, a newly created Product is immediately selected, and duplicate names for the same owner are rejected with a clear conflict message.
+- **Reason:** This completes the existing Phase 1 Product creation checklist without adding fields or a separate management area to the MVP.
+- **Impact:** The API trims names, rejects blank input, preserves the per-owner uniqueness constraint, and creates the creator’s Product membership atomically. Product sharing and richer metadata remain future decisions.
+- **Status:** Confirmed by project owner.
