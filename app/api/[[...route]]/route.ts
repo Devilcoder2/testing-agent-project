@@ -83,6 +83,23 @@ async function route(request: Request, context: Context) {
       const recording = await prisma.recordingSession.create({ data: { ownerId: user.id, productId: body.productId, testName: body.testName, targetUrl: body.targetUrl, tokenHash: hash(token) } });
       return json({ recording, token }, 201);
     }
+    if (request.method === "GET" && path.join("/") === "test-cases") {
+      const testCases = await prisma.testCase.findMany({
+        where: { product: { memberships: { some: { userId: user.id } } } },
+        include: { product: true, owner: { select: { displayName: true } } },
+        orderBy: { updatedAt: "desc" }
+      });
+      return json(testCases);
+    }
+    if (request.method === "GET" && path[0] === "test-cases" && path[1]) {
+      const testCase = await prisma.testCase.findUnique({
+        where: { id: path[1] },
+        include: { product: true, owner: { select: { displayName: true } }, versions: { include: { steps: { orderBy: { order: "asc" } } }, orderBy: { version: "desc" } } }
+      });
+      if (!testCase) return json({ error: "Test Case not found." }, 404);
+      await assertProductMember(user.id, testCase.productId);
+      return json(testCase);
+    }
     const recordingId = path[1];
     if (path[0] === "recordings" && recordingId) {
       const recording = await prisma.recordingSession.findUnique({ where: { id: recordingId }, include: { steps: { orderBy: { order: "asc" } } } });
