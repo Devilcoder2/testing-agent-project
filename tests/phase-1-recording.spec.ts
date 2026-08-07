@@ -57,7 +57,7 @@ test("records the remote demo journey and preserves saved annotations after refr
       update('input[name="email"]', 'qa.tester@example.test');
       update('input[name="password"]', 'TestPassword!');
     `);
-    await page.waitForTimeout(350);
+    await expect.poll(async () => (await readSteps(page, created.recording.id)).some((step) => step.value === "[REDACTED]" && step.isRedacted)).toBe(true);
     await remoteDriver.executeScript(`document.querySelector('#sign-in-form button').click();`);
     await page.waitForTimeout(350);
     await remoteDriver.executeScript(`document.querySelector('#new-customer').click();`);
@@ -77,12 +77,21 @@ test("records the remote demo journey and preserves saved annotations after refr
     await page.waitForTimeout(350);
     await remoteDriver.executeScript(`document.querySelector('#customer-form button').click();`);
 
-    await expect.poll(async () => (await readSteps(page, created.recording.id)).length).toBeGreaterThanOrEqual(10);
+    await expect.poll(async () => Boolean(await remoteDriver?.executeScript(`return document.body.innerText.includes('Customer created successfully');`))).toBe(true);
+    await expect.poll(async () => {
+      const recorded = await readSteps(page, created.recording.id);
+      return recorded.some((step) => step.kind === "NAVIGATION")
+        && recorded.some((step) => step.kind === "CLICK")
+        && recorded.some((step) => step.value === "[REDACTED]" && step.isRedacted)
+        && recorded.filter((step) => step.kind === "TEXT_ENTRY").length >= 2;
+    }).toBe(true);
     const captured = await readSteps(page, created.recording.id);
     expect(captured.some((step) => step.kind === "NAVIGATION")).toBe(true);
     expect(captured.some((step) => step.kind === "CLICK")).toBe(true);
+    expect(captured.filter((step) => step.kind === "TEXT_ENTRY").length).toBeGreaterThanOrEqual(2);
     expect(captured.some((step) => step.value === "[REDACTED]" && step.isRedacted)).toBe(true);
     expect(JSON.stringify(captured)).not.toContain("TestPassword!");
+    const capturedStepCount = captured.length;
 
     const passwordStep = page.locator(".step").filter({ hasText: "[REDACTED]" }).first();
     await expect(passwordStep).toBeVisible();
@@ -97,6 +106,7 @@ test("records the remote demo journey and preserves saved annotations after refr
 
     await page.getByRole("button", { name: "Save Test" }).click();
     await expect(page.getByRole("heading", { name: testName })).toBeVisible();
+    await expect(page.locator(".step")).toHaveCount(capturedStepCount);
     await expect(page.getByText("Description: Enter the secret test password")).toBeVisible();
     await expect(page.getByText("Expected outcome: The password stays redacted")).toBeVisible();
     await expect(page.getByText("Variable: demoPassword")).toBeVisible();
@@ -104,12 +114,14 @@ test("records the remote demo journey and preserves saved annotations after refr
     await page.getByRole("button", { name: "Back to dashboard" }).click();
     const savedTest = page.locator(".step").filter({ hasText: testName }).first();
     await savedTest.getByRole("button", { name: "Open" }).click();
+    await expect(page.locator(".step")).toHaveCount(capturedStepCount);
     await expect(page.getByText("Variable: demoPassword")).toBeVisible();
 
     await page.reload();
     await signIn(page, "ava.tester@example.test", false);
     const reopenedTest = page.locator(".step").filter({ hasText: testName }).first();
     await reopenedTest.getByRole("button", { name: "Open" }).click();
+    await expect(page.locator(".step")).toHaveCount(capturedStepCount);
     await expect(page.getByText("Description: Enter the secret test password")).toBeVisible();
     await expect(page.getByText("Expected outcome: The password stays redacted")).toBeVisible();
     await expect(page.getByText("Variable: demoPassword")).toBeVisible();
