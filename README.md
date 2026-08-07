@@ -26,8 +26,8 @@ The attached requirements document is the current product source of truth. Archi
 ## Readiness status
 
 - Product documentation: prepared.
-- Phase 1: implementation in progress; local Docker recording slice is available.
-- Application code: not started.
+- Phase 1: acceptance criteria verified; owner learning review remains pending.
+- Application code: local Docker recording slice is available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
 
@@ -47,6 +47,20 @@ docker compose down
 
 Use `ava.tester@example.test` with password `sentinel-dev`. Create a recording for the built-in Demo CRM, launch the browser panel, then complete the demo target’s sign-in and customer-creation journey. The local browser viewer runs on port 7900.
 
+## Verify Phase 1
+
+After the stack is running, execute the checks from the Sentinel container. The Docker image includes the Chromium runtime used by Playwright.
+
+```text
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/product-creation.spec.ts
+docker compose exec sentinel npx playwright test tests/phase-1-recording.spec.ts
+```
+
+The final browser test covers the remote recording journey, password redaction, saving, dashboard navigation, reopening, and persistence after a page refresh.
+
 ## Status
 
-Project setup and documentation foundation are complete. Feature coding begins only after the Phase 1 checklist and compatibility checks are reviewed.
+Phase 1 is implemented and its acceptance checks have been verified. It is not marked fully understood or closed because the owner learning questions in `learning-log.md` still need answers. Replay, evidence bundles, external integrations, scheduling, and QA-network access remain later phases.
