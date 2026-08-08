@@ -124,4 +124,4 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Decision:** Add Phase 1.5 before Phase 2 to establish a route-based, dark operations UI using custom CSS tokens and React primitives. The fixed palette is midnight canvas and surfaces with blue primary actions, teal success, amber attention, and rose danger. The system uses local typography, a CSS Sentinel mark, purposeful reduced-motion-safe animation, WCAG 2.2 AA requirements, and a desktop-first Recording Workspace.
 - **Reason:** The delivered Phase 1 workflow is functionally verified but its one-page presentation does not scale to the dashboard, recording, Run Detail, release, approval, and integration experiences required by Sentinel.
 - **Impact:** `frontend.md` becomes the frontend source of truth. The existing Phase 1 screens migrate to separate routes and an App Shell without changing their API, authorization, recording, or persistence behavior. Future areas are documented, not implemented.
-- **Status:** Confirmed by project owner.
+- **Status:** Confirmed by project owner; Phase 1.5 acceptance verified.
