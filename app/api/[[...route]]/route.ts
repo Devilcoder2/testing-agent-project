@@ -85,6 +85,22 @@ async function route(request: Request, context: Context) {
         throw error;
       }
     }
+    if (request.method === "PATCH" && path[0] === "products" && path[1]) {
+      const product = await prisma.product.findUnique({ where: { id: path[1] } });
+      if (!product) return json({ error: "Product not found." }, 404);
+      await assertProductMember(user.id, product.id);
+      if (product.createdById !== user.id) return json({ error: "Only the Product creator can edit its name." }, 403);
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!name) return json({ error: "Product name is required." }, 400);
+      try {
+        return json(await prisma.product.update({ where: { id: product.id }, data: { name } }));
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          return json({ error: "You already have a Product with this name." }, 409);
+        }
+        throw error;
+      }
+    }
     if (request.method === "POST" && path.join("/") === "recordings") {
       await assertProductMember(user.id, body.productId);
       if (!body.testName || !allowedTarget(body.targetUrl)) return json({ error: "Use a name and the approved demo target URL." }, 400);
