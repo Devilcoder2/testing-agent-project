@@ -157,3 +157,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Recording is an attention-intensive task; the global sidebar and secondary top bar take useful browser width without helping the tester complete the active journey.
 - **Impact:** Back never discards or navigates implicitly. It opens a decision dialog where Save Test Case or Discard Test Case are the only routes back to Dashboard; Continue recording only closes the dialog. The compact-sidebar preference now hydrates after the initial render, preventing server/client markup mismatch warnings.
 - **Status:** Confirmed by project owner; verified through the frontend, Product, and remote-recording browser tests.
+
+## D-019 — Locked live-browser boundary
+
+- **Date:** 2026-08-08
+- **Decision:** The Phase 1 remote Chromium session runs in kiosk app mode and uses a managed URL block-all policy. Only `http://demo-target` (and its paths) plus the exact internal recorder-event endpoint are allowlisted. Docker no longer publishes the Selenium WebDriver port to the host.
+- **Reason:** The embedded browser is a controlled test surface, not a general-purpose browser. Testers need only interact with the approved demo journey, and direct host access to WebDriver would undermine that boundary.
+- **Impact:** Browser chrome, tabs, and address-bar controls are not exposed to the tester; attempted off-target navigation is blocked by Chromium policy and has regression coverage. Chrome’s developer-tools policy is intentionally not set because it prevents ChromeDriver from creating the browser session; kiosk mode and URL enforcement remain the Phase 1 boundary. A production multi-user runner will additionally need authenticated noVNC access and network egress controls.
+- **Status:** Confirmed by project owner; verified with the dedicated browser-lock and remote-recording tests.
