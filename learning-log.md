@@ -157,16 +157,16 @@ The tester signs in with a seeded development account. Sentinel checks product m
 
 #### Answers
 
-1. **Answer:**
-2. **Answer:**
-3. **Answer:**
-4. **Answer:**
-5. **Answer:**
-6. **Answer:**
-7. **Answer:**
-8. **Answer:**
-9. **Answer:**
-10. **Answer:**
+1. Because we intended to make this browser in browser experience just like reflect.
+2. `RecordingSession` is a draft, it is not considered `TestCase` until saved.
+3. Maybe through token based auth (but not sure)
+4. Total 4 services, one for postgress databse, one for our demo-target app which is used for testing, one for browser inside our application using selenium, and last one is for Sentinel application
+5. user actions use the signed development session cookie
+6. Because passwords are senstive information and you do not want anyone to know what the password is.
+7. Through token type of authentication
+8. `RecordingSession` gets converted to `TestCase`, and all the related information like the clicks, navigations etc get stored in the postgres db.
+9. Then the in browser will not have accesss to that website, due to which tester will not be able to load that website inside our broswer.
+10. `app/api/[[...route]]/route.ts`, `lib/browser.ts`
 
 ### Priority-based diff review
 
@@ -251,16 +251,16 @@ Saving returns a Test Case ID. The web app fetches its detail, shows its current
 
 #### Answers
 
-1. **Answer:**
-2. **Answer:**
-3. **Answer:**
-4. **Answer:**
-5. **Answer:**
-6. **Answer:**
-7. **Answer:**
-8. **Answer:**
-9. **Answer:**
-10. **Answer:**
+1. Because there can be different products under the same organization, so it is important to filter out both using product and owner
+2. Unique Test case id
+3. **Owner answer:** don't know. **Reference answer:** `currentVersion` is an explicit field on the Test Case that identifies the version intended to be shown. Choosing it avoids assuming that the final array item is current when versions may later be filtered, reordered, or loaded differently.
+4. when the save button is clicked, the recording (not the video, but the clicks, descriptions etc.) gets saved in the db and a unique test case id is returned.
+5. once the test case is saved, it does not gets saved in the session storage, rather it gets saved in the posgtress db so that if the user refreshes the page, we can fetch the data from the db.
+6. Product membership
+7. Because when somethings gets changed in the already recorded feature then our app does not assume things on its own, rather a human is required to confirm the changes.
+8. that means the tester just opened the broswer but performed no steps and clicked the saved button
+9. `app/api/[[...route]]/route.ts`
+10. **Owner answer:** Me to answer these questions. **Reference answer:** `tests/phase-1-recording.spec.ts` now verifies the save, dashboard return, reopen, refresh, and saved-step annotation path. Direct API integration coverage for the Test Case list/detail endpoints and their cross-product authorization remains a useful additional test.
 
 ### Priority-based diff review
 
@@ -345,16 +345,16 @@ The user enters a Product name in the inline form. The browser sends it to `POST
 
 #### Answers
 
-1. **Answer:**
-2. **Answer:**
-3. **Answer:**
-4. **Answer:**
-5. **Answer:**
-6. **Answer:**
-7. **Answer:**
-8. **Answer:**
-9. **Answer:**
-10. **Answer:**
+1. Product membership
+2. Because a product should be owned by someone, product cannot exisits without the ownwer
+3. it removes the spaces, and checks at the server side whether that same products exists and if yes then returns error otherwise creates that product
+4. 400
+5. A duplicate owner scoped name
+6. Becuase firstly we need to persist that in the db so that upon refresh that newly created product stays there, and secondly the product gets selected automatically on the UI
+7. **Answer:** The route first obtains the signed-in named user, then queries Products whose `memberships` relation has an entry with that user’s ID. It therefore returns only Products the user is a member of; the browser cannot choose which Products to reveal.
+8. Server side or database validations or if the product field is empty then the frontend can restrict the user
+9. **Answer:** `tests/product-creation.spec.ts`, specifically its scenario that signs in as Ava to create the Product and then signs in as Ben to confirm the Product is absent.
+10. **Answer:** It restricts Vitest’s discovery to `tests/**/*.test.ts`, so the Playwright browser file named `*.spec.ts` is run only by Playwright and is not mistakenly executed by `npm test`.
 
 ### Priority-based diff review
 
@@ -442,16 +442,16 @@ The recorder script in the remote page posts events to Sentinel's internal endpo
 
 #### Answers
 
-1. **Answer:**
-2. **Answer:**
-3. **Answer:**
-4. **Answer:**
-5. **Answer:**
-6. **Answer:**
-7. **Answer:**
-8. **Answer:**
-9. **Answer:**
-10. **Answer:**
+1. **Answer:** The element target can itself reveal a password when it includes the input’s value or visible text. Redacting both the recorded value and the target metadata ensures neither draft nor saved steps leak the secret through a second stored representation.
+2. **Answer:** It gives the browser a chance to continue sending an already-started event when the page navigates or unloads. It is still best effort: a crash, network failure, or browser limit can lose the event, and Sentinel does not yet acknowledge and retry it.
+3. **Answer:** The step PATCH route updates `description`, `expectedOutcome`, and `variableName` only when each corresponding request property is not `undefined`. An omitted property is left unchanged; an explicitly supplied empty value clears that one property.
+4. **Answer:** `RecordedStep` holds mutable draft steps, while `TestStep` holds copied immutable steps in saved Test Case versions. Both can contain JSON target metadata, so both tables need the cleanup to remove existing password text everywhere it may have been stored.
+5. **Answer:** The tests post ordered events, edit a step, call save, and then inspect PostgreSQL through Prisma. They assert the saved Test Case owner, version 1, copied steps and annotations, redacted value, and exactly one `TEST_CASE_SAVED` audit event. A separate test discards a draft and asserts that no Test Case exists.
+6. **Answer:** The browser service supports one active Selenium session. The test creates the recording through the Sentinel UI, then uses one instrumented remote driver to perform the demo journey so it exercises the recorder without conflicting with a simultaneous noVNC-launched driver.
+7. **Answer:** After reload and signing in again, the test reopens the saved Test Case and checks that the saved-step count is unchanged; the password step still shows its description, expected outcome, variable name, and `[REDACTED]` value; and the real password text is absent.
+8. **Answer:** Access tokens, API keys, payment-card data, personal data, session/local-storage values, request headers and bodies, console output, and user-defined sensitive fields may all need redaction before future evidence capture persists them.
+9. **Answer:** Sentinel would need an event identifier, a server acknowledgement, durable pending-event storage or a retry queue in the browser/runner, idempotent server-side ingestion, and a policy for retry limits and failed delivery. `keepalive` alone would no longer be enough.
+10. **Answer:** Review `lib/browser.ts` first for event capture, redaction, and delivery; then `app/api/[[...route]]/route.ts` for event intake and partial annotation updates; then `tests/recording-api.test.ts` and `tests/phase-1-recording.spec.ts` because they define the expected persistence and browser behavior.
 
 ### Priority-based diff review
 
