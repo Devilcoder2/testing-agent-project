@@ -9,6 +9,14 @@ import { prisma } from "@/lib/prisma";
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
 const hash = (value: string) => crypto.createHash("sha256").update(value).digest("hex");
+
+async function releaseBrowserAfterRecording() {
+  try {
+    await closeBrowser();
+  } catch (error) {
+    console.error("Sentinel browser cleanup failure", error);
+  }
+}
 const recorderJson = (body: unknown, status = 200) => NextResponse.json(body, {
   status,
   headers: {
@@ -166,12 +174,12 @@ async function route(request: Request, context: Context) {
           await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_CASE_SAVED", entityType: "TestCase", entityId: created.id } });
           return created;
         });
-        await closeBrowser();
+        await releaseBrowserAfterRecording();
         return json(testCase, 201);
       }
       if (request.method === "DELETE" && path.length === 2) {
         if (recording.status === RecordingStatus.SAVED) return json({ error: "Saved tests cannot be discarded." }, 409);
-        await closeBrowser();
+        await releaseBrowserAfterRecording();
         await prisma.recordingSession.delete({ where: { id: recording.id } });
         return new NextResponse(null, { status: 204 });
       }
@@ -180,6 +188,8 @@ async function route(request: Request, context: Context) {
     const code = error instanceof Error ? error.message : "UNKNOWN";
     if (code === "UNAUTHORIZED") return json({ error: "Sign in required." }, 401);
     if (code === "FORBIDDEN") return json({ error: "You do not have access to this resource." }, 403);
+    if (code === "BROWSER_LAUNCH_IN_PROGRESS") return json({ error: "The live browser is still starting. Wait a moment, then try again." }, 409);
+    if (code.startsWith("BROWSER_")) return json({ error: "The live browser could not start. Try launching it again." }, 503);
     console.error("Sentinel API failure", error);
     return json({ error: "The recording browser could not be launched. Check the Sentinel container logs for details." }, 500);
   }
