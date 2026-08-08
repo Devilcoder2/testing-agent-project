@@ -133,7 +133,7 @@ test("records the remote demo journey and preserves saved annotations after refr
     await expect(page.getByText("Value: [REDACTED]")).toBeVisible();
     await expect(page.getByText("TestPassword!")).toHaveCount(0);
   } finally {
-    await remoteDriver?.quit();
+    await remoteDriver?.quit().catch(() => undefined);
     await cleanup(testName);
   }
 });
