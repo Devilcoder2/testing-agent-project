@@ -19,13 +19,12 @@ services:
       - "8080:80"
 
   browser:
-    image: selenium/standalone-chromium:latest
+    build: ./browser
     shm_size: 2gb
     environment:
       SE_VNC_NO_PASSWORD: "true"
     ports:
       - "7900:7900"
-      - "4444:4444"
 
   sentinel:
     build: .
