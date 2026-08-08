@@ -4,7 +4,6 @@
     "http://demo-target/*",
     "http://sentinel:3000/api/internal/events"
   ],
-  "DeveloperToolsAvailability": 2,
   "IncognitoModeAvailability": 1,
   "BrowserAddPersonEnabled": false,
   "BrowserGuestModeEnabled": false,
