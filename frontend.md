@@ -53,8 +53,8 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 | `/products` | Accessible Product list with a heading-level **New product** action, sized to match **New recording**, that opens a named Product-creation modal. Each Product can be renamed or used to open a pre-filtered Test Case inventory. |
 | `/test-cases` | Searchable and product-filterable Test Case inventory with a header count of visible versus accessible Test Cases. |
 | `/test-cases/[id]` | Saved Test Case metadata, current-version badge, and read-only Step Timeline. |
-| `/recordings/new` | Product-aware Test Case creation form. |
-| `/recordings/[id]` | Focused Recording Workspace for the active draft. |
+| `/recordings/new` | Legacy entry URL that safely returns to Dashboard; creation is initiated from the persistent **New recording** action. |
+| `/recordings/[id]` | Focused, chrome-free Recording Workspace for the active draft. |
 
 ### Future route specifications
 
@@ -77,7 +77,7 @@ Use a branded full-height entry screen with a concise development-access card, c
 
 ### Dashboard, Products, and Test Case inventory
 
-Use the shared App Shell and keep responsibilities separate: Dashboard is a clean operational overview with real Product/Test Case metrics and a distribution chart capped at the five highest-coverage Products; Products owns creation and name management through a heading-level modal action, with rename validation matching creation validation and a direct **View Test Cases** link that applies the Product filter; Test Cases owns searchable inventory, leaves clear separation between its search field and results, and shows its visible/total count beside the heading. The top-bar New recording action remains visible across authenticated pages and is never duplicated inside a page header or empty state. Empty states explain the next useful action. Do not invent activity, pass-rate, Run, or coverage data before Phase 2 and later data models exist.
+Use the shared App Shell and keep responsibilities separate: Dashboard is a clean operational overview with real Product/Test Case metrics and a distribution chart capped at the five highest-coverage Products; Products owns creation and name management through a heading-level modal action, with rename validation matching creation validation and a direct **View Test Cases** link that applies the Product filter; Test Cases owns searchable inventory, leaves clear separation between its search field and results, and shows its visible/total count beside the heading. The top-bar **New recording** action opens a compact, labelled creation dialog over the current page rather than a standalone creation screen. Empty states explain the next useful action. Do not invent activity, pass-rate, Run, or coverage data before Phase 2 and later data models exist.
 
 ### Saved Test Case detail
 
@@ -85,7 +85,7 @@ Use breadcrumbs, product and owner metadata, a version badge, and a vertical ord
 
 ### Recording Workspace
 
-Use a focused desktop workspace: an action header with draft state, save, discard, and browser-launch controls; an editable Step Timeline on the left; and a raised browser stage on the right. The active recording state uses a text label and status icon in addition to the teal accent. On narrow screens, show a guidance state that asks the tester to use a desktop-sized viewport.
+Use an isolated, distraction-reduced 100vh workspace with no App Shell sidebar or global top bar. A compact workspace header takes approximately 10% of the height: **Back to dashboard** and the Test Case name sit on the left; **Save Test** and **Discard** sit on the right. Back opens a decision modal and never navigates away until the tester explicitly saves or discards. The remaining workspace is a 30% editable Live Timeline and 70% live remote-browser stage. The browser launch control lives only in its empty browser stage, never in the workspace header. The browser surface is the visual priority. On narrow screens, show a guidance state that asks the tester to use a desktop-sized viewport.
 
 ## 6. Component and interaction rules
 
