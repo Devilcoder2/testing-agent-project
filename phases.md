@@ -46,6 +46,7 @@ flowchart LR
 
 - [x] A named user can sign in using the development identity path.
 - [x] A user can create and select a Product.
+- [x] A Product creator can rename the Product with blank/duplicate validation and view only that Product's filtered Test Cases.
 - [x] **Add New Test** accepts a name and approved website URL.
 - [x] The workspace shows the live target and an initially empty Step Log.
 - [x] A navigation creates a navigation step with timestamp and target context.
