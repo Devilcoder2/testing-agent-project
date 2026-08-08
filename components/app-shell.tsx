@@ -10,15 +10,20 @@ const navigation = [
   { href: "/products", label: "Products", glyph: "◇" },
   { href: "/test-cases", label: "Test Cases", glyph: "✓" }
 ];
+const sidebarPreferenceKey = "sentinel-sidebar-collapsed";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => typeof window !== "undefined" && window.sessionStorage.getItem(sidebarPreferenceKey) === "true");
 
   function toggleNavigation() {
     if (window.matchMedia("(max-width: 64rem)").matches) setMenuOpen((open) => !open);
-    else setSidebarCollapsed((collapsed) => !collapsed);
+    else setSidebarCollapsed((collapsed) => {
+      const nextCollapsed = !collapsed;
+      window.sessionStorage.setItem(sidebarPreferenceKey, String(nextCollapsed));
+      return nextCollapsed;
+    });
   }
 
   return <div className={`app-shell ${sidebarCollapsed ? "app-shell--sidebar-collapsed" : ""}`}>
