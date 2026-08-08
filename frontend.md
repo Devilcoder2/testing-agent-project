@@ -49,7 +49,7 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 | Route | Purpose |
 |---|---|
 | `/` | Development sign-in entry. Authenticated users continue to `/dashboard`. |
-| `/dashboard` | Real-data workspace metrics and a Product-to-Test-Case distribution chart; no management forms or Test Case inventory. |
+| `/dashboard` | Real-data workspace metrics and a five-Product maximum Test Case distribution chart; no management forms or Test Case inventory. |
 | `/products` | Product creation and the accessible Product list, including each Product’s saved Test Case count. |
 | `/test-cases` | Searchable and product-filterable Test Case inventory. |
 | `/test-cases/[id]` | Saved Test Case metadata, current-version badge, and read-only Step Timeline. |
@@ -77,7 +77,7 @@ Use a branded full-height entry screen with a concise development-access card, c
 
 ### Dashboard, Products, and Test Case inventory
 
-Use the shared App Shell and keep responsibilities separate: Dashboard is a clean operational overview with real Product/Test Case metrics and a Product distribution chart; Products owns Product creation and context management; Test Cases owns searchable inventory. The top-bar New recording action remains visible across authenticated pages and is never duplicated inside a page header or empty state. Empty states explain the next useful action. Do not invent activity, pass-rate, Run, or coverage data before Phase 2 and later data models exist.
+Use the shared App Shell and keep responsibilities separate: Dashboard is a clean operational overview with real Product/Test Case metrics and a distribution chart capped at the five highest-coverage Products; Products owns Product creation and context management; Test Cases owns searchable inventory. The top-bar New recording action remains visible across authenticated pages and is never duplicated inside a page header or empty state. Empty states explain the next useful action. Do not invent activity, pass-rate, Run, or coverage data before Phase 2 and later data models exist.
 
 ### Saved Test Case detail
 
