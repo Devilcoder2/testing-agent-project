@@ -48,7 +48,7 @@ docker compose logs -f sentinel
 docker compose down
 ```
 
-Use `ava.tester@example.test` with password `sentinel-dev`. Create a recording for the built-in Demo CRM, launch the browser panel, then complete the demo target’s sign-in and customer-creation journey. The local browser viewer runs on port 7900.
+Use `ava.tester@example.test` with password `sentinel-dev`. Create a recording for the built-in Demo CRM, launch the browser panel, then complete the demo target’s sign-in and customer-creation journey. Chromium runs in kiosk app mode and is policy-locked to the Demo CRM; the host exposes only the noVNC viewer on port 7900, not Selenium WebDriver.
 
 ## Verify Phase 1
 
@@ -58,12 +58,13 @@ After the stack is running, execute the checks from the Sentinel container. The 
 docker compose exec sentinel npm run lint
 docker compose exec sentinel npm run typecheck
 docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/browser-lock.spec.ts
 docker compose exec sentinel npx playwright test tests/product-creation.spec.ts
 docker compose exec sentinel npx playwright test tests/phase-1-recording.spec.ts
 docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.ts
 ```
 
-The final browser test covers the remote recording journey, password redaction, saving, dashboard navigation, reopening, and persistence after a page refresh.
+The browser checks cover locked-target navigation, full-stage live-browser rendering, Product authorization, the remote recording journey, password redaction, saving, dashboard navigation, reopening, and persistence after a page refresh.
 
 ## Status
 
