@@ -30,7 +30,7 @@ function testCaseSteps(testCase: SavedTestCase) {
 }
 
 function toneForMessage(message: string) {
-  if (message.toLowerCase().includes("created") || message.toLowerCase().includes("saved")) return "success" as const;
+  if (message.toLowerCase().includes("created") || message.toLowerCase().includes("saved") || message.toLowerCase().includes("renamed")) return "success" as const;
   return "danger" as const;
 }
 
@@ -129,17 +129,28 @@ export function ProductsView() {
   const [newProductName, setNewProductName] = useState("");
   const [productMessage, setProductMessage] = useState("");
   const [isCreateProductOpen, setIsCreateProductOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  function openCreateProduct() {
-    setNewProductName("");
+  function openProductModal(product?: Product) {
+    setEditingProduct(product ?? null);
+    setNewProductName(product?.name ?? "");
     setProductMessage("");
     setIsCreateProductOpen(true);
   }
 
-  async function createProduct(event: FormEvent<HTMLFormElement>) {
+  async function saveProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setProductMessage("");
     try {
+      if (editingProduct) {
+        const product = await request(`products/${editingProduct.id}`, "PATCH", { name: newProductName }) as Product;
+        setProducts((all) => all.map((item) => item.id === product.id ? product : item).sort((left, right) => left.name.localeCompare(right.name)));
+        setNewProductName("");
+        setProductMessage(`Product "${product.name}" renamed.`);
+        setEditingProduct(null);
+        setIsCreateProductOpen(false);
+        return;
+      }
       const product = await request("products", "POST", { name: newProductName }) as Product;
       setProducts((all) => [...all, product].sort((left, right) => left.name.localeCompare(right.name)));
       window.sessionStorage.setItem(preferredProductStorageKey, product.id);
@@ -151,12 +162,14 @@ export function ProductsView() {
     }
   }
 
-  return <div className="dashboard-grid"><PageHeader eyebrow="Product configuration" title="Products" detail="Create and manage the Product contexts available for guided Test Case recording." actions={<Button type="button" onClick={openCreateProduct}>Create new product <span aria-hidden="true">+</span></Button>} />{error && <Feedback tone="danger">{error}</Feedback>}{productMessage && !isCreateProductOpen && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}<section className="products-layout products-layout--single"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Accessible Products</p><h2>Your Product contexts</h2><p>Products are private to their members and persist between sessions.</p></div><StatusBadge tone="info">{products.length} total</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading Products</StatusBadge> : products.length === 0 ? <EmptyState title="No Products yet" detail="Create your first Product to start a guided recording." /> : <div className="product-list">{products.map((product) => { const testCount = testCases.filter((testCase) => testCase.product.id === product.id).length; return <article className="product-list__item" key={product.id}><div><h3>{product.name}</h3><p>{testCount} saved Test Case{testCount === 1 ? "" : "s"}</p></div><StatusBadge tone="success">Available</StatusBadge></article>; })}</div>}</Card></section>{isCreateProductOpen && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="create-product-title"><div className="modal__header"><div><p className="eyebrow">New Product</p><h2 id="create-product-title">Create new Product</h2><p>A Product needs a name and is immediately available for your next recording.</p></div><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Close</Button></div><form className="form-stack" onSubmit={createProduct}><Field label="Product name"><TextInput value={newProductName} onChange={(event) => setNewProductName(event.target.value)} placeholder="e.g. Billing Portal" autoFocus required /></Field>{productMessage && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}<div className="modal__actions"><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Cancel</Button><Button type="submit">Create Product <span aria-hidden="true">+</span></Button></div></form></section></div>}</div>;
+  const isEditing = Boolean(editingProduct);
+  return <div className="dashboard-grid"><PageHeader eyebrow="Product configuration" title="Products" detail="Create and manage the Product contexts available for guided Test Case recording." actions={<Button className="product-create-action" type="button" onClick={() => openProductModal()}>New product <span aria-hidden="true">+</span></Button>} />{error && <Feedback tone="danger">{error}</Feedback>}{productMessage && !isCreateProductOpen && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}<section className="products-layout products-layout--single"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Accessible Products</p><h2>Your Product contexts</h2><p>Products are private to their members and persist between sessions.</p></div><StatusBadge tone="info">{products.length} total</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading Products</StatusBadge> : products.length === 0 ? <EmptyState title="No Products yet" detail="Create your first Product to start a guided recording." /> : <div className="product-list">{products.map((product) => { const testCount = testCases.filter((testCase) => testCase.product.id === product.id).length; return <article className="product-list__item" key={product.id}><div><h3>{product.name}</h3><p>{testCount} saved Test Case{testCount === 1 ? "" : "s"}</p></div><div className="product-list__actions"><Button type="button" variant="secondary" onClick={() => openProductModal(product)}>Edit</Button><Link className="button button--secondary" href={`/test-cases?productId=${product.id}`}>View Test Cases</Link></div></article>; })}</div>}</Card></section>{isCreateProductOpen && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title"><div className="modal__header"><div><p className="eyebrow">{isEditing ? "Product settings" : "New Product"}</p><h2 id="product-modal-title">{isEditing ? "Edit Product" : "Create new Product"}</h2><p>{isEditing ? "Update the Product name used to organize your Test Cases." : "A Product needs a name and is immediately available for your next recording."}</p></div><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Close</Button></div><form className="form-stack" onSubmit={saveProduct}><Field label="Product name"><TextInput value={newProductName} onChange={(event) => setNewProductName(event.target.value)} placeholder="e.g. Billing Portal" autoFocus required /></Field>{productMessage && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}<div className="modal__actions"><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Cancel</Button><Button type="submit">{isEditing ? "Save changes" : "Create Product"} <span aria-hidden="true">{isEditing ? "→" : "+"}</span></Button></div></form></section></div>}</div>;
 }
 
 export function TestCasesView() {
   const { products, testCases, loading, error } = useDashboardData();
-  const [productId, setProductId] = useState("");
+  const searchParams = useSearchParams();
+  const [productId, setProductId] = useState(() => searchParams.get("productId") ?? "");
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => testCases.filter((testCase) => (!productId || testCase.product.id === productId) && testCase.name.toLowerCase().includes(query.toLowerCase())), [productId, query, testCases]);
 
