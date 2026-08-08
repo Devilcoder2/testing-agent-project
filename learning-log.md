@@ -476,3 +476,103 @@ The recorder script in the remote page posts events to Sentinel's internal endpo
 - Owner answers all ten questions above before this work is considered understood.
 - Define a broader sensitive-data policy before collecting evidence, console, storage, or network details.
 - Decide whether later replay and evidence phases need acknowledged event delivery or event retry.
+
+---
+
+## Feature: Phase 1.5 frontend foundation and routed experience
+
+- Date: 2026-08-08
+- Phase: 1.5
+- Status: Implemented and acceptance-verified; understanding review pending owner answers.
+- Relevant files: `frontend.md`, `app/styles/tokens.css`, `app/globals.css`, `components/ui.tsx`, `components/app-shell.tsx`, `components/sentinel-views.tsx`, and the `app/` route files.
+- Related tests: `tests/frontend-phase-1-5.spec.ts`, `tests/product-creation.spec.ts`, `tests/phase-1-recording.spec.ts`, lint, type-check, unit suite, and production build.
+- Related decision: D-014 in `decisions-log.md`.
+
+### What this feature does
+
+It gives Sentinel a consistent operations interface instead of a single page of loosely related forms. A tester signs in at a dedicated entry screen, uses a persistent sidebar and route-based pages to find Products and Test Cases, creates a recording in a focused flow, and uses a desktop-first Step Timeline beside the live browser. The change makes the delivered Phase 1 workflow easier to scan and leaves a documented visual foundation for Runs, releases, evidence, approvals, and settings.
+
+### End-to-end flow
+
+The sign-in page sends the same development-login request as before, then routes the browser to `/dashboard`. Dashboard and Test Case pages fetch the same authorized API data as the old one-page app. Creating a recording stores the short-lived launch token in browser session storage only long enough to move into `/recordings/:id`; the workspace uses that token to call the existing launch endpoint and polls the existing steps endpoint. Saving routes to `/test-cases/:id`; discarding removes the draft and returns to the dashboard.
+
+Every implemented screen uses semantic CSS variables from the token stylesheet. CSS provides the App Shell, card, form, timeline, button, status, responsive, focus, and reduced-motion behavior. The frontend browser test verifies the route flow, focusability, validation feedback, narrow-screen guidance, and reduced-motion token behavior; the existing Product and remote-recording tests prove that the redesign did not alter the underlying workflow.
+
+### Technologies and patterns
+
+| Technology / pattern | Why it is used | How it helps | Important limitation |
+|---|---|---|---|
+| CSS custom properties | Fixed visual tokens without a styling dependency | Keeps colours, spacing, motion, elevation, and typography consistent | The design system remains local to this repository and needs disciplined token use. |
+| Next.js App Router | Separate URLs for distinct tasks | Lets pages be bookmarked and prevents the dashboard, detail, and recording states from competing in one component | Draft recording context still needs client-side handoff because the launch token must not appear in the URL. |
+| Small React primitives | Product-specific Buttons, Fields, Cards, feedback, and status badges | Reduces duplicated markup and makes accessibility behavior reusable | It is intentionally smaller than a complete external design system. |
+| Playwright responsive checks | Browser-level verification of visible behavior | Proves focusability, narrow-workspace guidance, and reduced motion alongside real routes | It does not replace a formal assistive-technology audit. |
+
+### Key implementation details
+
+- `app/styles/tokens.css` is the only stylesheet that defines the Sentinel colour palette. Components use semantic variables such as `--color-primary` and `--color-danger` rather than introducing their own palette values.
+- `components/app-shell.tsx` owns the persistent sidebar, responsive navigation control, and shared top bar; it only exposes current Phase 1 destinations.
+- `components/sentinel-views.tsx` centralizes the client data flow so the route files remain small. It preserves existing API paths and explicit product authorization.
+- The recording token is kept in `sessionStorage` under a recording-specific key so it can survive navigation to the workspace without being placed in a shareable URL. It is removed after save or discard.
+- The Recording Workspace hides the browser/Step Timeline below 1024 px and shows desktop guidance. Its Back action discards the draft, matching the prior Phase 1 behavior and preventing an unreachable draft.
+
+### Tradeoffs and alternatives
+
+- Tradeoff taken: custom CSS tokens and local components instead of Tailwind, shadcn, or a component library.
+- Why this tradeoff was acceptable: Sentinel needs a focused operations UI and only a small set of components today; adding a framework would not improve the delivered recording behavior.
+- Alternative considered: retain the original one-page stateful application.
+- Why the alternative was not chosen: the dashboard, Test Case detail, Recording Workspace, Run Detail, releases, and approval experiences need independent navigation and visual hierarchy.
+
+### Risks and future improvements
+
+- The current session-storage handoff is appropriate for a short-lived local development token, but a production identity and secure draft-resume design need review before external deployment.
+- The UI currently has no formal screen-reader audit, localization, or user-configurable light theme.
+- Future Runs, evidence, releases, review, and settings must follow `frontend.md`; they should not add placeholder routes before their underlying capabilities exist.
+
+### Ten-question understanding check
+
+1. Why does the Recording Workspace need its own route and focused layout instead of appearing beside dashboard forms?
+2. Which file is the authoritative source for Sentinel colours, motion, spacing, and typography, and why does that matter?
+3. How does the frontend preserve the existing Product, save, discard, authorization, and recorder API contracts during the route migration?
+4. Why is the recording launch token stored in session storage rather than in the recording URL, and when is it removed?
+5. What do the App Shell and the feature-view component each own?
+6. Which WCAG 2.2 AA behaviors are intentionally implemented in this phase, and how are status messages made understandable without colour alone?
+7. What happens below the Recording Workspace desktop breakpoint, and why is that safer than compressing the live browser into a phone layout?
+8. How does `prefers-reduced-motion` affect the token system and global CSS behavior?
+9. Which Playwright tests protect the unchanged business flow, and which test specifically protects the frontend redesign behavior?
+10. If Phase 2 adds Run Detail, where should its visual decisions and route behavior be defined before implementation?
+
+#### Answers
+
+1. **Answer:**
+2. **Answer:**
+3. **Answer:**
+4. **Answer:**
+5. **Answer:**
+6. **Answer:**
+7. **Answer:**
+8. **Answer:**
+9. **Answer:**
+10. **Answer:**
+
+### Priority-based diff review
+
+| Priority | File | What changed | Why it needs attention | Review action |
+|---|---|---|---|---|
+| Highest | `components/sentinel-views.tsx` | Moves the existing data and recording flow into route-ready client views | It controls API calls, token handoff, discard behavior, and user-visible error states | Read now |
+| Highest | `app/styles/tokens.css` | Defines the fixed visual system | Every screen depends on these semantic colours, spacing, and motion values | Read now |
+| Highest | `app/globals.css` | Implements the App Shell, responsive layout, focus, reduced motion, and Recording Workspace | A CSS regression can affect accessibility or hide the live workspace | Read now |
+| Medium | `components/ui.tsx`, `components/app-shell.tsx`, and `app/` routes | Supplies reusable primitives, navigation, and individual page entry points | These files encode the information architecture and reusable interaction rules | Read next |
+| Medium | Playwright browser tests | Updates existing journeys and adds frontend acceptance coverage | They define which functional and visual behavior must remain stable | Read next |
+| Lower | `app/icon.svg` and documentation files | Adds a browser icon and records the design decisions | Important for polish and maintainability but not business logic | Skim |
+
+#### Highest-priority concepts to understand
+
+- Tokens are semantic contracts: components ask for a role such as primary action or danger, rather than choosing an arbitrary colour.
+- Route migration must not put a short-lived launch token into a shareable URL or change server-side authorization.
+- Responsive guidance is a deliberate product decision for a browser-heavy workflow, not a missing mobile layout.
+
+#### Follow-up learning tasks
+
+- Owner answers all ten questions above before Phase 1.5 is marked understood.
+- Define production-grade draft resume and identity behavior before relying on browser session storage outside local development.
+- Perform a screen-reader and contrast audit with representative users before an internal pilot.
