@@ -88,7 +88,7 @@ The phase is not complete until the commands and raw output are recorded, the ac
 ### In scope
 
 - A fixed custom CSS token system, CSS-rendered Sentinel mark, local system typography, and reusable frontend primitives.
-- Persistent sidebar and route-based Phase 1 views for sign-in, dashboard, Test Cases, Test Case detail, creation, and Recording Workspace.
+- Toggleable sidebar and route-based Phase 1 views for sign-in, metrics dashboard, Products, Test Cases, Test Case detail, creation, and Recording Workspace.
 - A dark operations interface with purposeful reduced-motion-safe transitions and WCAG 2.2 AA interaction requirements.
 - Desktop-first live recording with a narrow-screen guidance state; responsive dashboard and inventory views.
 - Documented future UI direction for Runs, Releases, Review, and Settings without placeholder feature implementation.
@@ -98,7 +98,7 @@ The phase is not complete until the commands and raw output are recorded, the ac
 - [x] `frontend.md` records all approved visual, interaction, accessibility, responsive, and future-information-architecture decisions.
 - [x] Semantic CSS tokens are the only source of implemented UI colours.
 - [x] Existing Phase 1 APIs, authorization, persistence, save, discard, and recorder behavior remain unchanged.
-- [x] Sign-in, dashboard, Product creation, Test Case inventory/detail, creation, and Recording Workspace use the route-based App Shell.
+- [x] Sign-in, metrics dashboard, dedicated Product creation, Test Case inventory/detail, creation, and Recording Workspace use the route-based App Shell; New recording appears only in the top bar.
 - [x] Keyboard focus, labels, feedback, non-colour status cues, contrast, and reduced-motion behavior meet the documented WCAG 2.2 AA checks.
 - [x] The Recording Workspace remains usable on desktop and clearly guides narrow-screen users to a desktop viewport.
 - [x] Playwright verifies new route navigation, keyboard/focus behavior, Product validation feedback, saved-test persistence, recording layout, and narrow-screen guidance.
