@@ -21,12 +21,15 @@ Read these in order before implementation:
 6. [`decisions-log.md`](decisions-log.md) — non-obvious decisions and open items.
 7. [`learning-log.md`](learning-log.md) — owner learning records and ten-question checks.
 
+[`frontend.md`](frontend.md) is the approved Phase 1.5 design source of truth for the dark Sentinel visual system, route-based information architecture, accessibility requirements, and future-screen specifications.
+
 The attached requirements document is the current product source of truth. Architecture and technology choices are provisional until the Phase 1 compatibility checks are completed.
 
 ## Readiness status
 
 - Product documentation: prepared.
 - Phase 1: acceptance criteria verified; owner learning review remains pending.
+- Phase 1.5: frontend foundation and Phase 1 UX redesign in progress.
 - Application code: local Docker recording slice is available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -57,10 +60,11 @@ docker compose exec sentinel npm run typecheck
 docker compose exec sentinel npm test
 docker compose exec sentinel npx playwright test tests/product-creation.spec.ts
 docker compose exec sentinel npx playwright test tests/phase-1-recording.spec.ts
+docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.ts
 ```
 
 The final browser test covers the remote recording journey, password redaction, saving, dashboard navigation, reopening, and persistence after a page refresh.
 
 ## Status
 
-Phase 1 is implemented and its acceptance checks have been verified. It is not marked fully understood or closed because the owner learning questions in `learning-log.md` still need answers. Replay, evidence bundles, external integrations, scheduling, and QA-network access remain later phases.
+Phase 1 is implemented and its acceptance checks have been verified. Phase 1.5 is redesigning those same flows into the documented route-based Sentinel interface without changing their backend behavior. Phase 1 is not marked fully understood or closed because the owner learning questions in `learning-log.md` still need answers. Replay, evidence bundles, external integrations, scheduling, and QA-network access remain later phases.
