@@ -125,3 +125,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** The delivered Phase 1 workflow is functionally verified but its one-page presentation does not scale to the dashboard, recording, Run Detail, release, approval, and integration experiences required by Sentinel.
 - **Impact:** `frontend.md` becomes the frontend source of truth. The existing Phase 1 screens migrate to separate routes and an App Shell without changing their API, authorization, recording, or persistence behavior. Future areas are documented, not implemented.
 - **Status:** Confirmed by project owner; Phase 1.5 acceptance verified.
+
+## D-015 — Separate operational pages and a single recording action
+
+- **Date:** 2026-08-08
+- **Decision:** Keep Dashboard as a metrics-and-distribution overview, move Product creation and Product context to `/products`, and keep the sole New recording action in the authenticated top bar’s right-hand corner. Add a user-toggleable desktop sidebar that becomes a full navigation drawer on narrow screens.
+- **Reason:** Test Case inventory and Product management already have dedicated navigation destinations; repeating them on Dashboard obscures operational status and makes the interface feel like one large form.
+- **Impact:** The existing Product API and membership behavior remain unchanged. A newly created Product is retained as the selection for the next recording, so the new route does not remove the Phase 1 creation convenience. Test Case filtering receives dedicated spacing and a custom select affordance for consistent alignment.
+- **Status:** Confirmed by project owner; verified with updated Product, recording, and frontend browser tests.
