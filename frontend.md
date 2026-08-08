@@ -49,8 +49,9 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 | Route | Purpose |
 |---|---|
 | `/` | Development sign-in entry. Authenticated users continue to `/dashboard`. |
-| `/dashboard` | Product context, Product creation, saved Test Case overview, and the primary New recording action. |
-| `/test-cases` | Test Case inventory for the selected product context. |
+| `/dashboard` | Real-data workspace metrics and a Product-to-Test-Case distribution chart; no management forms or Test Case inventory. |
+| `/products` | Product creation and the accessible Product list, including each Product’s saved Test Case count. |
+| `/test-cases` | Searchable and product-filterable Test Case inventory. |
 | `/test-cases/[id]` | Saved Test Case metadata, current-version badge, and read-only Step Timeline. |
 | `/recordings/new` | Product-aware Test Case creation form. |
 | `/recordings/[id]` | Focused Recording Workspace for the active draft. |
@@ -66,7 +67,7 @@ The following are documented design targets only. Phase 1.5 must not create plac
 | `/review` | Change proposals, negative-test suggestions, checkpoint decisions, and owner approvals. |
 | `/settings` | Product access, integration health, notification configuration, and safe connection state. |
 
-The desktop shell has a persistent sidebar. Phase 1 navigation exposes Dashboard and Test Cases; New recording is an explicit primary action, not a permanent destination. Future navigation adds Runs, Releases, Review, and Settings when the relevant product capabilities exist.
+The desktop shell has a persistent, user-toggleable sidebar. Phase 1 navigation exposes Dashboard, Products, and Test Cases; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Future navigation adds Runs, Releases, Review, and Settings when the relevant product capabilities exist.
 
 ## 5. Page experience decisions
 
@@ -74,9 +75,9 @@ The desktop shell has a persistent sidebar. Phase 1 navigation exposes Dashboard
 
 Use a branded full-height entry screen with a concise development-access card, clear inline errors, labelled fields, and keyboard-first submission. The development-only nature of the identity path is visually stated without making it the dominant product message.
 
-### Dashboard and Test Case inventory
+### Dashboard, Products, and Test Case inventory
 
-Use the shared App Shell, product context, real-data summary cards, a prominent New recording action, an inline Product-creation panel, and a Test Case inventory. Empty states explain the next useful action. Do not invent activity, pass-rate, Run, or coverage data before Phase 2 and later data models exist.
+Use the shared App Shell and keep responsibilities separate: Dashboard is a clean operational overview with real Product/Test Case metrics and a Product distribution chart; Products owns Product creation and context management; Test Cases owns searchable inventory. The top-bar New recording action remains visible across authenticated pages and is never duplicated inside a page header or empty state. Empty states explain the next useful action. Do not invent activity, pass-rate, Run, or coverage data before Phase 2 and later data models exist.
 
 ### Saved Test Case detail
 
@@ -95,7 +96,7 @@ Implement reusable App Shell, Sidebar, Top Bar, Page Header, Card, Button, Icon 
 - Focus rings are visible on every interactive control and meet contrast requirements.
 - Status always combines text, icon/shape, and colour.
 - Cards and timeline items use consistent surface, border, radius, and elevation tokens.
-- Desktop sidebar collapses into a compact navigation control below 1024 px. Dashboard content stacks below 768 px. Recording uses a narrow-screen guidance state below 1024 px.
+- On desktop, the top-bar navigation control collapses or expands the sidebar while retaining accessible link names. At or below 1024 px it opens and closes the full-width navigation drawer instead. Dashboard content stacks below 768 px. Recording uses a narrow-screen guidance state below 1024 px.
 
 ## 7. Phase 1.5 boundaries and verification
 
