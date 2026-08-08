@@ -165,3 +165,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** The embedded browser is a controlled test surface, not a general-purpose browser. Testers need only interact with the approved demo journey, and direct host access to WebDriver would undermine that boundary.
 - **Impact:** Browser chrome, tabs, and address-bar controls are not exposed to the tester; attempted off-target navigation is blocked by Chromium policy and has regression coverage. Sentinel closes its one controlled browser session when the draft is saved or discarded, preventing it from leaking into the next recording. Chrome’s developer-tools policy is intentionally not set because it prevents ChromeDriver from creating the browser session; kiosk mode and URL enforcement remain the Phase 1 boundary. A production multi-user runner will additionally need authenticated noVNC access and network egress controls.
 - **Status:** Confirmed by project owner; verified with the dedicated browser-lock and remote-recording tests.
+
+## D-020 — Recover the single local browser session before launch
+
+- **Date:** 2026-08-09
+- **Decision:** Phase 1 treats the Docker Chromium service as one global, replaceable recording session. Before launching a draft, Sentinel closes its tracked driver and asks Selenium to terminate any session occupying its only slot, including one left behind by a Sentinel restart. Browser startup is time-bounded, and the workspace returns to an actionable retry state when launch cannot complete.
+- **Reason:** The Selenium service intentionally allows one session. Its session can outlive Sentinel’s in-memory driver reference, causing later launch requests to queue indefinitely and leaving the tester with disabled controls.
+- **Impact:** Launching a new draft ends another active local recording browser; Phase 1 does not support concurrent recordings. A production runner must allocate sessions by owner/job instead of globally reclaiming them.
+- **Status:** Confirmed by the owner’s request to fix the stuck launch flow.
