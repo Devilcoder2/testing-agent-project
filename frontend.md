@@ -23,6 +23,7 @@ Phase 1.5 modernizes the delivered Phase 1 experience without changing its API c
 | FD-005 | Use subtle, purposeful motion only. | Hover, press, panel, and feedback transitions clarify interaction without distracting from QA work. All non-essential motion respects `prefers-reduced-motion`. |
 | FD-006 | Meet WCAG 2.2 AA for the implemented screens. | Keyboard use, visible focus, semantic controls, contrast, labels, and non-colour status cues are required product behavior. |
 | FD-007 | Make dashboards and lists responsive, but treat live recording as desktop-first. | A remote browser plus editable Step Timeline needs a usable desktop viewport; narrow screens receive a clear guidance state rather than a broken compressed workspace. |
+| FD-008 | Hide the embedded noVNC viewer controls. | Sentinel owns the recording workflow and Chromium policy; the noVNC toolbar adds no required tester action and reduces the browser stage available for the approved journey. |
 
 ## 3. Token system
 
