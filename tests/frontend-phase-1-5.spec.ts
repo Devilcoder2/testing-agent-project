@@ -20,12 +20,14 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   const navigationToggle = page.getByRole("button", { name: "Toggle navigation" });
   await navigationToggle.click();
   await expect(page.locator(".app-shell")).toHaveClass(/app-shell--sidebar-collapsed/);
+  await expect(page.locator(".sidebar__link-label").first()).toBeHidden();
   await navigationToggle.click();
   await expect(page.locator(".app-shell")).not.toHaveClass(/app-shell--sidebar-collapsed/);
+  await expect(page.locator(".sidebar__link-label").first()).toBeVisible();
 
   await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
   await expect(page.getByLabel("Filter by Product")).toBeVisible();
-  await expect(page.getByText(/visible Test Cases/)).toBeVisible();
+  await expect(page.locator(".page-header").getByText(/\d+ \/ \d+ visible Test Cases?/)).toBeVisible();
   await page.locator(".sidebar").getByRole("link", { name: "Products" }).click();
   await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
   const newRecording = page.locator(".topbar").getByRole("link", { name: "New recording" });
@@ -33,9 +35,13 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   await newRecording.focus();
   await expect(newRecording).toBeFocused();
 
+  await page.getByRole("button", { name: "Create new product" }).click();
+  await expect(page.getByRole("dialog", { name: "Create new Product" })).toBeVisible();
   await page.getByLabel("Product name").fill("   ");
   await page.getByRole("button", { name: "Create Product" }).click();
-  await expect(page.getByText("Product name is required.")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Create new Product" }).getByText("Product name is required.")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("dialog", { name: "Create new Product" })).toHaveCount(0);
 
   await newRecording.click();
   await expect(page).toHaveURL(/\/recordings\/new/);
