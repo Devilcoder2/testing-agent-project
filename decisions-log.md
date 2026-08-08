@@ -149,3 +149,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Product rows should lead to useful management tasks rather than restate availability. Keeping rename authorization with the creator preserves the current ownership model, while the pre-filtered inventory makes the Product-to-Test Case relationship immediately inspectable.
 - **Impact:** The authenticated API exposes a creator-authorized Product rename endpoint. The sidebar’s compact state persists when users navigate through its links and changes only through the top-bar toggle. Test Case search results have intentional visual separation from their search input.
 - **Status:** Confirmed by project owner; verified by Product and frontend browser tests.
+
+## D-018 — Chrome-free recording workspace and safe exit
+
+- **Date:** 2026-08-08
+- **Decision:** New recording opens a labelled modal from the authenticated top bar instead of a standalone form page. An active recording is rendered outside the App Shell: its header contains only Back to dashboard and the Test Case name on the left, with Save Test and Discard on the right. The Live Timeline receives 30% of the workspace and the remote browser 70%. Browser launch remains inside the empty browser stage.
+- **Reason:** Recording is an attention-intensive task; the global sidebar and secondary top bar take useful browser width without helping the tester complete the active journey.
+- **Impact:** Back never discards or navigates implicitly. It opens a decision dialog where Save Test Case or Discard Test Case are the only routes back to Dashboard; Continue recording only closes the dialog. The compact-sidebar preference now hydrates after the initial render, preventing server/client markup mismatch warnings.
+- **Status:** Confirmed by project owner; verified through the frontend, Product, and remote-recording browser tests.
