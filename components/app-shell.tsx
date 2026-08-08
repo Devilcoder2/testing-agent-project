@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { SentinelMark } from "./ui";
+import { NewRecordingDialog } from "./sentinel-views";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard", glyph: "▦" },
@@ -15,7 +16,12 @@ const sidebarPreferenceKey = "sentinel-sidebar-collapsed";
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => typeof window !== "undefined" && window.sessionStorage.getItem(sidebarPreferenceKey) === "true");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isNewRecordingOpen, setIsNewRecordingOpen] = useState(false);
+
+  useEffect(() => {
+    setSidebarCollapsed(window.sessionStorage.getItem(sidebarPreferenceKey) === "true");
+  }, []);
 
   function toggleNavigation() {
     if (window.matchMedia("(max-width: 64rem)").matches) setMenuOpen((open) => !open);
@@ -40,8 +46,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     </aside>
     {menuOpen && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
     <div className="app-shell__main">
-      <header className="topbar"><button className="topbar__menu" aria-label="Toggle navigation" aria-expanded={menuOpen || !sidebarCollapsed} onClick={toggleNavigation}>☰</button><div className="topbar__spacer" aria-hidden="true" /><Link className="topbar__action" href="/recordings/new">New recording <span aria-hidden="true">+</span></Link></header>
+      <header className="topbar"><button className="topbar__menu" aria-label="Toggle navigation" aria-expanded={menuOpen || !sidebarCollapsed} onClick={toggleNavigation}>☰</button><div className="topbar__spacer" aria-hidden="true" /><button className="topbar__action" type="button" onClick={() => setIsNewRecordingOpen(true)}>New recording <span aria-hidden="true">+</span></button></header>
       <main className="app-main">{children}</main>
+      {isNewRecordingOpen && <NewRecordingDialog onClose={() => setIsNewRecordingOpen(false)} />}
     </div>
   </div>;
 }
