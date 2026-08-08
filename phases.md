@@ -49,6 +49,7 @@ flowchart LR
 - [x] A Product creator can rename the Product with blank/duplicate validation and view only that Product's filtered Test Cases.
 - [x] **Add New Test** accepts a name and approved website URL.
 - [x] The workspace shows the live target and an initially empty Step Log.
+- [x] The live browser runs in kiosk app mode, fills the browser stage, and blocks navigation outside the approved demo target.
 - [x] A navigation creates a navigation step with timestamp and target context.
 - [x] A click creates a click step with target metadata.
 - [x] Text entry creates a text step without persisting unredacted secrets by default.
