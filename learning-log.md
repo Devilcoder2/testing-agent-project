@@ -670,3 +670,93 @@ If the browser service is unavailable, the session cannot close, another launch 
 
 - Owner answers all ten questions above before this reliability change is considered understood.
 - Define per-user browser allocation, queueing, and viewer authorization before introducing concurrent recording.
+
+---
+
+## Feature: Minimal noVNC recording surface
+
+- Date: 2026-08-09
+- Phase: 1 / 1.5
+- Status: Implemented and browser-verified; understanding review pending owner answers.
+- Relevant files: `browser/Dockerfile`, `tests/frontend-phase-1-5.spec.ts`, `frontend.md`, `architecture.md`.
+- Related decision: D-021 in `decisions-log.md`.
+- Related verification: `docker compose up --build -d browser` and `docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.ts --workers=1`.
+
+### What this feature does
+
+It removes noVNC’s floating viewer sidebar from Sentinel’s embedded recording browser. The user sees only the remote Demo CRM and can still click, type, and use the normal Sentinel recording controls. This gives the remote page more usable width and prevents access to redundant noVNC controls such as clipboard, settings, fullscreen, and connection actions.
+
+### End-to-end flow
+
+Sentinel launches Chromium in the browser Docker container and embeds its noVNC page in the Recording Workspace iframe. The browser image appends a narrow CSS override to noVNC’s own stylesheet during its build. That override hides the control-bar and hint anchors only; it does not change the VNC canvas or the browser’s kiosk and URL policy. When the workspace loads the iframe, noVNC connects normally and forwards the tester’s pointer and keyboard input to Chromium, but its viewer controls no longer occupy the left side of the stage.
+
+The frontend Playwright regression creates a recording, launches the live iframe, and asserts that `#noVNC_control_bar_anchor` is hidden. It continues checking that the iframe fills the browser stage, so the visual cleanup cannot accidentally remove the remote browser itself.
+
+### Technologies and patterns
+
+| Technology / pattern | Why it is used | How it helps | Important limitation |
+|---|---|---|---|
+| Custom Selenium browser image | Own configuration outside the upstream noVNC package | Applies the same viewer policy on every Docker rebuild | The selector depends on noVNC's DOM structure and needs review on image upgrades. |
+| CSS `display: none !important` override | Hide only the redundant noVNC UI | Keeps the VNC canvas and input plumbing unchanged | It intentionally removes access to noVNC troubleshooting controls. |
+| Cross-origin iframe Playwright assertion | Test the embedded viewer rather than only a static stylesheet | Proves the bar is hidden in the actual Sentinel workspace | It remains specific to the Docker-local viewer. |
+
+### Key implementation details
+
+- `browser/Dockerfile` switches to `root` only long enough to append the override to the root-owned noVNC stylesheet, then restores the image’s normal `seluser` runtime.
+- The hidden selectors are `#noVNC_control_bar_anchor` and `#noVNC_hint_anchor`; hiding the anchor also removes the control-bar reveal handle.
+- The browser policy, kiosk mode, and Selenium lifecycle are unchanged. This is a presentation and interaction-surface reduction, not the security control itself.
+- `tests/frontend-phase-1-5.spec.ts` uses a Playwright `frameLocator` to assert the control anchor is hidden inside the live noVNC iframe.
+
+### Tradeoffs and alternatives
+
+- Tradeoff taken: remove all noVNC viewer controls from the recording experience.
+- Why this tradeoff was acceptable: Sentinel provides the task controls the tester needs, while the remote target needs maximum visible area.
+- Alternative considered: keep the sidebar collapsed behind its small reveal handle.
+- Why it was not chosen: it still consumes space and exposes actions outside the agreed test workflow.
+- Alternative considered: style the cross-origin iframe from the Sentinel page.
+- Why it was not chosen: browser cross-origin rules prevent Sentinel CSS from reliably reaching noVNC; the browser image is the correct owner.
+
+### Risks and future improvements
+
+- Viewer-level clipboard and connection troubleshooting are unavailable to a tester; local diagnosis should use Docker logs instead.
+- A noVNC upstream DOM or stylesheet change can invalidate the selector, so the iframe regression test must run after browser-image upgrades.
+- A future multi-user viewer may need a deliberate, authenticated support mode rather than exposing controls in the normal recording workspace.
+
+### Ten-question understanding check
+
+1. Why is the visible sidebar in the screenshot part of noVNC rather than Sentinel’s Step Log or App Shell?
+2. Which noVNC selectors are hidden, and why does hiding the anchor remove the reveal handle too?
+3. Why is the CSS override applied in the browser Docker image instead of Sentinel’s application stylesheet?
+4. What input capabilities remain available after the noVNC controls are hidden?
+5. Which controls are intentionally removed, and why are they unnecessary in the normal Phase 1 recording flow?
+6. Why does the Dockerfile temporarily switch to `root` and then return to `seluser`?
+7. How does the `frameLocator` regression test prove both the absence of the bar and the presence of a live embedded browser?
+8. Why is hiding the control bar not, by itself, the security boundary for the remote browser?
+9. What would need review if the upstream Selenium/noVNC image changes version?
+10. How could a future support workflow provide diagnostics without restoring these controls for every tester?
+
+#### Answers
+
+1. **Answer:**
+2. **Answer:**
+3. **Answer:**
+4. **Answer:**
+5. **Answer:**
+6. **Answer:**
+7. **Answer:**
+8. **Answer:**
+9. **Answer:**
+10. **Answer:**
+
+### Priority-based diff review
+
+| Priority | File | What changed | Why it needs attention | Review action |
+|---|---|---|---|---|
+| Highest | `browser/Dockerfile` | Adds a root-scoped noVNC CSS override and restores the unprivileged runtime user | Container permissions and an upstream UI selector affect the remote-browser boundary | Read now |
+| Medium | `tests/frontend-phase-1-5.spec.ts` | Asserts the noVNC control anchor is hidden inside the live iframe | It protects the visible interaction contract against browser-image changes | Read next |
+| Lower | `frontend.md`, `architecture.md`, `decisions-log.md`, `learning-log.md` | Documents the intended minimal viewer surface | Explains product scope but does not change runtime behavior | Skim |
+
+#### Follow-up learning tasks
+
+- Owner answers all ten questions above before this viewer-surface change is considered understood.
+- Define an authenticated support and diagnostics mode before exposing any viewer-level controls in a multi-user environment.
