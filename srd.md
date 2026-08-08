@@ -82,6 +82,7 @@ flowchart TD
 5. Each step can be edited and can contain a description, expected outcome, conditional instruction, checkpoint flag, and important-screenshot flag.
 6. Typed values can be marked inline as variables.
 7. The tester can save at any point or discard the recording without creating a Test Case.
+8. A named user can create a Product with a required unique name, rename a Product they created using the same validation, and open the Test Case inventory pre-filtered to that Product. Product names are trimmed; blank and duplicate names are rejected with clear feedback.
 
 ### F2. Complete evidence capture
 
