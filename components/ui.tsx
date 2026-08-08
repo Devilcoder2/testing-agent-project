@@ -36,7 +36,7 @@ export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
 }
 
 export function SelectInput(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={classes("input", "select", props.className)} {...props} />;
+  return <span className="select-wrap"><select className={classes("input", "select", props.className)} {...props} /></span>;
 }
 
 export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
