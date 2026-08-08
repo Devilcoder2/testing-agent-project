@@ -1,6 +1,7 @@
 {
   "URLBlocklist": ["*"],
   "URLAllowlist": [
+    "http://demo-target",
     "http://demo-target/*",
     "http://sentinel:3000/api/internal/events"
   ],
