@@ -12,6 +12,7 @@ type SavedTestCase = TestCaseSummary & { versions: Array<{ version: number; step
 type RecordingContext = { id: string; token: string; testName: string };
 
 const recordingStorageKey = (id: string) => `sentinel-recording:${id}`;
+const preferredProductStorageKey = "sentinel-preferred-product";
 
 async function request(path: string, method = "GET", body?: unknown) {
   const response = await fetch(`/api/${path}`, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
@@ -133,8 +134,9 @@ export function ProductsView() {
     try {
       const product = await request("products", "POST", { name: newProductName }) as Product;
       setProducts((all) => [...all, product].sort((left, right) => left.name.localeCompare(right.name)));
+      window.sessionStorage.setItem(preferredProductStorageKey, product.id);
       setNewProductName("");
-      setProductMessage(`Product "${product.name}" created.`);
+      setProductMessage(`Product "${product.name}" created and selected for your next recording.`);
     } catch (createError) {
       setProductMessage(errorMessage(createError, "Could not create Product."));
     }
@@ -185,7 +187,14 @@ export function NewRecordingView() {
   const [message, setMessage] = useState("");
   const preferredProductId = searchParams.get("productId");
 
-  useEffect(() => { if (!productId && products.length) setProductId(products.some((product) => product.id === preferredProductId) ? preferredProductId ?? products[0].id : products[0].id); }, [preferredProductId, productId, products]);
+  useEffect(() => {
+    if (productId || !products.length) return;
+    const storedProductId = window.sessionStorage.getItem(preferredProductStorageKey);
+    const requestedProductId = preferredProductId ?? storedProductId;
+    const nextProductId = products.some((product) => product.id === requestedProductId) ? requestedProductId ?? products[0].id : products[0].id;
+    setProductId(nextProductId);
+    if (storedProductId) window.sessionStorage.removeItem(preferredProductStorageKey);
+  }, [preferredProductId, productId, products]);
 
   async function createRecording(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
