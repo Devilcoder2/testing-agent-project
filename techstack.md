@@ -11,7 +11,7 @@
 | Language | TypeScript | 5.x | Shared types across web UI, API, workers, and tests. |
 | Runtime | Node.js | 22 LTS or later supported LTS | Compatible with modern TypeScript tooling and browser automation. |
 | Web UI/API | Next.js with React | Next.js 15.x, React 19.x | A modular web application with server routes and a productive UI layer. |
-| Styling | CSS Modules or a small utility layer | Version chosen with UI scaffold | Keeps the first workspace understandable and avoids premature design-system scope. |
+| Styling | Custom CSS token system and component styles | Native CSS; no external styling library | Provides fixed semantic design tokens, responsive behavior, and reusable Sentinel-specific primitives without a framework migration. |
 | Validation | Zod | 3.x or compatible stable major | Runtime validation at API and job boundaries. |
 | Testing | Vitest and Playwright Test | Current compatible majors pinned in Phase 1 | Fast unit tests plus real-browser acceptance tests. |
 
@@ -38,6 +38,7 @@
 - `.env.example` for configuration names only; never commit secrets.
 - Docker Compose may provide local PostgreSQL and Redis during development if the selected app setup benefits from it.
 - Docker Desktop is required for Phase 1: Compose runs PostgreSQL, Sentinel, the isolated demo target, and the browser-in-browser session.
+- Phase 1.5 uses local system typography, CSS custom properties, and custom React/CSS primitives; it does not add external fonts, icon packs, Tailwind, shadcn, or a component library.
 - CI should run formatting/lint checks, unit tests, type checks, and browser smoke tests.
 - Structured logs should include correlation IDs for a Test Case, Run, job, evidence event, and external integration request.
 
