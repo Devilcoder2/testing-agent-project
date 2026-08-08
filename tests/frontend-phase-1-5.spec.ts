@@ -12,7 +12,12 @@ async function signIn(page: Page) {
 }
 
 test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
   await signIn(page);
+  expect(consoleErrors.filter((message) => message.includes("hydrated"))).toEqual([]);
   await expect(page.getByRole("heading", { name: "Test Cases by Product" })).toBeVisible();
   await expect(page.getByText("Test inventory", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Product context", { exact: true })).toHaveCount(0);
@@ -34,8 +39,8 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   await expect(page.locator(".sidebar__link-label").first()).toBeVisible();
   await page.locator(".sidebar").getByRole("link", { name: "Products" }).click();
   await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
-  const newRecording = page.locator(".topbar").getByRole("link", { name: "New recording" });
-  await expect(page.getByRole("link", { name: "New recording" })).toHaveCount(1);
+  const newRecording = page.locator(".topbar").getByRole("button", { name: "New recording" });
+  await expect(page.getByRole("button", { name: "New recording" })).toHaveCount(1);
   await newRecording.focus();
   await expect(newRecording).toBeFocused();
 
@@ -48,15 +53,19 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   await expect(page.getByRole("dialog", { name: "Create new Product" })).toHaveCount(0);
 
   await newRecording.click();
-  await expect(page).toHaveURL(/\/recordings\/new/);
-  await expect(page.getByRole("heading", { name: "Create a recording workspace" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Create recording workspace" })).toBeVisible();
+  await expect(page).not.toHaveURL(/\/recordings\/new/);
 
   const testName = `Frontend workspace ${Date.now()}`;
   await page.getByLabel("Test Name").fill(testName);
   await page.getByRole("button", { name: "Create recording workspace" }).click();
   await expect(page).toHaveURL(/\/recordings\/[a-z0-9]+$/);
   await expect(page.locator(".recording-workspace")).toBeVisible();
+  await expect(page.locator(".sidebar")).toHaveCount(0);
+  await expect(page.locator(".topbar")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: testName })).toBeVisible();
+  await expect(page.locator(".recording-bar").getByRole("button", { name: "Launch live browser" })).toHaveCount(0);
+  await expect(page.locator(".browser-stage").getByRole("button", { name: "Launch live browser" })).toBeVisible();
 
   await page.setViewportSize({ width: 900, height: 900 });
   await expect(page.getByRole("heading", { name: "Use a wider screen to record a live journey." })).toBeVisible();
@@ -67,5 +76,8 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator(".recording-bar").getByRole("button", { name: "Back to dashboard" }).click();
+  await expect(page.getByRole("dialog", { name: "Save or discard this draft" })).toBeVisible();
+  await expect(page).toHaveURL(/\/recordings\/[a-z0-9]+$/);
+  await page.getByRole("button", { name: "Discard Test Case" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 });
