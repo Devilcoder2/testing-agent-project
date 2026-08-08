@@ -141,3 +141,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** These changes keep navigation visually compact, remove the always-visible Product form from a management page, and put the Test Case count where users establish the page’s context.
 - **Impact:** Product creation validation and success feedback remain unchanged; a new Product remains selected for the next recording. The modal exposes a labelled dialog and explicit Close/Cancel controls. The Test Case count updates as filters change.
 - **Status:** Confirmed by project owner; verified by Product creation and frontend browser tests.
+
+## D-017 — Product rename and filtered Test Case navigation
+
+- **Date:** 2026-08-08
+- **Decision:** Replace the Product availability label with **Edit** and **View Test Cases** actions. Only the Product creator may rename its required, trimmed name; blank and duplicate names receive the same clear validation as creation. **View Test Cases** navigates to the Test Case inventory with that Product preselected. The Product header action is named **New product** and matches the New recording action dimensions.
+- **Reason:** Product rows should lead to useful management tasks rather than restate availability. Keeping rename authorization with the creator preserves the current ownership model, while the pre-filtered inventory makes the Product-to-Test Case relationship immediately inspectable.
+- **Impact:** The authenticated API exposes a creator-authorized Product rename endpoint. The sidebar’s compact state persists when users navigate through its links and changes only through the top-bar toggle. Test Case search results have intentional visual separation from their search input.
+- **Status:** Confirmed by project owner; verified by Product and frontend browser tests.
