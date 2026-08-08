@@ -14,7 +14,7 @@ async function signIn(page: Page, email = "ava.tester@example.test", navigate = 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("sentinel-dev");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Quality, made observable." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 }
 
 async function readSteps(page: Page, recordingId: string): Promise<Step[]> {
@@ -41,7 +41,7 @@ test("records the remote demo journey and preserves saved annotations after refr
 
   try {
     await signIn(page);
-    await page.getByRole("link", { name: "New recording" }).first().click();
+    await page.locator(".topbar").getByRole("link", { name: "New recording" }).click();
     await expect(page.getByRole("heading", { name: "Create a recording workspace" })).toBeVisible();
     await page.getByLabel("Test Name").fill(testName);
     const createResponse = page.waitForResponse((response) => response.url().endsWith("/api/recordings") && response.request().method() === "POST");
@@ -115,6 +115,7 @@ test("records the remote demo journey and preserves saved annotations after refr
     await expect(page.getByText("Variable: demoPassword")).toBeVisible();
 
     await page.locator(".breadcrumbs").getByRole("link", { name: "Dashboard" }).click();
+    await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
     const savedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await savedTest.getByRole("link", { name: "Open" }).click();
     await expect(page.locator(".timeline-item")).toHaveCount(capturedStepCount);
@@ -122,6 +123,7 @@ test("records the remote demo journey and preserves saved annotations after refr
 
     await page.reload();
     await signIn(page, "ava.tester@example.test");
+    await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
     const reopenedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await reopenedTest.getByRole("link", { name: "Open" }).click();
     await expect(page.locator(".timeline-item")).toHaveCount(capturedStepCount);
