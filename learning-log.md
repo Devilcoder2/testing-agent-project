@@ -584,9 +584,9 @@ Every implemented screen uses semantic CSS variables from the token stylesheet. 
 - Date: 2026-08-09
 - Phase: 1
 - Status: Implemented and regression-verified; understanding review pending owner answers.
-- Relevant files: `lib/browser.ts`, `app/api/[[...route]]/route.ts`, `components/sentinel-views.tsx`, `tests/browser-lock.spec.ts`.
+- Relevant files: `lib/browser.ts`, `app/api/[[...route]]/route.ts`, `components/sentinel-views.tsx`, `tests/browser-lock.spec.ts`, `tests/phase-1-recording.spec.ts`.
 - Related decision: D-020 in `decisions-log.md`.
-- Related verification: `docker compose exec sentinel npm run lint`, `docker compose exec sentinel npm run typecheck`, `docker compose exec sentinel npm test`, `docker compose exec sentinel npx playwright test tests/browser-lock.spec.ts --workers=1`, and `docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.ts --workers=1`.
+- Related verification: `docker compose exec sentinel npm run lint`, `docker compose exec sentinel npm run typecheck`, `docker compose exec sentinel npm test`, `docker compose exec sentinel npx playwright test tests/browser-lock.spec.ts --workers=1`, `docker compose exec sentinel npx playwright test tests/phase-1-recording.spec.ts --workers=1`, and `docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.ts --workers=1`.
 
 ### What this feature does
 
@@ -613,7 +613,7 @@ If the browser service is unavailable, the session cannot close, another launch 
 - `withTimeout` bounds browser-service requests, WebDriver creation, navigation, and recorder injection. If WebDriver resolves after its timeout, its driver is immediately quit to prevent a later slot leak.
 - `launchInFlight` rejects a second launch started in the same Sentinel process while the first is still preparing Chromium.
 - `app/api/[[...route]]/route.ts` maps browser lifecycle failures to actionable `409` or `503` JSON responses. Its cleanup wrapper logs cleanup failures but does not invalidate an already saved Test Case or prevent draft deletion.
-- `tests/browser-lock.spec.ts` creates a standalone Selenium session outside Sentinel's module state, then proves `launchBrowser` reclaims it and reaches the Demo CRM sign-in form.
+- `tests/browser-lock.spec.ts` creates a standalone Selenium session outside Sentinel's module state, then proves `launchBrowser` reclaims it and reaches the Demo CRM sign-in form. `tests/phase-1-recording.spec.ts` treats the remote driver as already closed after Save, because cleanup through the Sentinel API is now the expected lifecycle owner.
 
 ### Tradeoffs and alternatives
 
@@ -661,9 +661,9 @@ If the browser service is unavailable, the session cannot close, another launch 
 | Priority | File | What changed | Why it needs attention | Review action |
 |---|---|---|---|---|
 | Highest | `lib/browser.ts` | Discovers and terminates stale Selenium sessions, bounds launch operations, and prevents duplicate starts | It controls the single remote browser and can interrupt a recording if changed incorrectly | Read now |
-| Highest | `app/api/[[...route]]/route.ts` | Returns retryable browser errors and makes post-save/discard cleanup non-blocking | It governs user-visible failure semantics and durable write behavior | Read now |
+| Highest | `app/api/[[...route]]/route.ts` | Returns retryable browser errors and makes post-save/discard cleanup non-fatal | It governs user-visible failure semantics and durable write behavior | Read now |
 | Medium | `components/sentinel-views.tsx` | Displays live launch progress and restores the retry action after an error | It controls whether a tester can understand and recover from a browser startup failure | Read next |
-| Medium | `tests/browser-lock.spec.ts` | Reproduces and protects stale-session recovery | It encodes the infrastructure failure mode that caused the defect | Read next |
+| Medium | `tests/browser-lock.spec.ts` and `tests/phase-1-recording.spec.ts` | Reproduces stale-session recovery and accepts the intended post-save driver closure | They encode the infrastructure failure mode and lifecycle contract | Read next |
 | Lower | `architecture.md`, `decisions-log.md`, `learning-log.md` | Records scope, architecture, and learning context | No runtime behavior, but documents the single-session limitation | Skim |
 
 #### Follow-up learning tasks
