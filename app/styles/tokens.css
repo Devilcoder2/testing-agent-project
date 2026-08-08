@@ -55,6 +55,7 @@
   --motion-base: 220ms;
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
   --sidebar-width: 16.5rem;
+  --sidebar-collapsed-width: 5.25rem;
   --topbar-height: 4.5rem;
 }
 
