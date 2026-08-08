@@ -109,14 +109,23 @@ function TestCaseList({ testCases, emptyAction }: { testCases: TestCaseSummary[]
 }
 
 export function DashboardView() {
+  const { products, testCases, loading, error } = useDashboardData();
+  const testsPerProduct = products.length ? (testCases.length / products.length).toFixed(1) : "0";
+  const distribution = products.map((product) => ({ ...product, testCount: testCases.filter((testCase) => testCase.product.id === product.id).length }));
+  const largestCount = Math.max(1, ...distribution.map((product) => product.testCount));
+
+  return <div className="dashboard-grid">
+    <PageHeader eyebrow="Workspace overview" title="Dashboard" detail="A concise view of the Products and reusable Test Cases available to you." />
+    {error && <Feedback tone="danger">{error}</Feedback>}
+    <section className="metrics" aria-label="Workspace summary"><Card className="metric-card"><p className="metric-card__label">Accessible Products</p><p className="metric-card__value">{products.length}</p><p className="metric-card__detail">Products you can record against</p></Card><Card className="metric-card"><p className="metric-card__label">Saved Test Cases</p><p className="metric-card__value">{testCases.length}</p><p className="metric-card__detail">Reusable browser journeys</p></Card><Card className="metric-card"><p className="metric-card__label">Coverage density</p><p className="metric-card__value">{testsPerProduct}</p><p className="metric-card__detail">Saved Tests per accessible Product</p></Card></section>
+    <section className="dashboard-visuals" aria-label="Test Case distribution"><Card className="distribution-card"><div className="panel-card__head"><div><p className="eyebrow">Coverage distribution</p><h2>Test Cases by Product</h2><p>Each bar uses the saved Test Cases you can currently access.</p></div></div>{loading ? <StatusBadge tone="info">Loading workspace data</StatusBadge> : distribution.length === 0 ? <EmptyState title="No accessible Products" detail="Create a Product from the Products page to begin organizing Test Cases." /> : <div className="distribution-list">{distribution.map((product) => <div className="distribution-row" key={product.id}><span className="distribution-row__label" title={product.name}>{product.name}</span><div className="distribution-track" aria-label={`${product.name}: ${product.testCount} saved Test Cases`} role="img"><span style={{ width: `${(product.testCount / largestCount) * 100}%` }} /></div><span className="distribution-row__count">{product.testCount}</span></div>)}</div>}</Card></section>
+  </div>;
+}
+
+export function ProductsView() {
   const { products, testCases, setProducts, loading, error } = useDashboardData();
-  const [selectedProductId, setSelectedProductId] = useState("");
   const [newProductName, setNewProductName] = useState("");
   const [productMessage, setProductMessage] = useState("");
-
-  useEffect(() => { if (!selectedProductId && products[0]) setSelectedProductId(products[0].id); }, [products, selectedProductId]);
-  const selectedProduct = products.find((product) => product.id === selectedProductId);
-  const selectedTests = selectedProductId ? testCases.filter((testCase) => testCase.product.id === selectedProductId) : testCases;
 
   async function createProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -124,20 +133,14 @@ export function DashboardView() {
     try {
       const product = await request("products", "POST", { name: newProductName }) as Product;
       setProducts((all) => [...all, product].sort((left, right) => left.name.localeCompare(right.name)));
-      setSelectedProductId(product.id);
       setNewProductName("");
-      setProductMessage(`Product "${product.name}" created and selected.`);
+      setProductMessage(`Product "${product.name}" created.`);
     } catch (createError) {
       setProductMessage(errorMessage(createError, "Could not create Product."));
     }
   }
 
-  return <div className="dashboard-grid">
-    <PageHeader eyebrow="Workspace overview" title="Quality, made observable." detail="Create product-owned tests, record live journeys, and preserve the intent behind every step." actions={<Link className="button button--primary" href={`/recordings/new${selectedProductId ? `?productId=${selectedProductId}` : ""}`}>New recording <span aria-hidden="true">+</span></Link>} />
-    {error && <Feedback tone="danger">{error}</Feedback>}
-    <section className="metrics" aria-label="Workspace summary"><Card className="metric-card"><p className="metric-card__label">Accessible Products</p><p className="metric-card__value">{products.length}</p><p className="metric-card__detail">Products you can record against</p></Card><Card className="metric-card"><p className="metric-card__label">Saved Test Cases</p><p className="metric-card__value">{testCases.length}</p><p className="metric-card__detail">Reusable browser journeys</p></Card><Card className="metric-card"><p className="metric-card__label">Current Product</p><p className="metric-card__value">{selectedProduct ? selectedTests.length : "—"}</p><p className="metric-card__detail">Tests in {selectedProduct?.name ?? "your workspace"}</p></Card></section>
-    <section className="content-grid"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Test inventory</p><h2>Saved Test Cases</h2><p>Open a versioned journey to inspect its recorded steps and annotations.</p></div><Link className="button button--ghost" href="/test-cases">View all <span aria-hidden="true">→</span></Link></div><div className="form-stack"><Field label="Product"><SelectInput value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)} disabled={loading || products.length === 0}>{products.length === 0 ? <option value="">Create a Product first</option> : products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field><TestCaseList testCases={selectedTests} emptyAction={<Link className="button button--primary" href={`/recordings/new${selectedProductId ? `?productId=${selectedProductId}` : ""}`}>Record your first test</Link>} /></div></Card><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Product context</p><h2>Create Product</h2><p>Create a Product you own and use it immediately for a new Test Case.</p></div></div><form className="form-stack" onSubmit={createProduct}><Field label="Product name"><TextInput value={newProductName} onChange={(event) => setNewProductName(event.target.value)} placeholder="e.g. Billing Portal" required /></Field><Button type="submit">Create Product <span aria-hidden="true">+</span></Button>{productMessage && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}</form></Card></section>
-  </div>;
+  return <div className="dashboard-grid"><PageHeader eyebrow="Product configuration" title="Products" detail="Create and manage the Product contexts available for guided Test Case recording." />{error && <Feedback tone="danger">{error}</Feedback>}<section className="products-layout"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">New Product</p><h2>Create a Product</h2><p>A Product needs a name and is immediately available to you for a new recording.</p></div></div><form className="form-stack" onSubmit={createProduct}><Field label="Product name"><TextInput value={newProductName} onChange={(event) => setNewProductName(event.target.value)} placeholder="e.g. Billing Portal" required /></Field><Button type="submit">Create Product <span aria-hidden="true">+</span></Button>{productMessage && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}</form></Card><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Accessible Products</p><h2>Your Product contexts</h2><p>Products are private to their members and persist between sessions.</p></div><StatusBadge tone="info">{products.length} total</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading Products</StatusBadge> : products.length === 0 ? <EmptyState title="No Products yet" detail="Create your first Product to start a guided recording." /> : <div className="product-list">{products.map((product) => { const testCount = testCases.filter((testCase) => testCase.product.id === product.id).length; return <article className="product-list__item" key={product.id}><div><h3>{product.name}</h3><p>{testCount} saved Test Case{testCount === 1 ? "" : "s"}</p></div><StatusBadge tone="success">Available</StatusBadge></article>; })}</div>}</Card></section></div>;
 }
 
 export function TestCasesView() {
@@ -146,7 +149,7 @@ export function TestCasesView() {
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => testCases.filter((testCase) => (!productId || testCase.product.id === productId) && testCase.name.toLowerCase().includes(query.toLowerCase())), [productId, query, testCases]);
 
-  return <div className="dashboard-grid"><PageHeader eyebrow="Test library" title="Test Cases" detail="Browse the reusable, product-owned journeys available to you." actions={<Link className="button button--primary" href={`/recordings/new${productId ? `?productId=${productId}` : ""}`}>New recording <span aria-hidden="true">+</span></Link>} />{error && <Feedback tone="danger">{error}</Feedback>}<Card className="panel-card"><div className="form-row"><Field label="Product"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)} disabled={loading}><option value="">All accessible Products</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field><Field label="Find a Test Case"><TextInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by Test Case name" /></Field></div><div className="form-stack"><StatusBadge tone="info">{filtered.length} visible Test Case{filtered.length === 1 ? "" : "s"}</StatusBadge><TestCaseList testCases={filtered} emptyAction={<Link className="button button--primary" href="/recordings/new">Create a recording</Link>} /></div></Card></div>;
+  return <div className="dashboard-grid"><PageHeader eyebrow="Test library" title="Test Cases" detail="Browse the reusable, product-owned journeys available to you." />{error && <Feedback tone="danger">{error}</Feedback>}<Card className="panel-card"><div className="inventory-toolbar"><Field label="Filter by Product"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)} disabled={loading}><option value="">All accessible Products</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field><Field label="Find a Test Case"><TextInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by Test Case name" /></Field></div><div className="inventory-summary"><StatusBadge tone="info">{filtered.length} visible Test Case{filtered.length === 1 ? "" : "s"}</StatusBadge></div><div className="form-stack"><TestCaseList testCases={filtered} /></div></Card></div>;
 }
 
 export function TestCaseDetailView({ testCaseId }: { testCaseId: string }) {
