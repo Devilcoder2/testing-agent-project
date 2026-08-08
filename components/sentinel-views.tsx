@@ -91,7 +91,7 @@ function useDashboardData() {
       return { products: nextProducts, testCases: nextTestCases };
     } catch (loadError) {
       const message = errorMessage(loadError, "Could not load the workspace.");
-      if (message.includes("access") || message.includes("sign in")) router.replace("/");
+      if (message.toLowerCase().includes("access") || message.toLowerCase().includes("sign in")) router.replace("/");
       else setError(message);
       return { products: [], testCases: [] };
     } finally {
@@ -157,7 +157,7 @@ export function TestCaseDetailView({ testCaseId }: { testCaseId: string }) {
   useEffect(() => {
     request(`test-cases/${testCaseId}`).then((result) => setTestCase(result as SavedTestCase)).catch((loadError) => {
       const error = errorMessage(loadError, "Could not open this Test Case.");
-      if (error.includes("access") || error.includes("sign in")) router.replace("/");
+      if (error.toLowerCase().includes("access") || error.toLowerCase().includes("sign in")) router.replace("/");
       else setMessage(error);
     });
   }, [router, testCaseId]);
