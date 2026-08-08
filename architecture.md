@@ -35,7 +35,7 @@ flowchart LR
 
 ### Web application
 
-Provides authentication, dashboard, product and Test Case management, Recording Workspace, Run Detail, release views, approvals, and manual actions. It never directly owns browser automation or external integration credentials.
+Provides authentication, dashboard, product and Test Case management, Recording Workspace, Run Detail, release views, approvals, and manual actions. Its route-based App Shell uses the tokenized Sentinel frontend system documented in [`frontend.md`](frontend.md): a persistent sidebar, accessible semantic controls, and a desktop-first focused Recording Workspace. It never directly owns browser automation or external integration credentials.
 
 ### Application API
 
@@ -132,7 +132,7 @@ The design avoids Kubernetes, microservices per feature, a general-purpose AI ag
 ## 9. Deferred architecture decisions
 
 - Identity provider and shared-login identity mapping.
-- Final frontend framework and deployment platform.
+- Final frontend deployment platform; the UI foundation is custom React components and CSS tokens as documented in `frontend.md`.
 - Evidence storage provider, retention, redaction, and budget.
 - Queue implementation and concurrency limits.
 - JIRA authentication, project, fields, and duplicate key.
