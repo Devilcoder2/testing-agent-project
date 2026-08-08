@@ -29,7 +29,7 @@ The attached requirements document is the current product source of truth. Archi
 
 - Product documentation: prepared.
 - Phase 1: acceptance criteria verified; owner learning review remains pending.
-- Phase 1.5: frontend foundation and Phase 1 UX redesign in progress.
+- Phase 1.5: frontend foundation and Phase 1 UX redesign acceptance-verified; owner learning review remains pending.
 - Application code: local Docker recording slice is available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -67,4 +67,4 @@ The final browser test covers the remote recording journey, password redaction, 
 
 ## Status
 
-Phase 1 is implemented and its acceptance checks have been verified. Phase 1.5 is redesigning those same flows into the documented route-based Sentinel interface without changing their backend behavior. Phase 1 is not marked fully understood or closed because the owner learning questions in `learning-log.md` still need answers. Replay, evidence bundles, external integrations, scheduling, and QA-network access remain later phases.
+Phase 1 is implemented and its acceptance checks have been verified. Phase 1.5 has redesigned those flows into the documented route-based Sentinel interface without changing their backend behavior. Neither phase is marked fully understood or closed because the owner learning questions in `learning-log.md` still need answers. Replay, evidence bundles, external integrations, scheduling, and QA-network access remain later phases.
