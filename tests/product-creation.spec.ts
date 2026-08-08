@@ -25,13 +25,15 @@ async function cleanupProduct(productName: string) {
 
 test("creates, persists, and authorizes a Product through the portal", async ({ page }) => {
   const productName = `Portal Product ${Date.now()}`;
+  const renamedProductName = `Renamed Portal Product ${Date.now()}`;
   const testName = `Product recording ${Date.now()}`;
+  let currentProductName = productName;
 
   try {
     await signIn(page, "ava.tester@example.test", "sentinel-dev");
     await page.getByRole("link", { name: "Products" }).click();
     await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
-    await page.getByRole("button", { name: "Create new product" }).click();
+    await page.getByRole("button", { name: "New product" }).click();
     await expect(page.getByRole("dialog", { name: "Create new Product" })).toBeVisible();
     await page.getByLabel("Product name").fill(productName);
     await page.getByRole("button", { name: "Create Product" }).click();
@@ -39,9 +41,26 @@ test("creates, persists, and authorizes a Product through the portal", async ({ 
     await expect(page.getByRole("heading", { name: productName })).toBeVisible();
     await expect(page.getByRole("dialog", { name: "Create new Product" })).toHaveCount(0);
 
+    const createdProduct = page.locator(".product-list__item").filter({ hasText: productName });
+    await createdProduct.getByRole("button", { name: "Edit" }).click();
+    await expect(page.getByRole("dialog", { name: "Edit Product" })).toBeVisible();
+    await page.getByLabel("Product name").fill(renamedProductName);
+    await page.getByRole("button", { name: "Save changes" }).click();
+    currentProductName = renamedProductName;
+    await expect(page.getByText(`Product "${renamedProductName}" renamed.`)).toBeVisible();
+    await expect(page.getByRole("heading", { name: renamedProductName })).toBeVisible();
+
+    const renamedProduct = page.locator(".product-list__item").filter({ hasText: renamedProductName });
+    await renamedProduct.getByRole("link", { name: "View Test Cases" }).click();
+    await expect(page).toHaveURL(/\/test-cases\?productId=/);
+    await expect(page.getByLabel("Filter by Product").locator("option:checked")).toHaveText(renamedProductName);
+    await page.locator(".sidebar").getByRole("link", { name: "Products" }).click();
+    await expect(page).toHaveURL(/\/products$/);
+    await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
+
     await page.locator(".topbar").getByRole("link", { name: "New recording" }).click();
     await expect(page.getByRole("heading", { name: "Create a recording workspace" })).toBeVisible();
-    await expect(page.getByLabel("Product").locator("option:checked")).toHaveText(productName);
+    await expect(page.getByLabel("Product").locator("option:checked")).toHaveText(renamedProductName);
     await page.getByLabel("Test Name").fill(testName);
     await page.getByRole("button", { name: "Create recording workspace" }).click();
     await expect(page.locator(".recording-bar").getByRole("button", { name: "Launch live browser" })).toBeVisible();
@@ -49,21 +68,21 @@ test("creates, persists, and authorizes a Product through the portal", async ({ 
 
     await signIn(page, "ava.tester@example.test", "sentinel-dev");
     await page.getByRole("link", { name: "Products" }).click();
-    await expect(page.getByRole("heading", { name: productName })).toBeVisible();
+    await expect(page.getByRole("heading", { name: renamedProductName })).toBeVisible();
 
-    await page.getByRole("button", { name: "Create new product" }).click();
+    await page.getByRole("button", { name: "New product" }).click();
     await page.getByLabel("Product name").fill("   ");
     await page.getByRole("button", { name: "Create Product" }).click();
     await expect(page.getByText("Product name is required.")).toBeVisible();
 
-    await page.getByLabel("Product name").fill(productName);
+    await page.getByLabel("Product name").fill(renamedProductName);
     await page.getByRole("button", { name: "Create Product" }).click();
     await expect(page.getByText("You already have a Product with this name.")).toBeVisible();
 
     await signIn(page, "ben.tester@example.test", "sentinel-dev");
     await page.getByRole("link", { name: "Products" }).click();
-    await expect(page.getByRole("heading", { name: productName })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: renamedProductName })).toHaveCount(0);
   } finally {
-    await cleanupProduct(productName);
+    await cleanupProduct(currentProductName);
   }
 });
