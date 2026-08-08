@@ -2,6 +2,16 @@ import { Builder, type ThenableWebDriver } from "selenium-webdriver";
 
 let driver: ThenableWebDriver | undefined;
 
+async function closeExistingDriver() {
+  if (!driver) return;
+  const existingDriver = driver;
+  driver = undefined;
+  await Promise.race([
+    existingDriver.quit().catch(() => undefined),
+    new Promise<void>((resolve) => setTimeout(resolve, 2000))
+  ]);
+}
+
 function recorderScript(endpoint: string, token: string) {
   return `
     (() => {
@@ -19,7 +29,7 @@ function recorderScript(endpoint: string, token: string) {
 }
 
 export async function launchBrowser(targetUrl: string, token: string) {
-  if (driver) await driver.quit().catch(() => undefined);
+  await closeExistingDriver();
   const builder = new Builder();
   builder.usingServer(process.env.BROWSER_SELENIUM_URL ?? "http://browser:4444/wd/hub");
   builder.withCapabilities({
