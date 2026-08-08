@@ -58,16 +58,19 @@ test("creates, persists, and authorizes a Product through the portal", async ({ 
     await expect(page).toHaveURL(/\/products$/);
     await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
 
-    await page.locator(".topbar").getByRole("link", { name: "New recording" }).click();
-    await expect(page.getByRole("heading", { name: "Create a recording workspace" })).toBeVisible();
+    await page.locator(".topbar").getByRole("button", { name: "New recording" }).click();
+    await expect(page.getByRole("dialog", { name: "Create recording workspace" })).toBeVisible();
     await expect(page.getByLabel("Product").locator("option:checked")).toHaveText(renamedProductName);
     await page.getByLabel("Test Name").fill(testName);
     await page.getByRole("button", { name: "Create recording workspace" }).click();
-    await expect(page.locator(".recording-bar").getByRole("button", { name: "Launch live browser" })).toBeVisible();
+    await expect(page.locator(".browser-stage").getByRole("button", { name: "Launch live browser" })).toBeVisible();
     await page.getByRole("button", { name: "Back to dashboard" }).click();
+    await expect(page.getByRole("dialog", { name: "Save or discard this draft" })).toBeVisible();
+    await page.getByRole("button", { name: "Discard Test Case" }).click();
 
     await signIn(page, "ava.tester@example.test", "sentinel-dev");
     await page.getByRole("link", { name: "Products" }).click();
+    await expect(page).toHaveURL(/\/products$/);
     await expect(page.getByRole("heading", { name: renamedProductName })).toBeVisible();
 
     await page.getByRole("button", { name: "New product" }).click();
