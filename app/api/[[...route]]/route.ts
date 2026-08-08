@@ -3,7 +3,7 @@ import { Prisma, RecordingStatus, StepKind } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
-import { launchBrowser } from "@/lib/browser";
+import { closeBrowser, launchBrowser } from "@/lib/browser";
 import { prisma } from "@/lib/prisma";
 
 type Context = { params: Promise<{ route?: string[] }> };
@@ -166,10 +166,12 @@ async function route(request: Request, context: Context) {
           await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_CASE_SAVED", entityType: "TestCase", entityId: created.id } });
           return created;
         });
+        await closeBrowser();
         return json(testCase, 201);
       }
       if (request.method === "DELETE" && path.length === 2) {
         if (recording.status === RecordingStatus.SAVED) return json({ error: "Saved tests cannot be discarded." }, 409);
+        await closeBrowser();
         await prisma.recordingSession.delete({ where: { id: recording.id } });
         return new NextResponse(null, { status: 204 });
       }
