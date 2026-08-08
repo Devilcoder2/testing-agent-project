@@ -8,7 +8,8 @@
 
 ```mermaid
 flowchart LR
-    P1["1. Foundation and recording"] --> P2["2. Run model and evidence"]
+    P1["1. Foundation and recording"] --> P15["1.5 Frontend foundation and UX redesign"]
+    P15 --> P2["2. Run model and evidence"]
     P2 --> P3["3. Replay engine"]
     P3 --> P4["4. Variables and data"]
     P3 --> P5["5. Test and release management"]
@@ -78,9 +79,50 @@ The phase is not complete until the commands and raw output are recorded, the ac
 - Updated `learning-log.md` entry with exactly 10 questions.
 - Updated `decisions-log.md`, `README.md`, and this checklist.
 
+## Phase 1.5 — Frontend foundation and UX redesign
+
+**Depends on:** Phase 1 functional acceptance
+**Outcome:** Sentinel has a coherent, accessible, route-based operations UI for all delivered Phase 1 flows, plus documented visual specifications for future product areas.
+
+### In scope
+
+- A fixed custom CSS token system, CSS-rendered Sentinel mark, local system typography, and reusable frontend primitives.
+- Persistent sidebar and route-based Phase 1 views for sign-in, dashboard, Test Cases, Test Case detail, creation, and Recording Workspace.
+- A dark operations interface with purposeful reduced-motion-safe transitions and WCAG 2.2 AA interaction requirements.
+- Desktop-first live recording with a narrow-screen guidance state; responsive dashboard and inventory views.
+- Documented future UI direction for Runs, Releases, Review, and Settings without placeholder feature implementation.
+
+### Acceptance checklist
+
+- [ ] `frontend.md` records all approved visual, interaction, accessibility, responsive, and future-information-architecture decisions.
+- [ ] Semantic CSS tokens are the only source of implemented UI colours.
+- [ ] Existing Phase 1 APIs, authorization, persistence, save, discard, and recorder behavior remain unchanged.
+- [ ] Sign-in, dashboard, Product creation, Test Case inventory/detail, creation, and Recording Workspace use the route-based App Shell.
+- [ ] Keyboard focus, labels, feedback, non-colour status cues, contrast, and reduced-motion behavior meet the documented WCAG 2.2 AA checks.
+- [ ] The Recording Workspace remains usable on desktop and clearly guides narrow-screen users to a desktop viewport.
+- [ ] Playwright verifies new route navigation, keyboard/focus behavior, Product validation feedback, saved-test persistence, recording layout, and narrow-screen guidance.
+- [ ] Existing lint, type-check, unit, Product creation, and remote-recording tests pass.
+
+### Verification
+
+```text
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/product-creation.spec.ts
+docker compose exec sentinel npx playwright test tests/phase-1-recording.spec.ts
+docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.ts
+```
+
+### Deliverables
+
+- `frontend.md` design source of truth and synchronized project documents.
+- Token stylesheet, reusable App Shell and component primitives, and redesigned Phase 1 routes.
+- Automated and manual desktop, tablet, keyboard, and reduced-motion verification evidence.
+
 ## Phase 2 — Run model and complete evidence
 
-**Depends on:** Phase 1  
+**Depends on:** Phases 1 and 1.5
 **Outcome:** A saved Test Case can produce a Run record and a Run Detail view with evidence metadata.
 
 - Define Run lifecycle and step-result contracts.
