@@ -133,3 +133,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Test Case inventory and Product management already have dedicated navigation destinations; repeating them on Dashboard obscures operational status and makes the interface feel like one large form.
 - **Impact:** The existing Product API and membership behavior remain unchanged. A newly created Product is retained as the selection for the next recording, so the new route does not remove the Phase 1 creation convenience. Test Case filtering receives dedicated spacing and a custom select affordance for consistent alignment.
 - **Status:** Confirmed by project owner; verified with updated Product, recording, and frontend browser tests.
+
+## D-016 — Compact navigation, modal Product creation, and Test Case count placement
+
+- **Date:** 2026-08-08
+- **Decision:** The collapsed desktop sidebar displays navigation icons only, with accessible link names retained. Product creation is initiated by a right-aligned page-header button and completed in a modal. The Test Cases page displays the filtered and total Test Case counts together in its page header.
+- **Reason:** These changes keep navigation visually compact, remove the always-visible Product form from a management page, and put the Test Case count where users establish the page’s context.
+- **Impact:** Product creation validation and success feedback remain unchanged; a new Product remains selected for the next recording. The modal exposes a labelled dialog and explicit Close/Cancel controls. The Test Case count updates as filters change.
+- **Status:** Confirmed by project owner; verified by Product creation and frontend browser tests.
