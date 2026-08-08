@@ -31,10 +31,13 @@ test("creates, persists, and authorizes a Product through the portal", async ({ 
     await signIn(page, "ava.tester@example.test", "sentinel-dev");
     await page.getByRole("link", { name: "Products" }).click();
     await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
+    await page.getByRole("button", { name: "Create new product" }).click();
+    await expect(page.getByRole("dialog", { name: "Create new Product" })).toBeVisible();
     await page.getByLabel("Product name").fill(productName);
     await page.getByRole("button", { name: "Create Product" }).click();
     await expect(page.getByText(`Product "${productName}" created and selected for your next recording.`)).toBeVisible();
     await expect(page.getByRole("heading", { name: productName })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Create new Product" })).toHaveCount(0);
 
     await page.locator(".topbar").getByRole("link", { name: "New recording" }).click();
     await expect(page.getByRole("heading", { name: "Create a recording workspace" })).toBeVisible();
@@ -48,6 +51,7 @@ test("creates, persists, and authorizes a Product through the portal", async ({ 
     await page.getByRole("link", { name: "Products" }).click();
     await expect(page.getByRole("heading", { name: productName })).toBeVisible();
 
+    await page.getByRole("button", { name: "Create new product" }).click();
     await page.getByLabel("Product name").fill("   ");
     await page.getByRole("button", { name: "Create Product" }).click();
     await expect(page.getByText("Product name is required.")).toBeVisible();
