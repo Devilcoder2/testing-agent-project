@@ -12,6 +12,10 @@ async function closeExistingDriver() {
   ]);
 }
 
+export async function closeBrowser() {
+  await closeExistingDriver();
+}
+
 function recorderScript(endpoint: string, token: string) {
   return `
     (() => {
