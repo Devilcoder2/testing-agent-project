@@ -8,13 +8,22 @@ async function signIn(page: Page) {
   await page.getByLabel("Password").fill("sentinel-dev");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole("heading", { name: "Quality, made observable." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 }
 
 test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", async ({ page }) => {
   await signIn(page);
 
+  const navigationToggle = page.getByRole("button", { name: "Toggle navigation" });
+  await navigationToggle.click();
+  await expect(page.locator(".app-shell")).toHaveClass(/app-shell--sidebar-collapsed/);
+  await navigationToggle.click();
+  await expect(page.locator(".app-shell")).not.toHaveClass(/app-shell--sidebar-collapsed/);
+
+  await page.locator(".sidebar").getByRole("link", { name: "Products" }).click();
+  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
   const newRecording = page.locator(".topbar").getByRole("link", { name: "New recording" });
+  await expect(page.getByRole("link", { name: "New recording" })).toHaveCount(1);
   await newRecording.focus();
   await expect(newRecording).toBeFocused();
 
