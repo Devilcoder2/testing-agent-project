@@ -13,6 +13,9 @@ async function signIn(page: Page) {
 
 test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", async ({ page }) => {
   await signIn(page);
+  await expect(page.getByRole("heading", { name: "Test Cases by Product" })).toBeVisible();
+  await expect(page.getByText("Test inventory", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Product context", { exact: true })).toHaveCount(0);
 
   const navigationToggle = page.getByRole("button", { name: "Toggle navigation" });
   await navigationToggle.click();
@@ -20,6 +23,9 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   await navigationToggle.click();
   await expect(page.locator(".app-shell")).not.toHaveClass(/app-shell--sidebar-collapsed/);
 
+  await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
+  await expect(page.getByLabel("Filter by Product")).toBeVisible();
+  await expect(page.getByText(/visible Test Cases/)).toBeVisible();
   await page.locator(".sidebar").getByRole("link", { name: "Products" }).click();
   await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
   const newRecording = page.locator(".topbar").getByRole("link", { name: "New recording" });
