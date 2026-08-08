@@ -20,7 +20,22 @@ function recorderScript(endpoint: string, token: string) {
 
 export async function launchBrowser(targetUrl: string, token: string) {
   if (driver) await driver.quit().catch(() => undefined);
-  const launchedDriver = await new Builder().usingServer(process.env.BROWSER_SELENIUM_URL ?? "http://browser:4444/wd/hub").forBrowser("chrome").build();
+  const builder = new Builder();
+  builder.usingServer(process.env.BROWSER_SELENIUM_URL ?? "http://browser:4444/wd/hub");
+  builder.withCapabilities({
+    browserName: "chrome",
+    "goog:chromeOptions": {
+      args: [
+        "--kiosk",
+        `--app=${targetUrl}`,
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-session-crashed-bubble",
+        "--disable-features=Translate,MediaRouter"
+      ]
+    }
+  });
+  const launchedDriver = await builder.build();
   driver = launchedDriver;
   try {
     await launchedDriver.get(targetUrl);
