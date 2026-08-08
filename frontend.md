@@ -50,7 +50,7 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 |---|---|
 | `/` | Development sign-in entry. Authenticated users continue to `/dashboard`. |
 | `/dashboard` | Real-data workspace metrics and a five-Product maximum Test Case distribution chart; no management forms or Test Case inventory. |
-| `/products` | Accessible Product list with a heading-level **Create new product** action that opens a named Product-creation modal. |
+| `/products` | Accessible Product list with a heading-level **New product** action, sized to match **New recording**, that opens a named Product-creation modal. Each Product can be renamed or used to open a pre-filtered Test Case inventory. |
 | `/test-cases` | Searchable and product-filterable Test Case inventory with a header count of visible versus accessible Test Cases. |
 | `/test-cases/[id]` | Saved Test Case metadata, current-version badge, and read-only Step Timeline. |
 | `/recordings/new` | Product-aware Test Case creation form. |
@@ -67,7 +67,7 @@ The following are documented design targets only. Phase 1.5 must not create plac
 | `/review` | Change proposals, negative-test suggestions, checkpoint decisions, and owner approvals. |
 | `/settings` | Product access, integration health, notification configuration, and safe connection state. |
 
-The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Phase 1 navigation exposes Dashboard, Products, and Test Cases; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Future navigation adds Runs, Releases, Review, and Settings when the relevant product capabilities exist.
+The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 1 navigation exposes Dashboard, Products, and Test Cases; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Future navigation adds Runs, Releases, Review, and Settings when the relevant product capabilities exist.
 
 ## 5. Page experience decisions
 
@@ -77,7 +77,7 @@ Use a branded full-height entry screen with a concise development-access card, c
 
 ### Dashboard, Products, and Test Case inventory
 
-Use the shared App Shell and keep responsibilities separate: Dashboard is a clean operational overview with real Product/Test Case metrics and a distribution chart capped at the five highest-coverage Products; Products owns Product creation and context management through a heading-level modal action; Test Cases owns searchable inventory and shows its visible/total count beside the heading. The top-bar New recording action remains visible across authenticated pages and is never duplicated inside a page header or empty state. Empty states explain the next useful action. Do not invent activity, pass-rate, Run, or coverage data before Phase 2 and later data models exist.
+Use the shared App Shell and keep responsibilities separate: Dashboard is a clean operational overview with real Product/Test Case metrics and a distribution chart capped at the five highest-coverage Products; Products owns creation and name management through a heading-level modal action, with rename validation matching creation validation and a direct **View Test Cases** link that applies the Product filter; Test Cases owns searchable inventory, leaves clear separation between its search field and results, and shows its visible/total count beside the heading. The top-bar New recording action remains visible across authenticated pages and is never duplicated inside a page header or empty state. Empty states explain the next useful action. Do not invent activity, pass-rate, Run, or coverage data before Phase 2 and later data models exist.
 
 ### Saved Test Case detail
 
