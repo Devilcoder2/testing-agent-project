@@ -7,14 +7,21 @@ import { SentinelMark } from "./ui";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard", glyph: "▦" },
+  { href: "/products", label: "Products", glyph: "◇" },
   { href: "/test-cases", label: "Test Cases", glyph: "✓" }
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  return <div className="app-shell">
+  function toggleNavigation() {
+    if (window.matchMedia("(max-width: 64rem)").matches) setMenuOpen((open) => !open);
+    else setSidebarCollapsed((collapsed) => !collapsed);
+  }
+
+  return <div className={`app-shell ${sidebarCollapsed ? "app-shell--sidebar-collapsed" : ""}`}>
     <aside className={`sidebar ${menuOpen ? "sidebar--open" : ""}`} aria-label="Primary navigation">
       <Link href="/dashboard" className="sidebar__brand" onClick={() => setMenuOpen(false)}><SentinelMark /></Link>
       <nav className="sidebar__nav">
@@ -28,7 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     </aside>
     {menuOpen && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
     <div className="app-shell__main">
-      <header className="topbar"><button className="topbar__menu" aria-label="Open navigation" onClick={() => setMenuOpen(true)}>☰</button><div className="topbar__crumb">Quality operations <span>/</span> Guided testing</div><Link className="topbar__action" href="/recordings/new">New recording <span aria-hidden="true">+</span></Link></header>
+      <header className="topbar"><button className="topbar__menu" aria-label="Toggle navigation" aria-expanded={menuOpen || !sidebarCollapsed} onClick={toggleNavigation}>☰</button><div className="topbar__spacer" aria-hidden="true" /><Link className="topbar__action" href="/recordings/new">New recording <span aria-hidden="true">+</span></Link></header>
       <main className="app-main">{children}</main>
     </div>
   </div>;
