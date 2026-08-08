@@ -576,3 +576,97 @@ Every implemented screen uses semantic CSS variables from the token stylesheet. 
 - Owner answers all ten questions above before Phase 1.5 is marked understood.
 - Define production-grade draft resume and identity behavior before relying on browser session storage outside local development.
 - Perform a screen-reader and contrast audit with representative users before an internal pilot.
+
+---
+
+## Feature: Phase 1 single-browser launch recovery
+
+- Date: 2026-08-09
+- Phase: 1
+- Status: Implemented and regression-verified; understanding review pending owner answers.
+- Relevant files: `lib/browser.ts`, `app/api/[[...route]]/route.ts`, `components/sentinel-views.tsx`, `tests/browser-lock.spec.ts`.
+- Related decision: D-020 in `decisions-log.md`.
+- Related verification: `docker compose exec sentinel npm run lint`, `docker compose exec sentinel npm run typecheck`, `docker compose exec sentinel npm test`, `docker compose exec sentinel npx playwright test tests/browser-lock.spec.ts --workers=1`, and `docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.ts --workers=1`.
+
+### What this feature does
+
+It prevents the Phase 1 Recording Workspace from becoming permanently disabled when Selenium's one local Chromium slot is occupied by a session Sentinel no longer knows about. This happens, for example, when the Sentinel application restarts while the separate browser container keeps running. A new launch now replaces that stale global browser, starts a fresh locked Demo CRM session, and either shows the embedded browser or returns a clear retryable error.
+
+### End-to-end flow
+
+The tester clicks **Launch live browser**. The workspace shows an accessible “Launching secure browser” status while its existing `working` state prevents duplicate clicks. The launch API validates the tester and draft token. `lib/browser.ts` closes any driver held in Sentinel memory, reads Selenium's internal `/status` endpoint, and sends a WebDriver `DELETE /session/:id` request for every occupied slot. It then creates one kiosk-mode Chromium session, navigates only to the allowlisted Demo CRM, and injects the recorder script.
+
+If the browser service is unavailable, the session cannot close, another launch is in progress, or any startup operation exceeds 15 seconds, the server returns a `409` or `503` response. The client catches that response, stops the disabled state, and exposes the error plus the launch button for retry. Save and discard attempt browser cleanup but do not report failure after their database operation has already succeeded.
+
+### Technologies and patterns
+
+| Technology / pattern | Why it is used | How it helps | Important limitation |
+|---|---|---|---|
+| Selenium Grid `/status` and WebDriver session deletion | Detect and clear a browser service session that is not represented in Sentinel memory | Restores the one available browser slot after an app restart | This is safe only because Phase 1 has one global browser; it would interrupt another user in a concurrent system. |
+| Promise time bounds | Prevent slow WebDriver, navigation, or recorder setup from holding an HTTP request forever | Lets the API return a retryable failure | A late WebDriver creation still has to be explicitly closed, which the implementation does. |
+| React launch state with an ARIA live message | Make an expected short startup visible to all testers, including screen-reader users | Avoids a disabled button that looks like a frozen UI | It does not provide cancellation; the bounded server operation eventually resolves or fails. |
+| Playwright + raw Selenium setup in a regression test | Reproduce the exact orphaned-session condition | Proves Sentinel can reclaim an untracked browser before launch | It exercises only the local Docker Selenium topology. |
+
+### Key implementation details
+
+- `lib/browser.ts` treats every session returned in Selenium's node slots as stale for a new Phase 1 launch. The service is intentionally single-session, so replacement is the documented behavior.
+- `withTimeout` bounds browser-service requests, WebDriver creation, navigation, and recorder injection. If WebDriver resolves after its timeout, its driver is immediately quit to prevent a later slot leak.
+- `launchInFlight` rejects a second launch started in the same Sentinel process while the first is still preparing Chromium.
+- `app/api/[[...route]]/route.ts` maps browser lifecycle failures to actionable `409` or `503` JSON responses. Its cleanup wrapper logs cleanup failures but does not invalidate an already saved Test Case or prevent draft deletion.
+- `tests/browser-lock.spec.ts` creates a standalone Selenium session outside Sentinel's module state, then proves `launchBrowser` reclaims it and reaches the Demo CRM sign-in form.
+
+### Tradeoffs and alternatives
+
+- Tradeoff taken: a new Phase 1 launch always replaces the existing browser session.
+- Why this tradeoff was acceptable: Phase 1 explicitly has one local browser session, and an unusable stale session blocks every tester.
+- Alternative considered: wait for Selenium's five-minute session timeout.
+- Why it was not chosen: the UI appeared frozen and a tester had no meaningful way to recover promptly.
+- Alternative considered: add multiple Selenium slots.
+- Why it was not chosen: that would conflict with the agreed Phase 1 one-session scope and would need session ownership, isolated noVNC viewers, and concurrency rules.
+
+### Risks and future improvements
+
+- A second tester launching a recording in Phase 1 will intentionally replace the first tester’s remote browser. Do not use this topology for shared testing.
+- Selenium's internal status shape is an infrastructure dependency; upgrade checks must keep the session-discovery test.
+- Production needs a per-job browser allocation model, authenticated viewer access, cancellation, queueing, and ownership-aware cleanup instead of global replacement.
+
+### Ten-question understanding check
+
+1. Why can a Selenium browser session remain active after Sentinel loses its `driver` variable?
+2. Why is it correct for Phase 1 to terminate every occupied Selenium slot before a new launch, and why would that be unsafe in a multi-user runner?
+3. What does the `/status` request provide that `closeExistingDriver()` alone cannot provide?
+4. Which browser operations are time-bounded, and what user-visible behavior follows when one times out?
+5. How does the late-driver cleanup avoid creating a new stale browser session after a timed-out WebDriver build?
+6. Why does `launchInFlight` reject a concurrent request instead of queueing it?
+7. Which API status codes represent “another launch is starting” and “browser startup failed,” and why are they retryable?
+8. Why must save/discard tolerate a browser-cleanup failure after the database operation completes?
+9. How does the regression test recreate the real restart/orphan scenario without restarting Docker?
+10. Which files should be reviewed first before changing Phase 1 browser concurrency or launch-timeout behavior?
+
+#### Answers
+
+1. **Answer:**
+2. **Answer:**
+3. **Answer:**
+4. **Answer:**
+5. **Answer:**
+6. **Answer:**
+7. **Answer:**
+8. **Answer:**
+9. **Answer:**
+10. **Answer:**
+
+### Priority-based diff review
+
+| Priority | File | What changed | Why it needs attention | Review action |
+|---|---|---|---|---|
+| Highest | `lib/browser.ts` | Discovers and terminates stale Selenium sessions, bounds launch operations, and prevents duplicate starts | It controls the single remote browser and can interrupt a recording if changed incorrectly | Read now |
+| Highest | `app/api/[[...route]]/route.ts` | Returns retryable browser errors and makes post-save/discard cleanup non-blocking | It governs user-visible failure semantics and durable write behavior | Read now |
+| Medium | `components/sentinel-views.tsx` | Displays live launch progress and restores the retry action after an error | It controls whether a tester can understand and recover from a browser startup failure | Read next |
+| Medium | `tests/browser-lock.spec.ts` | Reproduces and protects stale-session recovery | It encodes the infrastructure failure mode that caused the defect | Read next |
+| Lower | `architecture.md`, `decisions-log.md`, `learning-log.md` | Records scope, architecture, and learning context | No runtime behavior, but documents the single-session limitation | Skim |
+
+#### Follow-up learning tasks
+
+- Owner answers all ten questions above before this reliability change is considered understood.
+- Define per-user browser allocation, queueing, and viewer authorization before introducing concurrent recording.
