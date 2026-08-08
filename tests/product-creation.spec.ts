@@ -7,7 +7,7 @@ async function signIn(page: Page, email: string, password: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Saved Test Cases" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Quality, made observable." })).toBeVisible();
 }
 
 test("creates, persists, and authorizes a Product through the portal", async ({ page }) => {
@@ -21,9 +21,11 @@ test("creates, persists, and authorizes a Product through the portal", async ({ 
   await expect(page.getByLabel("Product").locator("option", { hasText: productName })).toHaveCount(1);
   await expect(page.getByLabel("Product").locator("option:checked")).toHaveText(productName);
 
+  await page.getByRole("link", { name: "New recording" }).first().click();
+  await expect(page.getByRole("heading", { name: "Create a recording workspace" })).toBeVisible();
   await page.getByLabel("Test Name").fill(testName);
   await page.getByRole("button", { name: "Create recording workspace" }).click();
-  await expect(page.getByRole("button", { name: "Launch live browser" })).toBeVisible();
+  await expect(page.locator(".recording-bar").getByRole("button", { name: "Launch live browser" })).toBeVisible();
   await page.getByRole("button", { name: "Back to dashboard" }).click();
 
   await signIn(page, "ava.tester@example.test", "sentinel-dev");
