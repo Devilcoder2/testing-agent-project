@@ -65,7 +65,13 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   await expect(page.locator(".topbar")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: testName })).toBeVisible();
   await expect(page.locator(".recording-bar").getByRole("button", { name: "Launch live browser" })).toHaveCount(0);
-  await expect(page.locator(".browser-stage").getByRole("button", { name: "Launch live browser" })).toBeVisible();
+  const browserStage = page.locator(".browser-stage");
+  await browserStage.getByRole("button", { name: "Launch live browser" }).click();
+  const liveBrowser = page.getByTitle("Live recording browser");
+  await expect(liveBrowser).toBeVisible();
+  const [stageBox, browserBox] = await Promise.all([browserStage.boundingBox(), liveBrowser.boundingBox()]);
+  expect(browserBox?.width).toBe(stageBox?.width);
+  expect(browserBox?.height).toBe(stageBox?.height);
 
   await page.setViewportSize({ width: 900, height: 900 });
   await expect(page.getByRole("heading", { name: "Use a wider screen to record a live journey." })).toBeVisible();
