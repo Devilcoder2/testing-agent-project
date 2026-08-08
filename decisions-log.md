@@ -173,3 +173,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** The Selenium service intentionally allows one session. Its session can outlive Sentinel’s in-memory driver reference, causing later launch requests to queue indefinitely and leaving the tester with disabled controls.
 - **Impact:** Launching a new draft ends another active local recording browser; Phase 1 does not support concurrent recordings. A production runner must allocate sessions by owner/job instead of globally reclaiming them.
 - **Status:** Confirmed by the owner’s request to fix the stuck launch flow.
+
+## D-021 — Hide noVNC viewer controls in the Recording Workspace
+
+- **Date:** 2026-08-09
+- **Decision:** Hide noVNC’s control bar, its reveal handle, and viewer hints in the embedded Phase 1 Recording Workspace.
+- **Reason:** Sentinel already owns launch, save, discard, and browser security. The noVNC controls provide clipboard, settings, fullscreen, and connection actions that are unnecessary for the restricted Demo CRM journey and take valuable recording width.
+- **Impact:** Testers can still send mouse and keyboard input directly to the approved remote page, but cannot use noVNC viewer controls. Browser interaction policy remains enforced by kiosk mode and Chromium URL allowlisting.
+- **Status:** Confirmed by project owner.
