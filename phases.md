@@ -82,6 +82,7 @@ The phase is not complete until the commands and raw output are recorded, the ac
 ## Phase 1.5 — Frontend foundation and UX redesign
 
 **Depends on:** Phase 1 functional acceptance
+**Status:** Acceptance criteria verified; owner learning review remains pending.
 **Outcome:** Sentinel has a coherent, accessible, route-based operations UI for all delivered Phase 1 flows, plus documented visual specifications for future product areas.
 
 ### In scope
@@ -94,14 +95,14 @@ The phase is not complete until the commands and raw output are recorded, the ac
 
 ### Acceptance checklist
 
-- [ ] `frontend.md` records all approved visual, interaction, accessibility, responsive, and future-information-architecture decisions.
-- [ ] Semantic CSS tokens are the only source of implemented UI colours.
-- [ ] Existing Phase 1 APIs, authorization, persistence, save, discard, and recorder behavior remain unchanged.
-- [ ] Sign-in, dashboard, Product creation, Test Case inventory/detail, creation, and Recording Workspace use the route-based App Shell.
-- [ ] Keyboard focus, labels, feedback, non-colour status cues, contrast, and reduced-motion behavior meet the documented WCAG 2.2 AA checks.
-- [ ] The Recording Workspace remains usable on desktop and clearly guides narrow-screen users to a desktop viewport.
-- [ ] Playwright verifies new route navigation, keyboard/focus behavior, Product validation feedback, saved-test persistence, recording layout, and narrow-screen guidance.
-- [ ] Existing lint, type-check, unit, Product creation, and remote-recording tests pass.
+- [x] `frontend.md` records all approved visual, interaction, accessibility, responsive, and future-information-architecture decisions.
+- [x] Semantic CSS tokens are the only source of implemented UI colours.
+- [x] Existing Phase 1 APIs, authorization, persistence, save, discard, and recorder behavior remain unchanged.
+- [x] Sign-in, dashboard, Product creation, Test Case inventory/detail, creation, and Recording Workspace use the route-based App Shell.
+- [x] Keyboard focus, labels, feedback, non-colour status cues, contrast, and reduced-motion behavior meet the documented WCAG 2.2 AA checks.
+- [x] The Recording Workspace remains usable on desktop and clearly guides narrow-screen users to a desktop viewport.
+- [x] Playwright verifies new route navigation, keyboard/focus behavior, Product validation feedback, saved-test persistence, recording layout, and narrow-screen guidance.
+- [x] Existing lint, type-check, unit, Product creation, and remote-recording tests pass.
 
 ### Verification
 
