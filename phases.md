@@ -100,6 +100,7 @@ The phase is not complete until the commands and raw output are recorded, the ac
 - [x] Semantic CSS tokens are the only source of implemented UI colours.
 - [x] Existing Phase 1 APIs, authorization, persistence, save, discard, and recorder behavior remain unchanged.
 - [x] Sign-in, metrics dashboard, dedicated Product creation, Test Case inventory/detail, creation, and Recording Workspace use the route-based App Shell; New recording appears only in the top bar.
+- [x] New recording opens as a labelled modal; the active Recording Workspace is chrome-free, gives the Step Log 30% and browser 70% of the desktop workspace, and requires an explicit save/discard decision before leaving.
 - [x] Keyboard focus, labels, feedback, non-colour status cues, contrast, and reduced-motion behavior meet the documented WCAG 2.2 AA checks.
 - [x] The Recording Workspace remains usable on desktop and clearly guides narrow-screen users to a desktop viewport.
 - [x] Playwright verifies new route navigation, keyboard/focus behavior, Product validation feedback, saved-test persistence, recording layout, and narrow-screen guidance.
