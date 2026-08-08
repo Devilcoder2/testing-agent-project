@@ -1,8 +1,10 @@
 # Sentinel Frontend Design System and UX Decisions
 
-**Status:** Approved Phase 1.5 design baseline
+**Status:** Implemented and acceptance-verified; owner learning review pending
 **Date:** 2026-08-08
 **Scope:** Frontend foundation, Phase 1 redesign, and documented direction for future Sentinel product areas.
+
+**Verification:** Docker lint, type-check, API/database tests, Product creation browser test, remote-recording browser test, Phase 1.5 browser test, and production build passed on 2026-08-08. Desktop visual inspection confirmed the sign-in, App Shell, and recording-creation views.
 
 ## 1. Purpose
 
