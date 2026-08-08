@@ -53,7 +53,7 @@ The API places replay work on a durable queue. Workers execute isolated browser 
 
 Playwright is the provisional browser boundary for Chromium-based web testing. Recording observes supported actions and page lifecycle events. Replay begins with recorded selectors and semantic metadata, applies bounded fallback strategies, and stops when confidence is insufficient.
 
-For Phase 1, Sentinel hosts one local Chromium session in Docker and exposes its noVNC viewer inside the Recording Workspace. The Sentinel server attaches to that session through the browser automation protocol and injects a recorder before loading the allowlisted demo target. The injected recorder posts normalized navigation, click, and final field-entry events to an authenticated internal endpoint. Password values are redacted before they leave the browser page.
+For Phase 1, Sentinel hosts one local Chromium session in Docker and exposes its noVNC viewer inside the Recording Workspace. Chromium runs in kiosk app mode, with managed browser policies that disable developer tools and block every URL except the allowlisted demo target and the exact internal recorder-event endpoint. The Sentinel server attaches to that session through the browser automation protocol and injects a recorder before loading the allowlisted demo target. The injected recorder posts normalized navigation, click, and final field-entry events to an authenticated internal endpoint. Password values are redacted before they leave the browser page.
 
 ### Evidence capture
 
