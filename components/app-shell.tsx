@@ -23,12 +23,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return <div className={`app-shell ${sidebarCollapsed ? "app-shell--sidebar-collapsed" : ""}`}>
     <aside className={`sidebar ${menuOpen ? "sidebar--open" : ""}`} aria-label="Primary navigation">
-      <Link href="/dashboard" className="sidebar__brand" onClick={() => setMenuOpen(false)}><SentinelMark /></Link>
+      <Link href="/dashboard" className="sidebar__brand" aria-label="Sentinel dashboard" onClick={() => setMenuOpen(false)}><SentinelMark /></Link>
       <nav className="sidebar__nav">
         <p className="sidebar__label">Workspace</p>
         {navigation.map((item) => {
           const active = pathname === item.href || (item.href === "/test-cases" && pathname.startsWith("/test-cases/"));
-          return <Link key={item.href} href={item.href} className={`sidebar__link ${active ? "sidebar__link--active" : ""}`} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}><span aria-hidden="true">{item.glyph}</span>{item.label}</Link>;
+          return <Link key={item.href} href={item.href} className={`sidebar__link ${active ? "sidebar__link--active" : ""}`} aria-label={item.label} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}><span aria-hidden="true">{item.glyph}</span><span className="sidebar__link-label">{item.label}</span></Link>;
         })}
       </nav>
       <div className="sidebar__footer"><span className="sidebar__status" aria-hidden="true" /><div><strong>Development workspace</strong><small>Local Phase 1</small></div></div>
