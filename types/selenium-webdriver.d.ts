@@ -9,6 +9,7 @@ declare module "selenium-webdriver" {
   export type ThenableWebDriver = {
     get(url: string): Promise<void>;
     executeScript(script: string): Promise<unknown>;
+    takeScreenshot(): Promise<string>;
     quit(): Promise<void>;
   };
 }
