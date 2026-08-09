@@ -206,7 +206,7 @@ async function route(request: Request, context: Context) {
       });
       if (!run) return json({ error: "Run not found." }, 404);
       await assertProductMember(user.id, run.productId);
-      return json(run);
+      return json({ ...run, viewerUrl: run.status === RunStatus.RUNNING ? process.env.BROWSER_VIEWER_URL : null });
     }
     if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "steps" && path[3] && path[4] === "complete") {
       const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { stepResults: { orderBy: { order: "asc" } } } });
