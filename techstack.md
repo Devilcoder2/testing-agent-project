@@ -21,9 +21,9 @@
 |---|---|---|---|
 | Application database | PostgreSQL | 16.x or compatible managed version | Relational ownership, versioning, audit, release, and Run data. |
 | ORM/query layer | Prisma | Compatible stable major pinned in the lockfile | Provides migrations, typed access, and a clear relational model for the first slice. |
-| Job queue | Redis plus BullMQ or equivalent durable queue | Compatible stable major | Separates browser work from HTTP requests and supports retries/concurrency. |
-| Evidence storage | S3-compatible object storage | Provider selected before evidence phase | Handles large video, screenshots, and logs with lifecycle policies. |
-| Browser automation | Playwright | Compatible stable release pinned in Phase 1 | Recording, browser contexts, network events, screenshots, video, and cross-browser web control. |
+| Job queue | Redis plus BullMQ or equivalent durable queue | Compatible stable major | Deferred to Phase 3, when autonomous replay needs durable jobs, retries, and concurrency. |
+| Evidence storage | Docker-local MinIO with AWS SDK v3 | MinIO RELEASE image; `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` compatible majors | Provides a private S3-compatible evidence boundary and short-lived signed URLs during Phase 2. |
+| Browser automation | Selenium WebDriver plus Chromium CDP | Selenium 4.x already pinned; Chrome DevTools Protocol from the controlled Chromium session | Phase 2 extends the existing browser-in-browser boundary to capture screenshots, network, console, and storage without a runner rewrite. |
 
 ## 3. Integrations
 
@@ -36,8 +36,8 @@
 
 - Git and GitHub `origin` on `main`.
 - `.env.example` for configuration names only; never commit secrets.
-- Docker Compose may provide local PostgreSQL and Redis during development if the selected app setup benefits from it.
-- Docker Desktop is required for Phase 1: Compose runs PostgreSQL, Sentinel, the isolated demo target, and the browser-in-browser session.
+- Docker Compose provides local PostgreSQL and private MinIO during Phase 2. Redis/BullMQ is intentionally not added until Phase 3.
+- Docker Desktop is required for Phases 1–2: Compose runs PostgreSQL, MinIO, Sentinel, the isolated demo target, and the browser-in-browser session.
 - Phase 1.5 uses local system typography, CSS custom properties, and custom React/CSS primitives; it does not add external fonts, icon packs, Tailwind, shadcn, or a component library.
 - CI should run formatting/lint checks, unit tests, type checks, and browser smoke tests.
 - Structured logs should include correlation IDs for a Test Case, Run, job, evidence event, and external integration request.
@@ -50,6 +50,7 @@
 - Enforce target URL allowlists so replay cannot accidentally reach production.
 - Verify the QA database role cannot write by an automated permission check.
 - Apply authorization before serving evidence URLs; use short-lived signed object URLs if supported.
+- Phase 2 stores no browser video. Screenshot objects receive SHA-256 checksums, while network, console, and storage metadata is redacted before persistence.
 
 ## 6. Compatibility checks before coding
 
@@ -65,7 +66,7 @@ Phase 1 must confirm:
 
 - Final Next.js deployment target.
 - Redis/BullMQ versus an equivalent managed queue.
-- Object-storage provider, retention period, and redaction implementation.
+- Production object-storage provider and automatic evidence-retention period; Phase 2 retains local MinIO data until Docker volumes are deliberately removed.
 - Identity provider and named identity mapping for shared login.
 - JIRA project configuration, email provider, and optional Slack provider.
 - Observability platform and production alert thresholds.
