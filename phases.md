@@ -127,13 +127,47 @@ docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.t
 ## Phase 2 — Run model and complete evidence
 
 **Depends on:** Phases 1 and 1.5
-**Outcome:** A saved Test Case can produce a Run record and a Run Detail view with evidence metadata.
+**Status:** In progress.
+**Outcome:** A saved Test Case can produce a locally guided Run record and a Run Detail view with privacy-safe, timeline-linked evidence metadata.
 
-- Define Run lifecycle and step-result contracts.
-- Capture video, screenshots, network, console, and storage snapshots for teaching and Runs.
-- Store large evidence in object storage with access controls and checksums.
-- Link every event to a step timeline and show partial-capture failures.
-- Test passed, failed, and interrupted Runs plus sensitive-data redaction.
+### In scope
+
+- A named, product-authorized tester starts an explicitly guided Run from the current immutable Test Case version and completes the saved steps in strict order inside the existing isolated Demo CRM browser.
+- Persist a Run lifecycle (`QUEUED`, `RUNNING`, `COMPLETED`), a nullable outcome (`PASSED`, `FAILED`, `INTERRUPTED`), and separate evidence state (`COMPLETE`, `PARTIAL`). Partial evidence never changes the actual test outcome.
+- Create one Run Step Result per saved step. Passing the active step advances; failing captures available failure evidence and safely completes the Run. Skip, pause, cancellation, arbitrary step order, and autonomous replay are deferred.
+- Resume the active Run and browser session after a Sentinel page refresh.
+- Capture screenshots at Run start, Run end, and failure; redacted network metadata/body snippets; warning/error console messages; and redacted cookie, local-storage, and session-storage metadata at completed-step boundaries.
+- Store screenshots in private Docker-local MinIO object storage with checksums. Persist searchable evidence metadata and partial-capture errors in PostgreSQL. Access artifacts only through product-authorized, 15-minute signed URLs.
+- Add Run inventory and Run Detail/live guided-workspace views. Only one browser-backed recording or Run is active locally at a time.
+
+### Explicit exclusions
+
+- Do not capture or retain full browser-video recordings for teaching sessions or Runs.
+- Do not automatically replay saved actions, add workers/Redis/BullMQ, connect external QA targets, schedule Runs, or add checkpoint/skip behavior. These belong to later phases.
+
+### Acceptance checklist
+
+- [ ] An authorized user can start a guided Run from a saved Test Case and its exact current version is retained.
+- [ ] The Run requires steps to be completed in sequence; pass advances and failure safely ends the Run.
+- [ ] A page refresh restores an active Run and its remote browser session.
+- [ ] Passed, failed, and interrupted outcomes persist with timestamps and ordered step results.
+- [ ] Screenshots, network, console, and storage evidence are linked to the Run timeline without retaining browser video.
+- [ ] Secret values, cookies, tokens, authorization headers, and sensitive payload fields are redacted before persistence.
+- [ ] Screenshots are private in MinIO, checksummed, and available only to authorized users through short-lived signed URLs.
+- [ ] Evidence capture problems are visible as `PARTIAL` without replacing the test outcome.
+- [ ] A user without Product membership cannot list, inspect, start, or obtain evidence for that Product's Runs.
+- [ ] Unit, integration, Playwright, and manual guided-browser verification pass.
+
+### Verification
+
+```text
+docker compose up --build -d
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/phase-2-runs.spec.ts
+docker compose down
+```
 
 ## Phase 3 — Autonomous replay engine
 
