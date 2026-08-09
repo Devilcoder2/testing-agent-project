@@ -180,6 +180,7 @@ export function TestCaseDetailView({ testCaseId }: { testCaseId: string }) {
   const router = useRouter();
   const [testCase, setTestCase] = useState<SavedTestCase | null>(null);
   const [message, setMessage] = useState("");
+  const [startingRun, setStartingRun] = useState(false);
 
   useEffect(() => {
     request(`test-cases/${testCaseId}`).then((result) => setTestCase(result as SavedTestCase)).catch((loadError) => {
@@ -189,15 +190,135 @@ export function TestCaseDetailView({ testCaseId }: { testCaseId: string }) {
     });
   }, [router, testCaseId]);
 
+  async function startRun() {
+    setStartingRun(true);
+    setMessage("");
+    try {
+      const result = await request(`test-cases/${testCaseId}/runs`, "POST") as { run: { id: string } };
+      router.push(`/runs/${result.run.id}`);
+    } catch (startError) {
+      setMessage(errorMessage(startError, "Could not start the guided Run."));
+    } finally {
+      setStartingRun(false);
+    }
+  }
+
   if (message) return <Feedback tone="danger">{message}</Feedback>;
   if (!testCase) return <Card className="panel-card"><StatusBadge tone="info">Loading saved Test Case</StatusBadge></Card>;
   const steps = testCaseSteps(testCase);
-  return <div className="dashboard-grid"><div className="breadcrumbs"><Link href="/dashboard">Dashboard</Link><span aria-hidden="true">/</span><Link href="/test-cases">Test Cases</Link><span aria-hidden="true">/</span><span>{testCase.name}</span></div><Card className="detail-card"><PageHeader eyebrow="Saved Test Case" title={testCase.name} detail="This current version is read-only. Future edits will create a new controlled version." actions={<StatusBadge tone="success">Version {testCase.currentVersion}</StatusBadge>} /><div className="detail-meta"><span>{testCase.product.name}</span><span aria-hidden="true">•</span><span>Owner: {testCase.owner.displayName}</span><span aria-hidden="true">•</span><span>{steps.length} recorded step{steps.length === 1 ? "" : "s"}</span></div></Card><Card className="detail-card"><div className="panel-card__head"><div><p className="eyebrow">Current version timeline</p><h2>Recorded steps</h2><p>Descriptions, outcomes, and variables are the persisted annotations captured during recording.</p></div></div>{steps.length === 0 ? <EmptyState title="No recorded steps" detail="This Test Case was saved without recorded browser activity." /> : <div className="timeline">{steps.map((step) => <StepTimelineItem key={step.id} step={step} />)}</div>}</Card></div>;
+  return <div className="dashboard-grid"><div className="breadcrumbs"><Link href="/dashboard">Dashboard</Link><span aria-hidden="true">/</span><Link href="/test-cases">Test Cases</Link><span aria-hidden="true">/</span><span>{testCase.name}</span></div><Card className="detail-card"><PageHeader eyebrow="Saved Test Case" title={testCase.name} detail="This current version is read-only. Run it with a tester-guided evidence session." actions={<><StatusBadge tone="success">Version {testCase.currentVersion}</StatusBadge><Button onClick={startRun} disabled={startingRun || steps.length === 0}>{startingRun ? "Starting Run…" : "Run test"} <span aria-hidden="true">→</span></Button></>} /><div className="detail-meta"><span>{testCase.product.name}</span><span aria-hidden="true">•</span><span>Owner: {testCase.owner.displayName}</span><span aria-hidden="true">•</span><span>{steps.length} recorded step{steps.length === 1 ? "" : "s"}</span></div></Card><Card className="detail-card"><div className="panel-card__head"><div><p className="eyebrow">Current version timeline</p><h2>Recorded steps</h2><p>Descriptions, outcomes, and variables are the persisted annotations captured during recording.</p></div></div>{steps.length === 0 ? <EmptyState title="No recorded steps" detail="This Test Case was saved without recorded browser activity." /> : <div className="timeline">{steps.map((step) => <StepTimelineItem key={step.id} step={step} />)}</div>}</Card></div>;
 }
 
 function StepTimelineItem({ step }: { step: Step }) {
   const label = step.target.text || step.target.name || step.target.url || step.target.tag || "Recorded target";
   return <article className="timeline-item"><div className="timeline-item__rail"><span className="timeline-item__number">{step.order}</span></div><div className="timeline-item__card"><h3>{step.kind.replace("_", " ")}</h3><p className="timeline-item__target">{label}</p>{step.value && <p className="timeline-item__annotation"><strong>Value:</strong> {step.value}</p>}{step.description && <p className="timeline-item__annotation"><strong>Description:</strong> {step.description}</p>}{step.expectedOutcome && <p className="timeline-item__annotation"><strong>Expected outcome:</strong> {step.expectedOutcome}</p>}{step.variableName && <p className="timeline-item__annotation"><strong>Variable:</strong> {step.variableName}</p>}</div></article>;
+}
+
+type EvidenceItem = { id: string; kind: string; objectKey?: string | null; checksum?: string | null; byteSize?: number | null; metadata?: unknown; captureError?: string | null; capturedAt: string };
+type RunStepResult = { id: string; order: number; status: "PENDING" | "PASSED" | "FAILED"; testStep: Step; evidence?: EvidenceItem[] };
+type RunSummary = { id: string; status: "QUEUED" | "RUNNING" | "COMPLETED"; outcome?: "PASSED" | "FAILED" | "INTERRUPTED" | null; evidenceStatus: "COMPLETE" | "PARTIAL"; createdAt: string; product: Product; testCase: { id: string; name: string }; initiatedBy: { displayName: string }; stepResults: Array<{ status: string }> };
+type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; evidence: EvidenceItem[]; viewerUrl?: string | null };
+
+function runOutcomeTone(run: Pick<RunSummary, "status" | "outcome">) {
+  if (run.status === "RUNNING") return "info" as const;
+  if (run.outcome === "PASSED") return "success" as const;
+  if (run.outcome === "FAILED") return "danger" as const;
+  return "warning" as const;
+}
+
+function runLabel(run: Pick<RunSummary, "status" | "outcome">) {
+  if (run.status === "RUNNING") return "Running";
+  if (!run.outcome) return "Queued";
+  return `${run.outcome.slice(0, 1)}${run.outcome.slice(1).toLowerCase()}`;
+}
+
+export function RunsView() {
+  const { products } = useDashboardData();
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [message, setMessage] = useState("");
+  const [productId, setProductId] = useState("");
+  const [outcome, setOutcome] = useState("");
+
+  useEffect(() => {
+    request("runs").then((result) => setRuns(result as RunSummary[])).catch((loadError) => setMessage(errorMessage(loadError, "Could not load Runs.")));
+  }, []);
+
+  const filtered = runs.filter((run) => (!productId || run.product.id === productId) && (!outcome || (outcome === "RUNNING" ? run.status === "RUNNING" : run.outcome === outcome)));
+  return <div className="dashboard-grid"><PageHeader eyebrow="Execution history" title="Runs" detail="Tester-guided executions retain their outcome and redacted evidence separately." actions={<StatusBadge tone="info">{filtered.length} / {runs.length} visible Run{runs.length === 1 ? "" : "s"}</StatusBadge>} />{message && <Feedback tone="danger">{message}</Feedback>}<Card className="panel-card"><div className="inventory-toolbar"><Field label="Filter by Product"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)}><option value="">All accessible Products</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field><Field label="Filter by outcome"><SelectInput value={outcome} onChange={(event) => setOutcome(event.target.value)}><option value="">All outcomes</option><option value="RUNNING">Running</option><option value="PASSED">Passed</option><option value="FAILED">Failed</option><option value="INTERRUPTED">Interrupted</option></SelectInput></Field></div>{filtered.length === 0 ? <EmptyState title="No Runs found" detail="Start a tester-guided Run from a saved Test Case to capture its first evidence bundle." /> : <div className="run-list">{filtered.map((run) => <article className="run-list__item" key={run.id}><div><div className="run-list__head"><h2>{run.testCase.name}</h2><StatusBadge tone={runOutcomeTone(run)}>{runLabel(run)}</StatusBadge>{run.evidenceStatus === "PARTIAL" && <StatusBadge tone="warning">Evidence partial</StatusBadge>}</div><p>{run.product.name} · Started by {run.initiatedBy.displayName} · {run.stepResults.filter((step) => step.status === "PASSED").length}/{run.stepResults.length} steps passed</p></div><Link className="button button--secondary" href={`/runs/${run.id}`}>Open Run <span aria-hidden="true">→</span></Link></article>)}</div>}</Card></div>;
+}
+
+function runStepLabel(step: RunStepResult) {
+  return step.testStep.description || step.testStep.target.text || step.testStep.target.name || step.testStep.target.url || step.testStep.kind.replace("_", " ");
+}
+
+export function RunWorkspaceView({ runId }: { runId: string }) {
+  const router = useRouter();
+  const [run, setRun] = useState<RunDetail | null>(null);
+  const [message, setMessage] = useState("");
+  const [working, setWorking] = useState(false);
+
+  const load = async () => {
+    try {
+      const result = await request(`runs/${runId}`) as RunDetail;
+      setRun(result);
+      setMessage("");
+    } catch (loadError) {
+      setMessage(errorMessage(loadError, "Could not load this Run."));
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => { if (run?.status === "RUNNING") void load(); }, 1200);
+    return () => window.clearInterval(timer);
+  }, [run?.status, runId]);
+
+  async function completeStep(step: RunStepResult, status: "PASSED" | "FAILED") {
+    setWorking(true);
+    try {
+      await request(`runs/${runId}/steps/${step.id}/complete`, "POST", { status });
+      await load();
+    } catch (completionError) {
+      setMessage(errorMessage(completionError, "Could not complete this Run step."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function interrupt() {
+    setWorking(true);
+    try {
+      await request(`runs/${runId}/interrupt`, "POST");
+      await load();
+    } catch (interruptError) {
+      setMessage(errorMessage(interruptError, "Could not interrupt this Run."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function openEvidence(evidence: EvidenceItem) {
+    if (!evidence.objectKey) return;
+    try {
+      const result = await request(`evidence/${evidence.id}/access`) as { url: string };
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    } catch (evidenceError) {
+      setMessage(errorMessage(evidenceError, "Could not open this evidence artifact."));
+    }
+  }
+
+  if (message && !run) return <div className="recording-page recording-page--loading"><Feedback tone="danger">{message}</Feedback><Button variant="secondary" onClick={() => router.push("/runs")}>Back to Runs</Button></div>;
+  if (!run) return <div className="recording-page recording-page--loading"><StatusBadge tone="info">Loading Run</StatusBadge></div>;
+  const activeStep = run.stepResults.find((step) => step.order === run.activeStepOrder && step.status === "PENDING");
+  const isActive = run.status === "RUNNING";
+  const screenshots = run.evidence.filter((evidence) => evidence.kind === "SCREENSHOT");
+  const groupedEvidence = ["NETWORK", "CONSOLE", "STORAGE", "CAPTURE_ERROR"] as const;
+
+  return <div className="run-page"><header className="recording-bar"><div className="recording-bar__title"><Button variant="ghost" onClick={() => router.push("/runs")} disabled={working}>Back to Runs</Button><h1>{run.testCase.name}</h1></div><div className="recording-bar__actions"><StatusBadge tone={runOutcomeTone(run)}>{runLabel(run)}</StatusBadge>{isActive && <Button variant="danger" onClick={interrupt} disabled={working}>Interrupt Run</Button>}</div></header>{message && <Feedback tone="danger">{message}</Feedback>}<section className="recording-workspace"><aside className="step-panel"><div className="step-panel__head"><div><p className="eyebrow">Guided Run</p><h2>Step Checklist</h2><p>Complete each saved step in order. Evidence is captured at each boundary.</p></div><StatusBadge tone={run.evidenceStatus === "PARTIAL" ? "warning" : "success"}>Evidence {run.evidenceStatus.toLowerCase()}</StatusBadge></div><div className="step-panel__list">{run.stepResults.map((step) => <article className={`run-step ${step.order === run.activeStepOrder && step.status === "PENDING" ? "run-step--active" : ""}`} key={step.id}><div className="step-editor__head"><h3>Step {step.order}</h3><StatusBadge tone={step.status === "PASSED" ? "success" : step.status === "FAILED" ? "danger" : step.order === run.activeStepOrder ? "info" : "neutral"}>{step.status.toLowerCase()}</StatusBadge></div><p>{runStepLabel(step)}</p>{step.testStep.expectedOutcome && <p className="run-step__expected">Expected: {step.testStep.expectedOutcome}</p>}{isActive && step.id === activeStep?.id && <div className="run-step__actions"><Button onClick={() => completeStep(step, "PASSED")} disabled={working}>Pass step</Button><Button variant="danger" onClick={() => completeStep(step, "FAILED")} disabled={working}>Fail step</Button></div>}</article>)}</div></aside><section className="browser-stage" aria-label="Guided Run browser">{isActive && run.viewerUrl ? <iframe title="Guided Run browser" src={run.viewerUrl} allow="clipboard-read; clipboard-write" /> : <RunEvidenceDetail screenshots={screenshots} evidence={run.evidence.filter((item) => groupedEvidence.includes(item.kind as typeof groupedEvidence[number]))} onOpenEvidence={openEvidence} />}</section></section><section className="recording-desktop-guidance"><p className="eyebrow">Desktop workspace required</p><h2>Use a wider screen to guide this Run.</h2><p>The saved-step checklist and remote browser work together in a desktop-sized workspace.</p><Button variant="secondary" onClick={() => router.push("/runs")}>Back to Runs</Button></section></div>;
+}
+
+function RunEvidenceDetail({ screenshots, evidence, onOpenEvidence }: { screenshots: EvidenceItem[]; evidence: EvidenceItem[]; onOpenEvidence: (evidence: EvidenceItem) => Promise<void> }) {
+  return <div className="run-evidence"><div><p className="eyebrow">Run Detail</p><h2>Evidence timeline</h2><p>Outcome and capture status remain separate. Sensitive values are redacted before persistence.</p></div><section><h3>Screenshots</h3>{screenshots.length === 0 ? <p>No screenshots were captured.</p> : <div className="run-evidence__list">{screenshots.map((item) => <article key={item.id}><div><strong>{String((item.metadata as { label?: string } | null)?.label ?? "Screenshot")}</strong><small>{item.checksum ? `SHA-256 ${item.checksum.slice(0, 12)}…` : "Checksum unavailable"}</small></div><Button variant="secondary" onClick={() => void onOpenEvidence(item)}>Open</Button></article>)}</div>}</section>{["NETWORK", "CONSOLE", "STORAGE", "CAPTURE_ERROR"].map((kind) => { const items = evidence.filter((item) => item.kind === kind); return <section key={kind}><h3>{kind.replace("_", " ").toLowerCase()}</h3>{items.length === 0 ? <p>No {kind.toLowerCase().replace("_", " ")} evidence at this Run boundary.</p> : <div className="run-evidence__metadata">{items.map((item) => <pre key={item.id}>{item.captureError ?? JSON.stringify(item.metadata, null, 2)}</pre>)}</div>}</section>; })}</div>;
 }
 
 export function NewRecordingDialog({ onClose }: { onClose: () => void }) {
