@@ -4,6 +4,8 @@ import { prisma } from "../lib/prisma";
 
 const baseUrl = process.env.SENTINEL_BASE_URL ?? "http://localhost:3000";
 
+test.setTimeout(45_000);
+
 async function createSavedTest(name: string) {
   const ava = await prisma.user.findUniqueOrThrow({ where: { email: "ava.tester@example.test" } });
   const product = await prisma.product.create({ data: { name: `Run browser ${Date.now()}`, createdById: ava.id, memberships: { create: { userId: ava.id } } } });
@@ -58,4 +60,4 @@ test("starts, refreshes, and completes a strict guided Run in the UI", async ({ 
   } finally {
     await cleanup(created.productId);
   }
-}, 45_000);
+});
