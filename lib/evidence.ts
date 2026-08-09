@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { CreateBucketCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { EvidenceKind, Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "./prisma";
 
 type RunSnapshot = {
   screenshot: Buffer;
@@ -63,7 +63,7 @@ function truncate(value: string, limit = MAX_BODY_BYTES) {
 
 function redactText(value: string) {
   return truncate(value
-    .replace(/((?:password|passcode|token|secret|authorization|cookie|api[-_]?key)[\s"']*[:=][\s"']*)([^\s,}&"']+)/gi, "$1[REDACTED]")
+    .replace(/((?:password|passcode|token|secret|authorization|cookie|api[-_]?key)[\s"']*[:=][\s"']*)(?:Bearer\s+)?([^\s,}&"']+)/gi, "$1[REDACTED]")
     .replace(/(Bearer\s+)[^\s,}]+/gi, "$1[REDACTED]"));
 }
 
