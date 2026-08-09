@@ -41,7 +41,7 @@ Every Test Case stores its product, owner, creation timestamp, and change histor
 - **Test Case:** A named, reusable journey taught by a person.
 - **Step:** One recorded action or checkpoint in a Test Case.
 - **Run:** One execution of a Test Case, whether manual-triggered, scheduled, or part of a Release Run.
-- **Evidence Bundle:** Video, network, console, storage, screenshots, and database context associated with a Run.
+- **Evidence Bundle:** Privacy-safe screenshots, network, console, storage, and later database context associated with a Run. Full browser video is intentionally excluded.
 - **Variable:** A value that is static, pooled, or supplied per Run.
 - **Checkpoint:** A step where automation pauses for human confirmation.
 - **Release Run:** A batch execution of all Test Cases tagged to a release.
@@ -87,16 +87,16 @@ flowchart TD
 
 ### F2. Complete evidence capture
 
-Every Run must persist its pass/fail status, timestamps, step results, and linked evidence. A teaching session persists its recorded steps, not a browser-video recording.
+Every Run must persist its outcome, timestamps, step results, linked evidence, and a separate indication when evidence capture was partial. A teaching session persists its recorded steps, not a browser-video recording.
 
 For every Run, capture and retain the applicable evidence bundle:
 
 - Network requests and responses with endpoint, status, timing, payload, and slow/error highlighting.
 - Timestamped console output, including errors and warnings.
 - localStorage, sessionStorage, and cookie state at step boundaries.
-- Screenshots at start, end, failure, and explicitly flagged steps.
+- Screenshots at start, end, failure, and—when later implemented—explicitly flagged steps.
 
-Full browser-video recordings must not be captured or retained. All evidence is accessible from one Run Detail view and is timeline-linked to the Step Log for passed and failed Runs.
+Full browser-video recordings must not be captured or retained. Phase 2 provides an explicitly tester-guided Demo CRM Run: the tester performs saved steps in strict order and marks each active step passed or failed. It is not autonomous replay. All evidence is accessible from one Run Detail view and is timeline-linked to the Step Log for passed, failed, and interrupted Runs.
 
 ### F3. Autonomous replay
 
