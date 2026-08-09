@@ -69,6 +69,19 @@ docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.t
 
 The browser checks cover locked-target navigation, full-stage live-browser rendering, Product authorization, the remote recording journey, password redaction, saving, dashboard navigation, reopening, and persistence after a page refresh.
 
+## Verify Phase 2
+
+Keep the Docker stack running, then run:
+
+```text
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/phase-2-runs.spec.ts
+```
+
+The Phase 2 checks cover strict guided-step order, immutable version binding, browser-session recovery after refresh, failed/interrupted outcomes, redaction, MinIO screenshot metadata, and product authorization. A human owner should also start a saved Test Case Run, refresh while it is active, pass one step, fail another, and inspect the evidence timeline before accepting the phase manually.
+
 ## Status
 
 Phase 1 is implemented and its acceptance checks have been verified. Phase 1.5 has redesigned those flows into the documented route-based Sentinel interface without changing their backend behavior. Neither phase is marked fully understood or closed because the owner learning questions in `learning-log.md` still need answers. Phase 2 guided Runs and evidence are in progress; autonomous replay, external integrations, scheduling, and QA-network access remain later phases.
