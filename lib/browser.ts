@@ -1,7 +1,19 @@
 import { Builder, type ThenableWebDriver } from "selenium-webdriver";
 
+type BrowserOwner = { kind: "recording" | "run" | "adhoc"; id: string };
+type RunEvidenceOffsets = { network: number; console: number };
+
+export type BrowserRunSnapshot = {
+  screenshot: Buffer;
+  network: unknown[];
+  console: unknown[];
+  storage: unknown;
+};
+
 let driver: ThenableWebDriver | undefined;
+let browserOwner: BrowserOwner | undefined;
 let launchInFlight: Promise<ThenableWebDriver> | undefined;
+const runEvidenceOffsets = new Map<string, RunEvidenceOffsets>();
 
 const BROWSER_OPERATION_TIMEOUT_MS = 15_000;
 
@@ -56,6 +68,8 @@ async function closeExistingDriver() {
   if (!driver) return;
   const existingDriver = driver;
   driver = undefined;
+  browserOwner = undefined;
+  runEvidenceOffsets.clear();
   await Promise.race([
     existingDriver.quit().catch(() => undefined),
     new Promise<void>((resolve) => setTimeout(resolve, 2000))
@@ -83,8 +97,43 @@ function recorderScript(endpoint: string, token: string) {
     })();`;
 }
 
-async function startBrowser(targetUrl: string, token: string) {
-  await closeBrowser();
+function runEvidenceScript() {
+  return `
+    (() => {
+      if (window.__sentinelRunEvidenceInstalled) return;
+      window.__sentinelRunEvidenceInstalled = true;
+      const state = window.__sentinelRunEvidence = { network: [], console: [] };
+      const text = (value) => {
+        try { return typeof value === 'string' ? value.slice(0, 6144) : JSON.stringify(value).slice(0, 6144); }
+        catch { return String(value).slice(0, 6144); }
+      };
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (...args) => {
+        const startedAt = performance.now();
+        const request = args[0];
+        const init = args[1] || {};
+        const url = typeof request === 'string' ? request : request.url;
+        const method = init.method || (typeof request === 'string' ? 'GET' : request.method) || 'GET';
+        try {
+          const response = await originalFetch(...args);
+          const responseBody = await response.clone().text().catch(() => '');
+          state.network.push({ url, method, status: response.status, durationMs: Math.round(performance.now() - startedAt), requestBody: init.body ? text(init.body) : undefined, responseBody: text(responseBody) });
+          return response;
+        } catch (error) {
+          state.network.push({ url, method, status: 0, durationMs: Math.round(performance.now() - startedAt), error: text(error), requestBody: init.body ? text(init.body) : undefined });
+          throw error;
+        }
+      };
+      for (const level of ['warn', 'error']) {
+        const original = console[level].bind(console);
+        console[level] = (...args) => { state.console.push({ level, message: args.map(text).join(' ') }); original(...args); };
+      }
+    })();`;
+}
+
+async function createBrowser(targetUrl: string, setupScript?: string) {
+  if (driver) throw new Error("BROWSER_BUSY");
+  await closeStaleSeleniumSessions();
   const builder = new Builder();
   builder.usingServer(process.env.BROWSER_SELENIUM_URL ?? "http://browser:4444/wd/hub");
   builder.withCapabilities({
@@ -111,7 +160,7 @@ async function startBrowser(targetUrl: string, token: string) {
   driver = launchedDriver;
   try {
     await withTimeout(launchedDriver.get(targetUrl), "BROWSER_NAVIGATION_TIMEOUT");
-    await withTimeout(launchedDriver.executeScript(recorderScript("http://sentinel:3000/api/internal/events", token)), "BROWSER_RECORDER_TIMEOUT");
+    if (setupScript) await withTimeout(launchedDriver.executeScript(setupScript).then(() => undefined), "BROWSER_SETUP_TIMEOUT");
     return launchedDriver;
   } catch (error) {
     await launchedDriver.quit().catch(() => undefined);
@@ -120,13 +169,70 @@ async function startBrowser(targetUrl: string, token: string) {
   }
 }
 
-export async function launchBrowser(targetUrl: string, token: string) {
+async function launchOwnedBrowser(targetUrl: string, owner: BrowserOwner, setupScript?: string, replaceExisting = false) {
   if (launchInFlight) throw new Error("BROWSER_LAUNCH_IN_PROGRESS");
-  const launch = startBrowser(targetUrl, token);
+  if (driver && !replaceExisting) throw new Error("BROWSER_BUSY");
+  if (replaceExisting) await closeBrowser();
+  const launch = createBrowser(targetUrl, setupScript);
   launchInFlight = launch;
   try {
-    return await launch;
+    const launched = await launch;
+    browserOwner = owner;
+    return launched;
   } finally {
     if (launchInFlight === launch) launchInFlight = undefined;
   }
+}
+
+export async function launchBrowser(targetUrl: string, token: string) {
+  return launchOwnedBrowser(targetUrl, { kind: "adhoc", id: token }, recorderScript("http://sentinel:3000/api/internal/events", token), true);
+}
+
+export async function launchRecordingBrowser(targetUrl: string, token: string, recordingId: string) {
+  return launchOwnedBrowser(targetUrl, { kind: "recording", id: recordingId }, recorderScript("http://sentinel:3000/api/internal/events", token));
+}
+
+export async function launchRunBrowser(targetUrl: string, runId: string) {
+  return launchOwnedBrowser(targetUrl, { kind: "run", id: runId }, runEvidenceScript());
+}
+
+function requireRunDriver(runId: string) {
+  if (!driver || browserOwner?.kind !== "run" || browserOwner.id !== runId) throw new Error("RUN_BROWSER_UNAVAILABLE");
+  return driver;
+}
+
+function normalizeEvidenceState(value: unknown) {
+  if (!value || typeof value !== "object") return { network: [], console: [] };
+  const candidate = value as { network?: unknown; console?: unknown };
+  return { network: Array.isArray(candidate.network) ? candidate.network : [], console: Array.isArray(candidate.console) ? candidate.console : [] };
+}
+
+export async function captureRunBrowserSnapshot(runId: string): Promise<BrowserRunSnapshot> {
+  const activeDriver = requireRunDriver(runId);
+  const [encodedScreenshot, rawEvidence, storage] = await Promise.all([
+    withTimeout(activeDriver.takeScreenshot(), "BROWSER_SCREENSHOT_TIMEOUT"),
+    withTimeout(activeDriver.executeScript("return window.__sentinelRunEvidence || { network: [], console: [] };"), "BROWSER_EVIDENCE_TIMEOUT"),
+    withTimeout(activeDriver.executeScript(`
+      const values = (storage) => Object.keys(storage).map((key) => ({ key, value: storage.getItem(key) }));
+      return {
+        cookies: document.cookie.split(';').map((item) => item.trim()).filter(Boolean).map((item) => ({ name: item.split('=')[0], value: item.slice(item.indexOf('=') + 1) })),
+        localStorage: values(window.localStorage),
+        sessionStorage: values(window.sessionStorage)
+      };
+    `), "BROWSER_STORAGE_TIMEOUT")
+  ]);
+  const evidence = normalizeEvidenceState(rawEvidence);
+  const offsets = runEvidenceOffsets.get(runId) ?? { network: 0, console: 0 };
+  runEvidenceOffsets.set(runId, { network: evidence.network.length, console: evidence.console.length });
+  return {
+    screenshot: Buffer.from(encodedScreenshot, "base64"),
+    network: evidence.network.slice(offsets.network),
+    console: evidence.console.slice(offsets.console),
+    storage
+  };
+}
+
+export async function closeRunBrowser(runId: string) {
+  if (browserOwner?.kind !== "run" || browserOwner.id !== runId) return;
+  await closeBrowser();
 }
