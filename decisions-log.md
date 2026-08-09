@@ -181,3 +181,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Sentinel already owns launch, save, discard, and browser security. The noVNC controls provide clipboard, settings, fullscreen, and connection actions that are unnecessary for the restricted Demo CRM journey and take valuable recording width.
 - **Impact:** Testers can still send mouse and keyboard input directly to the approved remote page, but cannot use noVNC viewer controls. Browser interaction policy remains enforced by kiosk mode and Chromium URL allowlisting.
 - **Status:** Confirmed by project owner.
+
+## D-022 — Phase 2 guided Runs and private evidence
+
+- **Date:** 2026-08-09
+- **Decision:** Phase 2 introduces an explicitly tester-guided Run of the current immutable Test Case version, limited to the Docker-local Demo CRM and the existing single isolated browser. The tester completes saved steps strictly in order; pass advances, fail ends the Run safely, and refresh resumes the existing Run. Full browser video remains prohibited. Screenshots are stored in a private Docker-local MinIO bucket, while redacted network, console, and storage metadata remains in PostgreSQL. Evidence links require product authorization and expire after 15 minutes.
+- **Reason:** This supplies a useful, inspectable Run and evidence baseline without falsely claiming autonomous replay, prematurely introducing queue infrastructure, or storing a sensitive browser recording.
+- **Impact:** Run outcome (`passed`, `failed`, `interrupted`) is distinct from capture status (`complete`, `partial`), so unavailable evidence cannot alter the factual test result. Phase 2 adds no Redis/BullMQ, skip/pause/cancel flow, external targets, retention automation, or stored video. Only one browser-backed recording or Run may exist locally at a time.
+- **Status:** Confirmed by project owner; implementation in progress.
