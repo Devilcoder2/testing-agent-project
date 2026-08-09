@@ -47,17 +47,17 @@ Stores users, product membership, Test Cases, versioned steps, variables, releas
 
 ### Run queue and browser workers
 
-The API places replay work on a durable queue. Workers execute isolated browser contexts, apply controlled concurrency, stop on low-confidence actions or checkpoints, and report state transitions. Jobs must be idempotent so retries do not duplicate Runs or JIRA effects.
+Phase 2 does not introduce a queue or worker. The Application API coordinates one explicitly user-started, guided local Run directly with the existing isolated browser and persists state synchronously. Redis/BullMQ, autonomous replay, controlled concurrency, retries, and worker idempotency begin in Phase 3.
 
 ### Browser recording and replay
 
 Playwright is the provisional browser boundary for Chromium-based web testing. Recording observes supported actions and page lifecycle events. Replay begins with recorded selectors and semantic metadata, applies bounded fallback strategies, and stops when confidence is insufficient.
 
-For Phase 1, Sentinel hosts one local Chromium session in Docker and exposes its noVNC viewer inside the Recording Workspace. The embedded viewer hides noVNC's own clipboard, settings, fullscreen, and connection controls so it acts only as the remote display and input surface. Chromium runs in kiosk app mode, and managed browser policies block every URL except the allowlisted demo target and the exact internal recorder-event endpoint. Kiosk app mode removes the browser chrome and the host does not expose the WebDriver port. Developer Tools policy cannot be disabled in this Selenium design because ChromeDriver requires the same browser debugging protocol; URL policy remains the enforced navigation boundary. Before a new launch, Sentinel closes the browser it knows about and reclaims any Selenium session occupying the single slot, including a session that outlived a Sentinel restart. Each startup operation is time-bounded; a failed launch returns a retryable error rather than holding the workspace in a disabled state. This replacement behavior is global to Phase 1 and is not suitable for concurrent users. The Sentinel server attaches to that session through the browser automation protocol and injects a recorder before loading the allowlisted demo target. The injected recorder posts normalized navigation, click, and final field-entry events to an authenticated internal endpoint. Password values are redacted before they leave the browser page.
+For Phases 1–2, Sentinel hosts one local Chromium session in Docker and exposes its noVNC viewer inside a focused workspace. The embedded viewer hides noVNC's own clipboard, settings, fullscreen, and connection controls so it acts only as the remote display and input surface. Chromium runs in kiosk app mode, and managed browser policies block every URL except the allowlisted demo target and the exact internal recorder-event endpoint. Kiosk app mode removes the browser chrome and the host does not expose the WebDriver port. Developer Tools policy cannot be disabled in this Selenium design because ChromeDriver requires the same browser debugging protocol; URL policy remains the enforced navigation boundary. Before a new launch, Sentinel closes the browser it knows about and reclaims any Selenium session occupying the single slot, including a session that outlived a Sentinel restart. Each startup operation is time-bounded; a failed launch returns a retryable error rather than holding the workspace in a disabled state. This replacement behavior is global to Phase 2: a browser-backed recording and a browser-backed Run cannot coexist. The Sentinel server attaches to that session through the browser automation protocol, injects the Phase 1 recorder when teaching, and uses Chrome DevTools Protocol collection when guiding a Run. Password values are redacted before they leave the browser page.
 
 ### Evidence capture
 
-Workers capture video, screenshots, network events, console events, storage snapshots, and timestamps. A normalized event timeline links evidence to Test Case steps. Object storage holds binaries and large logs; the database holds metadata, checksums, and access-controlled references.
+Phase 2's API-led guided Run captures screenshots at start, end, and failure; network metadata and redacted allowlisted text/JSON snippets; console warnings/errors; and redacted cookie, local-storage, and session-storage metadata at step boundaries. It never captures or retains browser video. Screenshot binaries live in a private Docker-local MinIO bucket; PostgreSQL stores searchable metadata, checksums, object keys, timeline links, and capture errors. Sentinel verifies product membership before issuing a 15-minute signed object URL. The Run outcome (`passed`, `failed`, or `interrupted`) is independent from evidence status (`complete` or `partial`), so missing evidence does not misrepresent the test result.
 
 ### Read-only database adapter
 
@@ -105,8 +105,8 @@ Important invariants:
 
 ## 6. Failure and consistency model
 
-- Run states are explicit: queued, running, paused-for-checkpoint, passed, failed, cancelled, and capture-incomplete.
-- A worker reports step and evidence events incrementally so a crash leaves useful partial evidence.
+- Phase 2 Run lifecycle is explicit: `queued`, `running`, and `completed`; its final outcome is `passed`, `failed`, or `interrupted`, and capture is independently `complete` or `partial`. Checkpoint, cancellation, retry, and autonomous-worker states are deferred to Phase 3.
+- The API persists step and evidence events incrementally so a browser or capture failure leaves useful partial evidence and an actionable error.
 - Retries create a new Run attempt record or a clearly linked retry, never silently overwrite the original.
 - JIRA creation uses an idempotency key derived from the tracked failure; duplicate detection is checked before create.
 - Notification delivery is asynchronous and retryable; notification failure must not change the Run result.
