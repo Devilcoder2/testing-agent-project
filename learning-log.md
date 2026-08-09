@@ -760,3 +760,86 @@ The frontend Playwright regression creates a recording, launches the live iframe
 
 - Owner answers all ten questions above before this viewer-surface change is considered understood.
 - Define an authenticated support and diagnostics mode before exposing any viewer-level controls in a multi-user environment.
+
+---
+
+## Feature: Phase 2 guided Runs and privacy-safe evidence
+
+- Date: 2026-08-09
+- Phase: 2
+- Status: Implemented and automated-verified; manual owner check and understanding review pending.
+- Relevant files: `prisma/schema.prisma`, `lib/browser.ts`, `lib/evidence.ts`, `app/api/[[...route]]/route.ts`, `components/sentinel-views.tsx`, `tests/run-api.test.ts`, `tests/phase-2-runs.spec.ts`, `tests/evidence.test.ts`.
+- Related decision: D-022 in `decisions-log.md`.
+- Related verification: `docker compose exec sentinel npm run lint`, `docker compose exec sentinel npm run typecheck`, `docker compose exec sentinel npm test`, `docker compose exec sentinel npx playwright test tests/phase-2-runs.spec.ts`, plus the Phase 1 browser regressions.
+
+### What this feature does
+
+It lets an authorized tester start a Run from a saved Test Case and follow its immutable saved steps in strict order inside the existing restricted browser. Sentinel saves the factual result—Passed, Failed, or Interrupted—separately from whether all evidence was captured. It stores screenshots privately in local MinIO, keeps redacted network/console/storage metadata in PostgreSQL, and never saves full browser video.
+
+### End-to-end flow
+
+The tester chooses **Run test** on a saved Test Case. The API verifies Product membership, selects the current immutable Test Case version, creates one pending result for each saved step, and starts the one local browser. It captures initial evidence before returning the focused Run workspace.
+
+The workspace makes only the active step actionable. Passing it persists the step result, collects a storage/network/console boundary snapshot, and activates the next step. Failing captures a failure screenshot and ends the Run safely. Interrupt captures final available evidence and ends with an Interrupted outcome. Refreshing `/runs/[id]` reloads the persisted active step and the noVNC viewer URL, so the browser session can continue.
+
+`lib/evidence.ts` redacts values before database persistence. Cookie and storage values become `[REDACTED]`; network JSON/text snippets are limited to 4 KiB after key-based redaction. Screenshot bytes are uploaded to the private `sentinel-evidence` MinIO bucket, hashed with SHA-256, and exposed only after another Product-membership check creates a 15-minute signed link.
+
+### Technologies, choices, and tradeoffs
+
+| Technology / pattern | Why it is used | Tradeoff |
+|---|---|---|
+| Prisma Run, RunStepResult, and EvidenceItem models | Preserve the exact saved version, ordered manual progress, evidence references, and audit history | The initial model is deliberately local and does not yet represent retries or concurrent workers. |
+| Selenium plus in-page browser instrumentation | Extends the existing locked browser instead of replacing it | Fetch and console interception is appropriate for the Demo CRM baseline; richer CDP coverage belongs with the replay worker. |
+| MinIO plus AWS SDK v3 | Reproduces private S3-style evidence storage in Docker | Local development credentials and manual volume cleanup are not production retention controls. |
+| Separate outcome and capture status | A missing artifact must not turn a passed test into a failed test | Users need to read both statuses when assessing trust in a Run. |
+| Strict guided checklist | Makes a Phase 2 Run demonstrable without pretending saved steps replay automatically | Skip, pause, flexible ordering, queues, and autonomous replay remain deferred to Phase 3. |
+
+### Risks and future improvements
+
+- There is one global browser session. A Run and a recording cannot safely coexist, and this is not a multi-user runner design.
+- Screenshot-object cleanup is manual in local Docker. Production needs retention, encryption, bucket policy, monitoring, and lifecycle rules.
+- The browser instrumentation captures application fetches after setup; Phase 3 should move evidence collection into a dedicated automation worker with broader protocol coverage.
+- The Run UI shows persisted redacted metadata. It must never be changed to display raw cookie, token, or payload values merely for debugging convenience.
+
+### Ten-question understanding check
+
+1. Why does a Run store both `testCaseVersionId` and one `RunStepResult` for every saved step?
+2. Why is `evidenceStatus` separate from the final `outcome`, and what result should a passed Run with one failed screenshot upload show?
+3. Which API operations enforce strict step order, and what response should a client receive when it tries to complete step two before step one?
+4. How does the UI restore an active Run after a page refresh without recreating the browser session?
+5. Which evidence artifacts are stored in MinIO, which are stored in PostgreSQL, and why are they split that way?
+6. How do `redactedBodySnippet` and `redactedStorageSnapshot` prevent sensitive values from reaching the database?
+7. Why must Product membership be checked again before creating a signed evidence URL?
+8. What happens when evidence capture fails after a tester has passed or failed a step, and why is that safer than changing the test outcome?
+9. Why is the Phase 2 browser instrumented rather than automatically executing the saved selectors itself?
+10. Which files should be reviewed first before introducing concurrent Runs, automatic replay, or a production object-storage provider?
+
+#### Answers
+
+1. **Answer:**
+2. **Answer:**
+3. **Answer:**
+4. **Answer:**
+5. **Answer:**
+6. **Answer:**
+7. **Answer:**
+8. **Answer:**
+9. **Answer:**
+10. **Answer:**
+
+### Priority-based diff review
+
+| Priority | File | What changed | Review action |
+|---|---|---|---|
+| Highest | `app/api/[[...route]]/route.ts` | Product authorization, Run lifecycle transitions, browser ownership, and signed-evidence authorization | Read now; this is the principal security and business-behavior boundary. |
+| Highest | `lib/evidence.ts` and `lib/browser.ts` | Redaction, MinIO writes/signing, screenshot checksums, browser evidence collection, and global session handling | Read now; these files control sensitive data and browser isolation. |
+| Highest | `prisma/schema.prisma` and its migration | Immutable version binding, Run/step/evidence relationships, cascading behavior, and enums | Read now before evolving persistence or retention. |
+| Medium | `components/sentinel-views.tsx`, `app/runs/*`, and `app/globals.css` | Guided Run controls, refresh recovery, evidence display, navigation, and focused workspace layout | Read next; confirms the UI cannot bypass strict server behavior. |
+| Medium | `tests/run-api.test.ts`, `tests/phase-2-runs.spec.ts`, and `tests/evidence.test.ts` | Authorization, ordering, evidence redaction, refresh, and failure-path expectations | Read next; these tests document the Phase 2 contract. |
+| Lower | Docker, package, and documentation files | Local MinIO configuration and recorded decisions | Skim after the behavior-critical code; keep them aligned with production choices. |
+
+#### Follow-up learning tasks
+
+- Owner completes the ten answers above; any incorrect answer should be revisited against the referenced code and tests.
+- Owner manually starts a saved Test Case Run, refreshes while it is active, passes one step, fails another, and confirms the evidence/detail view.
+- Before Phase 3, decide how worker-owned browser allocation, retries, evidence retention, and production object-storage credentials will replace the single local session.
