@@ -20,6 +20,37 @@ enum StepKind {
   TEXT_ENTRY
 }
 
+enum RunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+}
+
+enum RunOutcome {
+  PASSED
+  FAILED
+  INTERRUPTED
+}
+
+enum EvidenceStatus {
+  COMPLETE
+  PARTIAL
+}
+
+enum RunStepStatus {
+  PENDING
+  PASSED
+  FAILED
+}
+
+enum EvidenceKind {
+  SCREENSHOT
+  NETWORK
+  CONSOLE
+  STORAGE
+  CAPTURE_ERROR
+}
+
 model User {
   id           String              @id @default(cuid())
   email        String              @unique
@@ -29,6 +60,7 @@ model User {
   products     Product[]
   recordings   RecordingSession[]  @relation("RecordingOwner")
   testCases    TestCase[]          @relation("TestCaseOwner")
+  runs         Run[]               @relation("RunInitiator")
   auditEvents  AuditEvent[]        @relation("AuditActor")
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
@@ -42,6 +74,7 @@ model Product {
   memberships  ProductMembership[]
   recordings   RecordingSession[]
   testCases    TestCase[]
+  runs         Run[]
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
@@ -104,6 +137,7 @@ model TestCase {
   owner               User             @relation("TestCaseOwner", fields: [ownerId], references: [id])
   recordingSession    RecordingSession @relation(fields: [recordingSessionId], references: [id])
   versions            TestCaseVersion[]
+  runs                Run[]
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 }
@@ -114,6 +148,7 @@ model TestCaseVersion {
   version     Int
   testCase    TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   steps       TestStep[]
+  runs        Run[]
   createdAt   DateTime   @default(now())
 
   @@unique([testCaseId, version])
@@ -132,8 +167,70 @@ model TestStep {
   expectedOutcome     String?
   variableName        String?
   testCaseVersion     TestCaseVersion @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+  runStepResults      RunStepResult[]
 
   @@unique([testCaseVersionId, order])
+}
+
+model Run {
+  id                String         @id @default(cuid())
+  testCaseId        String
+  testCaseVersionId String
+  productId         String
+  initiatedById     String
+  targetUrl         String
+  status            RunStatus      @default(QUEUED)
+  outcome           RunOutcome?
+  evidenceStatus    EvidenceStatus @default(COMPLETE)
+  activeStepOrder   Int?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  testCase          TestCase       @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  testCaseVersion   TestCaseVersion @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+  product           Product        @relation(fields: [productId], references: [id])
+  initiatedBy       User           @relation("RunInitiator", fields: [initiatedById], references: [id])
+  stepResults       RunStepResult[]
+  evidence          EvidenceItem[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([productId, createdAt])
+  @@index([testCaseId, createdAt])
+}
+
+model RunStepResult {
+  id          String        @id @default(cuid())
+  runId       String
+  testStepId  String
+  order       Int
+  status      RunStepStatus @default(PENDING)
+  startedAt   DateTime?
+  completedAt DateTime?
+  run         Run           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  testStep    TestStep      @relation(fields: [testStepId], references: [id], onDelete: Cascade)
+  evidence    EvidenceItem[]
+
+  @@unique([runId, order])
+  @@unique([runId, testStepId])
+}
+
+model EvidenceItem {
+  id               String          @id @default(cuid())
+  runId            String
+  runStepResultId  String?
+  kind             EvidenceKind
+  objectKey        String?         @unique
+  checksum         String?
+  contentType      String?
+  byteSize         Int?
+  metadata         Json?
+  captureError     String?
+  capturedAt       DateTime        @default(now())
+  run              Run             @relation(fields: [runId], references: [id], onDelete: Cascade)
+  runStepResult    RunStepResult?  @relation(fields: [runStepResultId], references: [id], onDelete: Cascade)
+
+  @@index([runId, capturedAt])
+  @@index([runStepResultId])
 }
 
 model AuditEvent {
