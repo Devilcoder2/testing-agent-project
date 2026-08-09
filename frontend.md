@@ -56,6 +56,8 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 | `/test-cases/[id]` | Saved Test Case metadata, current-version badge, and read-only Step Timeline. |
 | `/recordings/new` | Legacy entry URL that safely returns to Dashboard; creation is initiated from the persistent **New recording** action. |
 | `/recordings/[id]` | Focused, chrome-free Recording Workspace for the active draft. |
+| `/runs` | Product-authorized Run inventory with outcome and Product filters. |
+| `/runs/[id]` | Focused guided Run workspace while active, then a Run Detail timeline with evidence panels when completed. |
 
 ### Future route specifications
 
@@ -63,12 +65,12 @@ The following are documented design targets only. Phase 1.5 must not create plac
 
 | Future route | Intended experience |
 |---|---|
-| `/runs` and `/runs/[id]` | Run inventory and timeline-linked evidence tabs for status, screenshots, network, console, storage, and database context. |
+| `/runs` and `/runs/[id]` | Phase 2 delivers the core guided Run inventory and Run Detail. Future work adds autonomous execution, database context, release grouping, and richer comparison tools. |
 | `/releases` | Release health, grouped Test Cases, batch status, and readiness reporting. |
 | `/review` | Change proposals, negative-test suggestions, checkpoint decisions, and owner approvals. |
 | `/settings` | Product access, integration health, notification configuration, and safe connection state. |
 
-The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 1 navigation exposes Dashboard, Products, and Test Cases; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Future navigation adds Runs, Releases, Review, and Settings when the relevant product capabilities exist.
+The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 2 navigation exposes Dashboard, Products, Test Cases, and Runs; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Future navigation adds Releases, Review, and Settings when the relevant product capabilities exist.
 
 ## 5. Page experience decisions
 
@@ -82,7 +84,11 @@ Use the shared App Shell and keep responsibilities separate: Dashboard is a clea
 
 ### Saved Test Case detail
 
-Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance.
+Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Once Phase 2 is available, a single **Run test** primary action starts an explicitly guided Run of the current saved version.
+
+### Run inventory and Run Detail
+
+Use the shared App Shell for `/runs`, with compact Product and outcome filters and a list whose status always communicates outcome and evidence completeness together. `/runs/[id]` uses the same distraction-reduced 100vh treatment as recording while a Run is active: a strict saved-step checklist occupies 30% of the width and the browser stage 70%. Pass/fail controls apply only to the active step; an explicit Interrupt action ends the Run safely. On page refresh, the view restores the active step and viewer. Once completed, the same route becomes a readable Run Detail with an ordered result timeline and evidence tabs for Screenshots, Network, Console, and Storage. Evidence failures are explicit text/status items, not hidden behind a successful test outcome. No browser-video player is designed or displayed.
 
 ### Recording Workspace
 
