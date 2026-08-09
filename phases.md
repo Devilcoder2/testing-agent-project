@@ -127,7 +127,7 @@ docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.t
 ## Phase 2 — Run model and complete evidence
 
 **Depends on:** Phases 1 and 1.5
-**Status:** In progress.
+**Status:** Implementation and automated acceptance verified; manual owner check and learning review remain pending.
 **Outcome:** A saved Test Case can produce a locally guided Run record and a Run Detail view with privacy-safe, timeline-linked evidence metadata.
 
 ### In scope
@@ -147,16 +147,16 @@ docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.t
 
 ### Acceptance checklist
 
-- [ ] An authorized user can start a guided Run from a saved Test Case and its exact current version is retained.
-- [ ] The Run requires steps to be completed in sequence; pass advances and failure safely ends the Run.
-- [ ] A page refresh restores an active Run and its remote browser session.
-- [ ] Passed, failed, and interrupted outcomes persist with timestamps and ordered step results.
-- [ ] Screenshots, network, console, and storage evidence are linked to the Run timeline without retaining browser video.
-- [ ] Secret values, cookies, tokens, authorization headers, and sensitive payload fields are redacted before persistence.
-- [ ] Screenshots are private in MinIO, checksummed, and available only to authorized users through short-lived signed URLs.
-- [ ] Evidence capture problems are visible as `PARTIAL` without replacing the test outcome.
-- [ ] A user without Product membership cannot list, inspect, start, or obtain evidence for that Product's Runs.
-- [ ] Unit, integration, Playwright, and manual guided-browser verification pass.
+- [x] An authorized user can start a guided Run from a saved Test Case and its exact current version is retained.
+- [x] The Run requires steps to be completed in sequence; pass advances and failure safely ends the Run.
+- [x] A page refresh restores an active Run and its remote browser session.
+- [x] Passed, failed, and interrupted outcomes persist with timestamps and ordered step results.
+- [x] Screenshots, network, console, and storage evidence are linked to the Run timeline without retaining browser video.
+- [x] Secret values, cookies, tokens, authorization headers, and sensitive payload fields are redacted before persistence.
+- [x] Screenshots are private in MinIO, checksummed, and available only to authorized users through short-lived signed URLs.
+- [x] Evidence capture problems are visible as `PARTIAL` without replacing the test outcome.
+- [x] A user without Product membership cannot list, inspect, start, or obtain evidence for that Product's Runs.
+- [ ] Owner manually completes the guided-browser checklist after the automated unit, integration, and Playwright checks pass.
 
 ### Verification
 
