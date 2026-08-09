@@ -9,7 +9,8 @@ import { NewRecordingDialog } from "./sentinel-views";
 const navigation = [
   { href: "/dashboard", label: "Dashboard", glyph: "▦" },
   { href: "/products", label: "Products", glyph: "◇" },
-  { href: "/test-cases", label: "Test Cases", glyph: "✓" }
+  { href: "/test-cases", label: "Test Cases", glyph: "✓" },
+  { href: "/runs", label: "Runs", glyph: "▶" }
 ];
 const sidebarPreferenceKey = "sentinel-sidebar-collapsed";
 
@@ -42,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           return <Link key={item.href} href={item.href} className={`sidebar__link ${active ? "sidebar__link--active" : ""}`} aria-label={item.label} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}><span aria-hidden="true">{item.glyph}</span><span className="sidebar__link-label">{item.label}</span></Link>;
         })}
       </nav>
-      <div className="sidebar__footer"><span className="sidebar__status" aria-hidden="true" /><div><strong>Development workspace</strong><small>Local Phase 1</small></div></div>
+      <div className="sidebar__footer"><span className="sidebar__status" aria-hidden="true" /><div><strong>Development workspace</strong><small>Local Phase 2</small></div></div>
     </aside>
     {menuOpen && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
     <div className="app-shell__main">
