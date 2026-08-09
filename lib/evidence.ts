@@ -15,6 +15,7 @@ type SnapshotInput = RunSnapshot & {
   runId: string;
   runStepResultId?: string;
   label: "START" | "END" | "FAILURE" | "STEP";
+  includeScreenshot?: boolean;
 };
 
 const SENSITIVE_KEY = /password|passcode|token|secret|authorization|cookie|api[-_]?key/i;
@@ -140,16 +141,15 @@ function consoleMetadata(entries: unknown[], label: string) {
 }
 
 export async function persistRunSnapshot(input: SnapshotInput) {
-  await ensureBucket();
-  const checksum = crypto.createHash("sha256").update(input.screenshot).digest("hex");
-  const objectKey = `${input.runId}/${input.label.toLowerCase()}-${crypto.randomUUID()}.png`;
-  await evidenceClient().send(new PutObjectCommand({ Bucket: evidenceBucket(), Key: objectKey, Body: input.screenshot, ContentType: "image/png" }));
-
   const shared = { runId: input.runId, runStepResultId: input.runStepResultId ?? null };
-  const evidence: Array<Prisma.EvidenceItemCreateManyInput> = [
-    { ...shared, kind: EvidenceKind.SCREENSHOT, objectKey, checksum, contentType: "image/png", byteSize: input.screenshot.byteLength, metadata: jsonValue({ label: input.label }) },
-    { ...shared, kind: EvidenceKind.STORAGE, metadata: jsonValue({ label: input.label, ...redactedStorageSnapshot(input.storage) }) }
-  ];
+  const evidence: Array<Prisma.EvidenceItemCreateManyInput> = [{ ...shared, kind: EvidenceKind.STORAGE, metadata: jsonValue({ label: input.label, ...redactedStorageSnapshot(input.storage) }) }];
+  if (input.includeScreenshot !== false) {
+    await ensureBucket();
+    const checksum = crypto.createHash("sha256").update(input.screenshot).digest("hex");
+    const objectKey = `${input.runId}/${input.label.toLowerCase()}-${crypto.randomUUID()}.png`;
+    await evidenceClient().send(new PutObjectCommand({ Bucket: evidenceBucket(), Key: objectKey, Body: input.screenshot, ContentType: "image/png" }));
+    evidence.unshift({ ...shared, kind: EvidenceKind.SCREENSHOT, objectKey, checksum, contentType: "image/png", byteSize: input.screenshot.byteLength, metadata: jsonValue({ label: input.label }) });
+  }
   if (input.network.length) evidence.push({ ...shared, kind: EvidenceKind.NETWORK, metadata: jsonValue(networkMetadata(input.network, input.label)) });
   if (input.console.length) evidence.push({ ...shared, kind: EvidenceKind.CONSOLE, metadata: jsonValue(consoleMetadata(input.console, input.label)) });
   await prisma.evidenceItem.createMany({ data: evidence });
