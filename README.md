@@ -30,7 +30,8 @@ The attached requirements document is the current product source of truth. Archi
 - Product documentation: prepared.
 - Phase 1: acceptance criteria verified; owner learning review remains pending.
 - Phase 1.5: frontend foundation and Phase 1 UX redesign acceptance-verified; owner learning review remains pending.
-- Application code: local Docker recording slice is available.
+- Phase 2: guided Runs and privacy-safe evidence capture are in progress.
+- Application code: local Docker recording slice is available; Phase 2 adds a private local MinIO evidence service.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
 
@@ -38,7 +39,7 @@ The attached requirements document is the current product source of truth. Archi
 
 Read [`AGENTS.md`](AGENTS.md) before planning or changing the project. In particular, each changed file must be independently validated, committed alone, and pushed immediately to `origin`.
 
-## Run Phase 1 locally
+## Run Phases 1–2 locally
 
 Docker Desktop is required. Start the local stack, then open [http://localhost:3001](http://localhost:3001).
 
@@ -49,6 +50,8 @@ docker compose down
 ```
 
 Use `ava.tester@example.test` with password `sentinel-dev`. Create a recording for the built-in Demo CRM, launch the browser panel, then complete the demo target’s sign-in and customer-creation journey. Chromium runs in kiosk app mode and is policy-locked to the Demo CRM; the host exposes only the noVNC viewer on port 7900, not Selenium WebDriver.
+
+Phase 2 adds an explicit **Run test** action on a saved Test Case. The tester follows the immutable saved steps in order, marks each active step passed or failed, and can interrupt the Run. Sentinel keeps a separate test outcome and evidence-capture state, stores screenshots in the private local MinIO service, and never stores a browser-video recording. Redis/BullMQ, automatic replay, scheduled Runs, and external QA targets remain later work.
 
 ## Verify Phase 1
 
@@ -68,4 +71,4 @@ The browser checks cover locked-target navigation, full-stage live-browser rende
 
 ## Status
 
-Phase 1 is implemented and its acceptance checks have been verified. Phase 1.5 has redesigned those flows into the documented route-based Sentinel interface without changing their backend behavior. Neither phase is marked fully understood or closed because the owner learning questions in `learning-log.md` still need answers. Replay, evidence bundles, external integrations, scheduling, and QA-network access remain later phases.
+Phase 1 is implemented and its acceptance checks have been verified. Phase 1.5 has redesigned those flows into the documented route-based Sentinel interface without changing their backend behavior. Neither phase is marked fully understood or closed because the owner learning questions in `learning-log.md` still need answers. Phase 2 guided Runs and evidence are in progress; autonomous replay, external integrations, scheduling, and QA-network access remain later phases.
