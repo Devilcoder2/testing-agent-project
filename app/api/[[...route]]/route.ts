@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
-import { Prisma, RecordingStatus, StepKind } from "@prisma/client";
+import { Prisma, RecordingStatus, RunOutcome, RunStatus, RunStepStatus, StepKind } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
-import { closeBrowser, launchBrowser } from "@/lib/browser";
+import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordingBrowser, launchRunBrowser } from "@/lib/browser";
+import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
 import { prisma } from "@/lib/prisma";
 
 type Context = { params: Promise<{ route?: string[] }> };
@@ -15,6 +16,20 @@ async function releaseBrowserAfterRecording() {
     await closeBrowser();
   } catch (error) {
     console.error("Sentinel browser cleanup failure", error);
+  }
+}
+
+async function captureRunEvidence(runId: string, label: "START" | "END" | "FAILURE" | "STEP", runStepResultId?: string) {
+  try {
+    const snapshot = await captureRunBrowserSnapshot(runId);
+    await persistRunSnapshot({ ...snapshot, runId, runStepResultId, label, includeScreenshot: label !== "STEP" });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Evidence capture failed.";
+    try {
+      await recordCaptureFailure(runId, message, runStepResultId);
+    } catch (recordError) {
+      console.error("Sentinel could not persist the evidence capture failure", recordError);
+    }
   }
 }
 const recorderJson = (body: unknown, status = 200) => NextResponse.json(body, {
@@ -133,6 +148,114 @@ async function route(request: Request, context: Context) {
       await assertProductMember(user.id, testCase.productId);
       return json(testCase);
     }
+    if (request.method === "POST" && path[0] === "test-cases" && path[1] && path[2] === "runs") {
+      const testCase = await prisma.testCase.findUnique({
+        where: { id: path[1] },
+        include: { recordingSession: true, versions: { include: { steps: { orderBy: { order: "asc" } } } } }
+      });
+      if (!testCase) return json({ error: "Test Case not found." }, 404);
+      await assertProductMember(user.id, testCase.productId);
+      const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
+      if (!version || version.steps.length === 0) return json({ error: "This Test Case has no saved steps to guide a Run." }, 409);
+      if (await prisma.run.findFirst({ where: { status: RunStatus.RUNNING } })) return json({ error: "Another local browser session is active. Finish it before starting a Run." }, 409);
+      const run = await prisma.$transaction(async (tx) => {
+        const created = await tx.run.create({
+          data: {
+            testCaseId: testCase.id,
+            testCaseVersionId: version.id,
+            productId: testCase.productId,
+            initiatedById: user.id,
+            targetUrl: testCase.recordingSession.targetUrl,
+            activeStepOrder: version.steps[0].order,
+            stepResults: { create: version.steps.map((step) => ({ testStepId: step.id, order: step.order })) }
+          }
+        });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "RUN_QUEUED", entityType: "Run", entityId: created.id, details: { testCaseVersion: version.version } } });
+        return created;
+      });
+      try {
+        await launchRunBrowser(run.targetUrl, run.id);
+      } catch (error) {
+        await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.INTERRUPTED, evidenceStatus: "PARTIAL", completedAt: new Date() } });
+        throw error;
+      }
+      const started = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.RUNNING, startedAt: new Date() } });
+      await prisma.auditEvent.create({ data: { actorId: user.id, action: "RUN_STARTED", entityType: "Run", entityId: run.id } });
+      await captureRunEvidence(run.id, "START");
+      return json({ run: started, viewerUrl: process.env.BROWSER_VIEWER_URL }, 201);
+    }
+    if (request.method === "GET" && path.join("/") === "runs") {
+      const runs = await prisma.run.findMany({
+        where: { product: { memberships: { some: { userId: user.id } } } },
+        include: { product: true, testCase: { select: { id: true, name: true } }, initiatedBy: { select: { displayName: true } }, stepResults: { select: { status: true } } },
+        orderBy: { createdAt: "desc" }
+      });
+      return json(runs);
+    }
+    if (request.method === "GET" && path[0] === "runs" && path[1]) {
+      const run = await prisma.run.findUnique({
+        where: { id: path[1] },
+        include: {
+          product: true,
+          testCase: { select: { id: true, name: true } },
+          testCaseVersion: { select: { version: true } },
+          initiatedBy: { select: { displayName: true } },
+          stepResults: { include: { testStep: true, evidence: { orderBy: { capturedAt: "asc" } } }, orderBy: { order: "asc" } },
+          evidence: { orderBy: { capturedAt: "asc" } }
+        }
+      });
+      if (!run) return json({ error: "Run not found." }, 404);
+      await assertProductMember(user.id, run.productId);
+      return json(run);
+    }
+    if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "steps" && path[3] && path[4] === "complete") {
+      const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { stepResults: { orderBy: { order: "asc" } } } });
+      if (!run) return json({ error: "Run not found." }, 404);
+      await assertProductMember(user.id, run.productId);
+      if (run.status !== RunStatus.RUNNING) return json({ error: "This Run is no longer active." }, 409);
+      const stepResult = run.stepResults.find((item) => item.id === path[3]);
+      if (!stepResult) return json({ error: "Run step not found." }, 404);
+      if (stepResult.status !== RunStepStatus.PENDING || stepResult.order !== run.activeStepOrder) return json({ error: "Complete the active Run step before changing another step." }, 409);
+      const outcome = body.status === "PASSED" ? RunStepStatus.PASSED : body.status === "FAILED" ? RunStepStatus.FAILED : null;
+      if (!outcome) return json({ error: "Step status must be PASSED or FAILED." }, 400);
+      const completedAt = new Date();
+      const nextStep = run.stepResults.find((item) => item.order > stepResult.order);
+      await prisma.runStepResult.update({ where: { id: stepResult.id }, data: { status: outcome, startedAt: stepResult.startedAt ?? run.startedAt ?? completedAt, completedAt } });
+      if (outcome === RunStepStatus.FAILED) {
+        await captureRunEvidence(run.id, "FAILURE", stepResult.id);
+        const completed = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.FAILED, activeStepOrder: null, completedAt } });
+        await prisma.auditEvent.create({ data: { actorId: user.id, action: "RUN_FAILED", entityType: "Run", entityId: run.id, details: { stepOrder: stepResult.order } } });
+        await closeRunBrowser(run.id);
+        return json(completed);
+      }
+      if (nextStep) {
+        const updated = await prisma.run.update({ where: { id: run.id }, data: { activeStepOrder: nextStep.order } });
+        await captureRunEvidence(run.id, "STEP", stepResult.id);
+        return json(updated);
+      }
+      await captureRunEvidence(run.id, "END", stepResult.id);
+      const completed = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.PASSED, activeStepOrder: null, completedAt } });
+      await prisma.auditEvent.create({ data: { actorId: user.id, action: "RUN_PASSED", entityType: "Run", entityId: run.id } });
+      await closeRunBrowser(run.id);
+      return json(completed);
+    }
+    if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "interrupt") {
+      const run = await prisma.run.findUnique({ where: { id: path[1] } });
+      if (!run) return json({ error: "Run not found." }, 404);
+      await assertProductMember(user.id, run.productId);
+      if (run.status !== RunStatus.RUNNING) return json({ error: "This Run is no longer active." }, 409);
+      await captureRunEvidence(run.id, "END");
+      const completed = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.INTERRUPTED, activeStepOrder: null, completedAt: new Date() } });
+      await prisma.auditEvent.create({ data: { actorId: user.id, action: "RUN_INTERRUPTED", entityType: "Run", entityId: run.id } });
+      await closeRunBrowser(run.id);
+      return json(completed);
+    }
+    if (request.method === "GET" && path[0] === "evidence" && path[1] && path[2] === "access") {
+      const evidence = await prisma.evidenceItem.findUnique({ where: { id: path[1] }, include: { run: true } });
+      if (!evidence || !evidence.objectKey) return json({ error: "Evidence artifact not found." }, 404);
+      await assertProductMember(user.id, evidence.run.productId);
+      return json({ url: await signedEvidenceUrl(evidence.objectKey), expiresInSeconds: 900 });
+    }
     const recordingId = path[1];
     if (path[0] === "recordings" && recordingId) {
       const recording = await prisma.recordingSession.findUnique({ where: { id: recordingId }, include: { steps: { orderBy: { order: "asc" } } } });
@@ -147,7 +270,7 @@ async function route(request: Request, context: Context) {
           await prisma.recordedStep.create({ data: { recordingSessionId: recording.id, order: (recording.steps.at(-1)?.order ?? 0) + 1, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: recording.targetUrl, title: "Demo CRM" } } });
         }
         try {
-          await launchBrowser(recording.targetUrl, token);
+          await launchRecordingBrowser(recording.targetUrl, token, recording.id);
         } catch (error) {
           await prisma.recordingSession.update({ where: { id: recording.id }, data: { status: RecordingStatus.DRAFT } });
           throw error;
@@ -189,6 +312,8 @@ async function route(request: Request, context: Context) {
     if (code === "UNAUTHORIZED") return json({ error: "Sign in required." }, 401);
     if (code === "FORBIDDEN") return json({ error: "You do not have access to this resource." }, 403);
     if (code === "BROWSER_LAUNCH_IN_PROGRESS") return json({ error: "The live browser is still starting. Wait a moment, then try again." }, 409);
+    if (code === "BROWSER_BUSY") return json({ error: "Another local browser session is active. Finish it before launching this workspace." }, 409);
+    if (code === "RUN_BROWSER_UNAVAILABLE") return json({ error: "The guided Run browser is unavailable. Refresh the Run or start a new one." }, 409);
     if (code.startsWith("BROWSER_")) return json({ error: "The live browser could not start. Try launching it again." }, 503);
     console.error("Sentinel API failure", error);
     return json({ error: "The recording browser could not be launched. Check the Sentinel container logs for details." }, 500);
