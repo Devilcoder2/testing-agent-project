@@ -35,7 +35,7 @@ function attachEvidence(page: Page): EvidenceCollector {
       const request = response.request();
       if (!response.url().startsWith(targetOrigin())) return;
       const contentType = response.headers()["content-type"] ?? "";
-      const responseBody = /(?:json|text|javascript|xml)/i.test(contentType) ? (await response.text().catch(() => "")).slice(0, 4096) : undefined;
+      const responseBody = /(?:application\/json|text\/plain)/i.test(contentType) ? (await response.text().catch(() => "")).slice(0, 4096) : undefined;
       network.push({
         url: response.url(),
         method: request.method(),
@@ -54,14 +54,14 @@ function attachEvidence(page: Page): EvidenceCollector {
   let consoleOffset = 0;
   return {
     snapshot: async () => {
-      const storage = await page.evaluate(() => {
-        const values = (source: Storage) => Object.keys(source).map((key) => ({ key, value: source.getItem(key) }));
+      const storage = await page.evaluate(`(() => {
+        const values = (source) => Object.keys(source).map((key) => ({ key, value: source.getItem(key) }));
         return {
           cookies: document.cookie.split(";").map((value) => value.trim()).filter(Boolean).map((value) => ({ name: value.split("=")[0], value: value.slice(value.indexOf("=") + 1) })),
           localStorage: values(window.localStorage),
           sessionStorage: values(window.sessionStorage)
         };
-      });
+      })()`);
       const snapshot = {
         screenshot: await page.screenshot({ type: "png" }),
         network: network.slice(networkOffset),
@@ -78,7 +78,8 @@ function attachEvidence(page: Page): EvidenceCollector {
 async function captureEvidence(collector: EvidenceCollector, runId: string, attemptId: string, label: "START" | "END" | "FAILURE" | "STEP" | "CHECKPOINT", runStepResultId?: string) {
   try {
     await persistRunSnapshot({ ...(await collector.snapshot()), runId, runAttemptId: attemptId, runStepResultId, label, includeScreenshot: label !== "STEP" });
-  } catch {
+  } catch (error) {
+    console.error("Sentinel Auto Run evidence capture failed", error instanceof Error ? error.message : error);
     await recordCaptureFailure(runId, "AUTO_EVIDENCE_CAPTURE_FAILED", runStepResultId, attemptId).catch(() => undefined);
   }
 }
