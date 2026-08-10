@@ -6,7 +6,7 @@ const baseUrl = process.env.SENTINEL_BASE_URL ?? "http://localhost:3000";
 
 test.setTimeout(50_000);
 
-async function createReplayableTestCase(name: string) {
+async function createReplayableTestCase(name: string, checkpointOrder?: number) {
   const ava = await prisma.user.findUniqueOrThrow({ where: { email: "ava.tester@example.test" } });
   const product = await prisma.product.create({ data: { name: `Auto Run UI ${Date.now()}`, createdById: ava.id, memberships: { create: { userId: ava.id } } } });
   const recording = await prisma.recordingSession.create({ data: { productId: product.id, ownerId: ava.id, testName: name, targetUrl: "http://demo-target", tokenHash: `auto-run-ui-${Date.now()}`, status: RecordingStatus.SAVED } });
@@ -30,7 +30,7 @@ async function createReplayableTestCase(name: string) {
       ownerId: ava.id,
       recordingSessionId: recording.id,
       name,
-      versions: { create: { version: 1, steps: { create: steps.map((step) => ({ ...step, timestamp: new Date(), isRedacted: step.isRedacted ?? false })) } } }
+      versions: { create: { version: 1, steps: { create: steps.map((step) => ({ ...step, timestamp: new Date(), isRedacted: step.isRedacted ?? false, isCheckpoint: step.order === checkpointOrder })) } } }
     }
   });
   return { productId: product.id, testCaseId: testCase.id };
@@ -47,7 +47,7 @@ async function cleanup(productId: string) {
 
 test("queues and completes an Auto Run from saved Test Case detail", async ({ page }) => {
   const name = `Auto Run workspace ${Date.now()}`;
-  const created = await createReplayableTestCase(name);
+  const created = await createReplayableTestCase(name, 4);
   try {
     await page.goto(baseUrl);
     await page.getByLabel("Email").fill("ava.tester@example.test");
@@ -59,6 +59,9 @@ test("queues and completes an Auto Run from saved Test Case detail", async ({ pa
 
     await expect(page).toHaveURL(/\/runs\//, { timeout: 15_000 });
     await expect(page.getByText("Auto Run", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Checkpoint ready:", { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Review window ends:", { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByText("Execution evidence", { exact: true })).toBeVisible({ timeout: 35_000 });
     await expect(page.getByText("Passed", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "Evidence timeline" })).toBeVisible();
