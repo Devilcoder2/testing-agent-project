@@ -1,11 +1,12 @@
 import crypto from "node:crypto";
-import { Prisma, RecordingStatus, RunOutcome, RunStatus, RunStepStatus, StepKind } from "@prisma/client";
+import { Prisma, RecordingStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
 import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordingBrowser, launchRunBrowser } from "@/lib/browser";
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
 import { prisma } from "@/lib/prisma";
+import { enqueueAutoRun } from "@/lib/queue";
 
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
@@ -157,7 +158,7 @@ async function route(request: Request, context: Context) {
       await assertProductMember(user.id, testCase.productId);
       const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
       if (!version || version.steps.length === 0) return json({ error: "This Test Case has no saved steps to guide a Run." }, 409);
-      if (await prisma.run.findFirst({ where: { status: RunStatus.RUNNING } })) return json({ error: "Another local browser session is active. Finish it before starting a Run." }, 409);
+      if (await prisma.run.findFirst({ where: { mode: RunMode.GUIDED, status: RunStatus.RUNNING } })) return json({ error: "Another local browser session is active. Finish it before starting a Run." }, 409);
       const run = await prisma.$transaction(async (tx) => {
         const created = await tx.run.create({
           data: {
@@ -184,10 +185,55 @@ async function route(request: Request, context: Context) {
       await captureRunEvidence(run.id, "START");
       return json({ run: started, viewerUrl: process.env.BROWSER_VIEWER_URL }, 201);
     }
+    if (request.method === "POST" && path[0] === "test-cases" && path[1] && path[2] === "auto-runs") {
+      const testCase = await prisma.testCase.findUnique({
+        where: { id: path[1] },
+        include: { recordingSession: true, versions: { include: { steps: { orderBy: { order: "asc" } } } } }
+      });
+      if (!testCase) return json({ error: "Test Case not found." }, 404);
+      await assertProductMember(user.id, testCase.productId);
+      const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
+      if (!version || version.steps.length === 0) return json({ error: "This Test Case has no saved steps to replay." }, 409);
+      const unsupportedVariable = version.steps.find((step) => Boolean(step.variableName) && !step.isRedacted);
+      if (unsupportedVariable) return json({ error: `Step ${unsupportedVariable.order} uses variable "${unsupportedVariable.variableName}". Auto Run variables require Phase 4; use Guided Run for this Test Case.` }, 409);
+      const created = await prisma.$transaction(async (tx) => {
+        const run = await tx.run.create({
+          data: {
+            testCaseId: testCase.id,
+            testCaseVersionId: version.id,
+            productId: testCase.productId,
+            initiatedById: user.id,
+            targetUrl: testCase.recordingSession.targetUrl,
+            mode: RunMode.AUTO,
+            activeStepOrder: version.steps[0].order,
+            stepResults: { create: version.steps.map((step) => ({ testStepId: step.id, order: step.order })) },
+            attempts: { create: { attemptNumber: 1 } }
+          },
+          include: { attempts: true }
+        });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_QUEUED", entityType: "Run", entityId: run.id, details: { testCaseVersion: version.version } } });
+        return run;
+      });
+      const attempt = created.attempts[0];
+      try {
+        const jobId = await enqueueAutoRun({ runId: created.id, attemptId: attempt.id });
+        await prisma.runAttempt.update({ where: { id: attempt.id }, data: { jobId } });
+      } catch (error) {
+        const completedAt = new Date();
+        await prisma.$transaction([
+          prisma.run.update({ where: { id: created.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.FAILED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, evidenceStatus: "PARTIAL", activeStepOrder: null, completedAt } }),
+          prisma.runAttempt.update({ where: { id: attempt.id }, data: { status: RunAttemptStatus.COMPLETED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, completedAt } }),
+          prisma.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_QUEUE_FAILED", entityType: "Run", entityId: created.id } })
+        ]);
+        console.error("Sentinel could not enqueue Auto Run", error);
+        return json({ error: "Auto Run could not be queued. Redis is unavailable; try again." }, 503);
+      }
+      return json({ run: created }, 201);
+    }
     if (request.method === "GET" && path.join("/") === "runs") {
       const runs = await prisma.run.findMany({
         where: { product: { memberships: { some: { userId: user.id } } } },
-        include: { product: true, testCase: { select: { id: true, name: true } }, initiatedBy: { select: { displayName: true } }, stepResults: { select: { status: true } } },
+        include: { product: true, testCase: { select: { id: true, name: true } }, initiatedBy: { select: { displayName: true } }, stepResults: { select: { status: true } }, attempts: { select: { id: true, attemptNumber: true, status: true, failureReason: true, activeDurationMs: true }, orderBy: { attemptNumber: "asc" } } },
         orderBy: { createdAt: "desc" }
       });
       return json(runs);
@@ -201,12 +247,13 @@ async function route(request: Request, context: Context) {
           testCaseVersion: { select: { version: true } },
           initiatedBy: { select: { displayName: true } },
           stepResults: { include: { testStep: true, evidence: { orderBy: { capturedAt: "asc" } } }, orderBy: { order: "asc" } },
+          attempts: { orderBy: { attemptNumber: "asc" } },
           evidence: { orderBy: { capturedAt: "asc" } }
         }
       });
       if (!run) return json({ error: "Run not found." }, 404);
       await assertProductMember(user.id, run.productId);
-      return json({ ...run, viewerUrl: run.status === RunStatus.RUNNING ? process.env.BROWSER_VIEWER_URL : null });
+      return json({ ...run, viewerUrl: run.mode === RunMode.GUIDED && run.status === RunStatus.RUNNING ? process.env.BROWSER_VIEWER_URL : null });
     }
     if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "steps" && path[3] && path[4] === "complete") {
       const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { stepResults: { orderBy: { order: "asc" } } } });
@@ -243,12 +290,44 @@ async function route(request: Request, context: Context) {
       const run = await prisma.run.findUnique({ where: { id: path[1] } });
       if (!run) return json({ error: "Run not found." }, 404);
       await assertProductMember(user.id, run.productId);
+      if (run.mode !== RunMode.GUIDED) return json({ error: "Use the Auto Run cancel control for this Run." }, 409);
       if (run.status !== RunStatus.RUNNING) return json({ error: "This Run is no longer active." }, 409);
       await captureRunEvidence(run.id, "END");
       const completed = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.INTERRUPTED, activeStepOrder: null, completedAt: new Date() } });
       await prisma.auditEvent.create({ data: { actorId: user.id, action: "RUN_INTERRUPTED", entityType: "Run", entityId: run.id } });
       await closeRunBrowser(run.id);
       return json(completed);
+    }
+    if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "resume") {
+      const run = await prisma.run.findUnique({ where: { id: path[1] } });
+      if (!run) return json({ error: "Run not found." }, 404);
+      await assertProductMember(user.id, run.productId);
+      if (run.mode !== RunMode.AUTO) return json({ error: "Only Auto Runs can be resumed at a checkpoint." }, 409);
+      if (run.status !== RunStatus.PAUSED) return json({ error: "This Auto Run is not waiting at a checkpoint." }, 409);
+      const resumed = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.RUNNING, pausedAt: null } });
+      await prisma.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_CHECKPOINT_RESUMED", entityType: "Run", entityId: run.id, details: { stepOrder: run.activeStepOrder } } });
+      return json(resumed);
+    }
+    if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "cancel") {
+      const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { attempts: { orderBy: { attemptNumber: "desc" }, take: 1 } } });
+      if (!run) return json({ error: "Run not found." }, 404);
+      await assertProductMember(user.id, run.productId);
+      if (run.mode !== RunMode.AUTO) return json({ error: "Use the guided Run interrupt control for this Run." }, 409);
+      if (run.status === RunStatus.COMPLETED) return json({ error: "This Auto Run is already complete." }, 409);
+      const completedAt = new Date();
+      if (run.status === RunStatus.QUEUED) {
+        const cancelled = await prisma.$transaction(async (tx) => {
+          const updated = await tx.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.INTERRUPTED, failureReason: RunFailureReason.CANCELLED, evidenceStatus: "PARTIAL", activeStepOrder: null, completedAt } });
+          const attempt = run.attempts[0];
+          if (attempt) await tx.runAttempt.update({ where: { id: attempt.id }, data: { status: RunAttemptStatus.COMPLETED, failureReason: RunFailureReason.CANCELLED, completedAt } });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_CANCELLED", entityType: "Run", entityId: run.id, details: { beforeStart: true } } });
+          return updated;
+        });
+        return json(cancelled);
+      }
+      const cancelling = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.CANCELLING, cancellingAt: completedAt } });
+      await prisma.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_CANCELLATION_REQUESTED", entityType: "Run", entityId: run.id } });
+      return json(cancelling, 202);
     }
     if (request.method === "GET" && path[0] === "evidence" && path[1] && path[2] === "access") {
       const evidence = await prisma.evidenceItem.findUnique({ where: { id: path[1] }, include: { run: true } });
@@ -279,12 +358,14 @@ async function route(request: Request, context: Context) {
       }
       if (request.method === "PATCH" && path[2] === "steps" && path[3]) {
         if (!recording.steps.some((step) => step.id === path[3])) return json({ error: "Step not found." }, 404);
+        if (body.isCheckpoint !== undefined && typeof body.isCheckpoint !== "boolean") return json({ error: "Checkpoint must be true or false." }, 400);
         const step = await prisma.recordedStep.update({
           where: { id: path[3] },
           data: {
             ...(body.description !== undefined ? { description: body.description || null } : {}),
             ...(body.expectedOutcome !== undefined ? { expectedOutcome: body.expectedOutcome || null } : {}),
-            ...(body.variableName !== undefined ? { variableName: body.variableName || null } : {})
+            ...(body.variableName !== undefined ? { variableName: body.variableName || null } : {}),
+            ...(body.isCheckpoint !== undefined ? { isCheckpoint: body.isCheckpoint } : {})
           }
         });
         return json(step);
@@ -292,7 +373,7 @@ async function route(request: Request, context: Context) {
       if (request.method === "POST" && path[2] === "save") {
         if (recording.status === RecordingStatus.SAVED) return json({ error: "Recording already saved." }, 409);
         const testCase = await prisma.$transaction(async (tx) => {
-          const created = await tx.testCase.create({ data: { productId: recording.productId, ownerId: recording.ownerId, recordingSessionId: recording.id, name: recording.testName, versions: { create: { version: 1, steps: { create: recording.steps.map((step) => ({ order: step.order, kind: step.kind, timestamp: step.timestamp, target: step.target === null ? Prisma.JsonNull : step.target as Prisma.InputJsonValue, value: step.value, isRedacted: step.isRedacted, description: step.description, expectedOutcome: step.expectedOutcome, variableName: step.variableName })) } } } } });
+          const created = await tx.testCase.create({ data: { productId: recording.productId, ownerId: recording.ownerId, recordingSessionId: recording.id, name: recording.testName, versions: { create: { version: 1, steps: { create: recording.steps.map((step) => ({ order: step.order, kind: step.kind, timestamp: step.timestamp, target: step.target === null ? Prisma.JsonNull : step.target as Prisma.InputJsonValue, value: step.value, isRedacted: step.isRedacted, description: step.description, expectedOutcome: step.expectedOutcome, variableName: step.variableName, isCheckpoint: step.isCheckpoint })) } } } } });
           await tx.recordingSession.update({ where: { id: recording.id }, data: { status: RecordingStatus.SAVED } });
           await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_CASE_SAVED", entityType: "TestCase", entityId: created.id } });
           return created;
