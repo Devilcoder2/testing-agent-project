@@ -767,9 +767,9 @@ The frontend Playwright regression creates a recording, launches the live iframe
 
 - Date: 2026-08-09
 - Phase: 2
-- Status: Implemented and automated-verified; manual owner check and understanding review pending.
-- Relevant files: `prisma/schema.prisma`, `lib/browser.ts`, `lib/evidence.ts`, `app/api/[[...route]]/route.ts`, `components/sentinel-views.tsx`, `tests/run-api.test.ts`, `tests/phase-2-runs.spec.ts`, `tests/evidence.test.ts`.
-- Related decision: D-022 in `decisions-log.md`.
+- Status: Implemented and automated-verified; evidence recovery re-verified; manual owner check and understanding review pending.
+- Relevant files: `prisma/schema.prisma`, `lib/browser.ts`, `lib/evidence.ts`, `app/api/[[...route]]/route.ts`, `components/sentinel-views.tsx`, `docker-compose.yml`, `demo-target/index.html`, `tests/run-api.test.ts`, `tests/phase-2-runs.spec.ts`, `tests/evidence.test.ts`.
+- Related decisions: D-022 and D-023 in `decisions-log.md`.
 - Related verification: `docker compose exec sentinel npm run lint`, `docker compose exec sentinel npm run typecheck`, `docker compose exec sentinel npm test`, `docker compose exec sentinel npx playwright test tests/phase-2-runs.spec.ts`, plus the Phase 1 browser regressions.
 
 ### What this feature does
@@ -780,7 +780,7 @@ It lets an authorized tester start a Run from a saved Test Case and follow its i
 
 The tester chooses **Run test** on a saved Test Case. The API verifies Product membership, selects the current immutable Test Case version, creates one pending result for each saved step, and starts the one local browser. It captures initial evidence before returning the focused Run workspace.
 
-The workspace makes only the active step actionable. Passing it persists the step result, collects a storage/network/console boundary snapshot, and activates the next step. Failing captures a failure screenshot and ends the Run safely. Interrupt captures final available evidence and ends with an Interrupted outcome. Refreshing `/runs/[id]` reloads the persisted active step and the noVNC viewer URL, so the browser session can continue.
+The workspace makes only the active step actionable. Passing it persists the step result, collects a storage/network/console boundary snapshot, and activates the next step. Failing captures a failure screenshot and ends the Run safely. Interrupt captures final available evidence and ends with an Interrupted outcome. Refreshing `/runs/[id]` reloads the persisted active step and the noVNC viewer URL, so the browser session can continue. The local Selenium session allows 30 minutes of idle time because noVNC input does not reset Selenium's WebDriver timer. The Demo CRM's successful sign-in and customer creation make same-origin activity requests and set minimal session state, allowing the evidence fixture to show meaningful Network and redacted Storage entries.
 
 `lib/evidence.ts` redacts values before database persistence. Cookie and storage values become `[REDACTED]`; network JSON/text snippets are limited to 4 KiB after key-based redaction. Screenshot bytes are uploaded to the private `sentinel-evidence` MinIO bucket, hashed with SHA-256, and exposed only after another Product-membership check creates a 15-minute signed link.
 
@@ -789,7 +789,7 @@ The workspace makes only the active step actionable. Passing it persists the ste
 | Technology / pattern | Why it is used | Tradeoff |
 |---|---|---|
 | Prisma Run, RunStepResult, and EvidenceItem models | Preserve the exact saved version, ordered manual progress, evidence references, and audit history | The initial model is deliberately local and does not yet represent retries or concurrent workers. |
-| Selenium plus in-page browser instrumentation | Extends the existing locked browser instead of replacing it | Fetch and console interception is appropriate for the Demo CRM baseline; richer CDP coverage belongs with the replay worker. |
+| Selenium plus in-page browser instrumentation | Extends the existing locked browser instead of replacing it | Fetch and warning/error-console interception is appropriate for the Demo CRM baseline; richer protocol coverage belongs with the replay worker. |
 | MinIO plus AWS SDK v3 | Reproduces private S3-style evidence storage in Docker | Local development credentials and manual volume cleanup are not production retention controls. |
 | Separate outcome and capture status | A missing artifact must not turn a passed test into a failed test | Users need to read both statuses when assessing trust in a Run. |
 | Strict guided checklist | Makes a Phase 2 Run demonstrable without pretending saved steps replay automatically | Skip, pause, flexible ordering, queues, and autonomous replay remain deferred to Phase 3. |
@@ -798,7 +798,7 @@ The workspace makes only the active step actionable. Passing it persists the ste
 
 - There is one global browser session. A Run and a recording cannot safely coexist, and this is not a multi-user runner design.
 - Screenshot-object cleanup is manual in local Docker. Production needs retention, encryption, bucket policy, monitoring, and lifecycle rules.
-- The browser instrumentation captures application fetches after setup; Phase 3 should move evidence collection into a dedicated automation worker with broader protocol coverage.
+- The browser instrumentation captures application fetches after setup and warning/error console output. It does not capture an intentionally quiet happy-path console, every browser protocol event, or pre-injection activity; Phase 3 should move evidence collection into a dedicated automation worker with broader protocol coverage.
 - The Run UI shows persisted redacted metadata. It must never be changed to display raw cookie, token, or payload values merely for debugging convenience.
 
 ### Ten-question understanding check
@@ -835,11 +835,12 @@ The workspace makes only the active step actionable. Passing it persists the ste
 | Highest | `lib/evidence.ts` and `lib/browser.ts` | Redaction, MinIO writes/signing, screenshot checksums, browser evidence collection, and global session handling | Read now; these files control sensitive data and browser isolation. |
 | Highest | `prisma/schema.prisma` and its migration | Immutable version binding, Run/step/evidence relationships, cascading behavior, and enums | Read now before evolving persistence or retention. |
 | Medium | `components/sentinel-views.tsx`, `app/runs/*`, and `app/globals.css` | Guided Run controls, refresh recovery, evidence display, navigation, and focused workspace layout | Read next; confirms the UI cannot bypass strict server behavior. |
-| Medium | `tests/run-api.test.ts`, `tests/phase-2-runs.spec.ts`, and `tests/evidence.test.ts` | Authorization, ordering, evidence redaction, refresh, and failure-path expectations | Read next; these tests document the Phase 2 contract. |
+| Medium | `tests/run-api.test.ts`, `tests/phase-2-runs.spec.ts`, and `tests/evidence.test.ts` | Authorization, ordering, START/END capture, network/console/storage redaction, refresh, and failure-path expectations | Read next; these tests document the Phase 2 contract. |
+| Medium | `docker-compose.yml` and `demo-target/index.html` | Extends local browser lifetime and produces observable fixture activity | Read next; these settings prevent incomplete manual evidence and must not be copied blindly to production targets. |
 | Lower | Docker, package, and documentation files | Local MinIO configuration and recorded decisions | Skim after the behavior-critical code; keep them aligned with production choices. |
 
 #### Follow-up learning tasks
 
 - Owner completes the ten answers above; any incorrect answer should be revisited against the referenced code and tests.
-- Owner manually starts a saved Test Case Run, refreshes while it is active, passes one step, fails another, and confirms the evidence/detail view.
+- Owner manually starts a saved Test Case Run, refreshes while it is active, completes the Demo CRM journey, passes every step, and confirms START/END screenshots, Network entries, and redacted Storage entries. A quiet Console panel is correct for the happy path; use an incorrect Demo CRM password to verify warning capture.
 - Before Phase 3, decide how worker-owned browser allocation, retries, evidence retention, and production object-storage credentials will replace the single local session.
