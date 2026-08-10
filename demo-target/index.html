@@ -32,6 +32,10 @@
       const root = document.getElementById('root');
       const state = { signedIn: false, route: 'login', customers: [] };
       const go = (route) => { state.route = route; history.pushState({ route }, '', '#' + route); render(); };
+      const reportActivity = async (event) => {
+        try { await fetch('/events.json?event=' + encodeURIComponent(event), { cache: 'no-store' }); }
+        catch { console.error('Demo CRM activity request failed.'); }
+      };
       window.addEventListener('popstate', () => { state.route = location.hash.slice(1) || 'login'; render(); });
 
       function renderLogin() {
@@ -44,12 +48,17 @@
             <div class="message" id="login-message"></div>
             <button type="submit">Sign in</button>
           </form></div>`;
-        document.getElementById('sign-in-form').addEventListener('submit', (event) => {
+        document.getElementById('sign-in-form').addEventListener('submit', async (event) => {
           event.preventDefault();
           const data = new FormData(event.currentTarget);
           if (data.get('email') === 'qa.tester@example.test' && data.get('password') === 'TestPassword!') {
+            await reportActivity('sign-in');
+            sessionStorage.setItem('demo-authenticated', 'true');
             state.signedIn = true; go('dashboard');
-          } else document.getElementById('login-message').textContent = 'Use qa.tester@example.test and TestPassword!';
+          } else {
+            console.warn('Demo CRM sign-in rejected.');
+            document.getElementById('login-message').textContent = 'Use qa.tester@example.test and TestPassword!';
+          }
         });
       }
 
@@ -79,12 +88,16 @@
         if (!create) document.getElementById('new-customer').onclick = () => go('customer-new');
         if (create) {
           document.getElementById('back').onclick = () => go('dashboard');
-          document.getElementById('customer-form').addEventListener('submit', (event) => {
+          document.getElementById('customer-form').addEventListener('submit', async (event) => {
             event.preventDefault(); const data = new FormData(event.currentTarget);
             if (!data.get('firstName') || !data.get('lastName') || !data.get('email')) {
+              console.warn('Demo CRM customer validation failed.');
               document.getElementById('customer-message').textContent = 'All customer fields are required.'; return;
             }
-            state.customers.push(Object.fromEntries(data)); go('customer-saved');
+            await reportActivity('customer-created');
+            state.customers.push(Object.fromEntries(data));
+            sessionStorage.setItem('demo-customer-count', String(state.customers.length));
+            go('customer-saved');
           });
         }
       }
