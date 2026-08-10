@@ -13,6 +13,17 @@ services:
     volumes:
       - sentinel-postgres:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - sentinel-redis:/data
+
   demo-target:
     build: ./demo-target
     ports:
@@ -49,6 +60,8 @@ services:
         condition: service_started
       minio:
         condition: service_started
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/sentinel?schema=public
       SESSION_SECRET: sentinel-phase-1-development-secret
@@ -62,6 +75,7 @@ services:
       MINIO_SECRET_KEY: sentinel-minio-development-only
       MINIO_BUCKET: sentinel-evidence
       MINIO_REGION: us-east-1
+      REDIS_URL: redis://redis:6379
     command: sh -c "npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
     ports:
       - "3001:3000"
@@ -69,7 +83,33 @@ services:
       - .:/app
       - sentinel-node-modules:/app/node_modules
 
+  worker:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      demo-target:
+        condition: service_started
+      minio:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/sentinel?schema=public
+      DEMO_TARGET_URL: http://demo-target
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
+      MINIO_ACCESS_KEY: sentinel-minio
+      MINIO_SECRET_KEY: sentinel-minio-development-only
+      MINIO_BUCKET: sentinel-evidence
+      MINIO_REGION: us-east-1
+      REDIS_URL: redis://redis:6379
+      AUTO_RUN_DEMO_EMAIL: qa.tester@example.test
+      AUTO_RUN_DEMO_PASSWORD: TestPassword!
+    command: sh -c "npm run db:generate && npm run db:migrate && npm run worker"
+
 volumes:
   sentinel-postgres:
   sentinel-node-modules:
   sentinel-minio:
+  sentinel-redis:
