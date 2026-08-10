@@ -23,7 +23,7 @@
 | ORM/query layer | Prisma | Compatible stable major pinned in the lockfile | Provides migrations, typed access, and a clear relational model for the first slice. |
 | Job queue | Redis plus BullMQ or equivalent durable queue | Compatible stable major | Deferred to Phase 3, when autonomous replay needs durable jobs, retries, and concurrency. |
 | Evidence storage | Docker-local MinIO with AWS SDK v3 | MinIO RELEASE image; `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` compatible majors | Provides a private S3-compatible evidence boundary and short-lived signed URLs during Phase 2. |
-| Browser automation | Selenium WebDriver plus Chromium CDP | Selenium 4.x already pinned; Chrome DevTools Protocol from the controlled Chromium session | Phase 2 extends the existing browser-in-browser boundary to capture screenshots, network, console, and storage without a runner rewrite. |
+| Browser automation | Selenium WebDriver plus in-page Chromium instrumentation | Selenium 4.x already pinned; browser-side fetch and warning/error-console hooks in the controlled session | Phase 2 extends the existing browser-in-browser boundary to capture screenshots, network, console, and storage without a runner rewrite. |
 
 ## 3. Integrations
 
@@ -38,6 +38,7 @@
 - `.env.example` for configuration names only; never commit secrets.
 - Docker Compose provides local PostgreSQL and private MinIO during Phase 2. Redis/BullMQ is intentionally not added until Phase 3.
 - Docker Desktop is required for Phases 1–2: Compose runs PostgreSQL, MinIO, Sentinel, the isolated demo target, and the browser-in-browser session.
+- The local Selenium node uses a 30-minute idle session limit for guided Runs because noVNC input does not reset Selenium’s WebDriver activity timer.
 - Phase 1.5 uses local system typography, CSS custom properties, and custom React/CSS primitives; it does not add external fonts, icon packs, Tailwind, shadcn, or a component library.
 - CI should run formatting/lint checks, unit tests, type checks, and browser smoke tests.
 - Structured logs should include correlation IDs for a Test Case, Run, job, evidence event, and external integration request.
