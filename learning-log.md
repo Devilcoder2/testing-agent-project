@@ -851,8 +851,8 @@ The workspace makes only the active step actionable. Passing it persists the ste
 
 - Date: 2026-08-10
 - Phase: 3
-- Status: Approved; implementation and understanding review pending.
-- Relevant files: `worker.ts`, `lib/replay.ts`, `lib/queue.ts`, `lib/evidence.ts`, `app/api/[[...route]]/route.ts`, `prisma/schema.prisma`, `docker-compose.yml`.
+- Status: Implementation and automated acceptance verified; owner understanding review pending.
+- Relevant files: `worker.ts`, `lib/replay.ts`, `lib/queue.ts`, `lib/evidence.ts`, `app/api/[[...route]]/route.ts`, `prisma/schema.prisma`, `docker-compose.yml`, `tests/auto-run-api.test.ts`, and `tests/phase-3-auto-runs.spec.ts`.
 - Related decisions: D-024 in `decisions-log.md`.
 
 ### What this feature does
@@ -915,11 +915,12 @@ A product-authorized tester chooses Auto Run. Sentinel validates that the curren
 
 | Priority | File group | Why it needs attention | Review action |
 |---|---|---|---|
-| Highest | worker, queue, replay, API, schema, migration | Browser automation, durable state, credentials, cancellation, and retries are behavior-critical | Read now |
-| Medium | Run UI and tests | Exposes state and encodes the replay safety contract | Read next |
+| Highest | `worker.ts`, `lib/replay.ts`, `lib/queue.ts`, `app/api/[[...route]]/route.ts`, `prisma/schema.prisma`, and the Phase 3 migration | Browser automation, durable state, credentials, cancellation, retry history, and authorization are behavior-critical | Read now |
+| Medium | `components/sentinel-views.tsx`, `tests/auto-run-api.test.ts`, and `tests/phase-3-auto-runs.spec.ts` | Exposes state and encodes the replay, checkpoint, concurrency, retry, benchmark, and UI safety contract | Read next |
 | Lower | Docker and documentation | Local service wiring and learning context | Skim after behavior is understood |
 
 #### Follow-up learning tasks
 
 - Owner answers all ten Phase 3 questions after implementation.
 - Before production, define external target policy, worker deployment, credential provider, retention, and concurrency limits.
+- Owner manually records and saves the Demo CRM journey, starts an Auto Run, reviews a checkpoint, and checks attempts, redacted evidence, and duration comparison in Run Detail.
