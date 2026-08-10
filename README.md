@@ -30,8 +30,9 @@ The attached requirements document is the current product source of truth. Archi
 - Product documentation: prepared.
 - Phase 1: acceptance criteria verified; owner learning review remains pending.
 - Phase 1.5: frontend foundation and Phase 1 UX redesign acceptance-verified; owner learning review remains pending.
-- Phase 2: guided Runs and privacy-safe evidence capture are in progress.
-- Application code: local Docker recording slice is available; Phase 2 adds a private local MinIO evidence service.
+- Phase 2: guided Runs and privacy-safe evidence capture are acceptance-verified; owner learning review remains pending.
+- Phase 3: autonomous replay is implementation and automated-acceptance verified; owner learning review remains pending.
+- Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
 
@@ -39,7 +40,7 @@ The attached requirements document is the current product source of truth. Archi
 
 Read [`AGENTS.md`](AGENTS.md) before planning or changing the project. In particular, each changed file must be independently validated, committed alone, and pushed immediately to `origin`.
 
-## Run Phases 1–2 locally
+## Run Phases 1–3 locally
 
 Docker Desktop is required. Start the local stack, then open [http://localhost:3001](http://localhost:3001).
 
@@ -82,6 +83,19 @@ docker compose exec sentinel npx playwright test tests/phase-2-runs.spec.ts
 
 The Phase 2 checks cover strict guided-step order, immutable version binding, browser-session recovery after refresh, failed/interrupted outcomes, redaction, START/END screenshot capture, network/console/storage evidence, MinIO screenshot metadata, and product authorization. A human owner should also start a saved Test Case Run, refresh while it is active, complete the Demo CRM sign-in and customer journey, pass each step, and inspect the evidence timeline before accepting the phase manually. A successful Demo CRM Run shows START and END screenshots, its same-origin activity requests in Network, and redacted session-storage keys after the journey; an empty START storage snapshot is correct because it is taken before sign-in. Console remains empty unless the target emits a warning or error—entering an incorrect Demo CRM password is a safe way to verify warning capture.
 
+## Verify Phase 3
+
+Keep the Docker stack running, then run:
+
+```text
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/phase-3-auto-runs.spec.ts
+```
+
+The Phase 3 checks cover isolated autonomous Demo CRM replay, safe exact selector matching, worker-only credential redaction, checkpoint Continue/Cancel behavior, two concurrent worker contexts, one linked technical retry, duration benchmarking, and guided-Run regression behavior. To check it manually, save a Demo CRM Test Case, choose **Auto Run**, then inspect its outcome, redacted evidence, attempts, and duration comparison in Run Detail. Marking a recording step as a checkpoint pauses the Auto Run for review; choose Continue or Cancel from the Run Detail.
+
 ## Status
 
-Phase 1 is implemented and its acceptance checks have been verified. Phase 1.5 has redesigned those flows into the documented route-based Sentinel interface without changing their backend behavior. Neither phase is marked fully understood or closed because the owner learning questions in `learning-log.md` still need answers. Phase 2 guided Runs and evidence are in progress; autonomous replay, external integrations, scheduling, and QA-network access remain later phases.
+Phases 1, 1.5, 2, and 3 are implementation and acceptance-verified. Their owner learning reviews remain pending in `learning-log.md`, so they are not yet marked fully understood. External integrations, scheduling, external QA targets, variables, releases, notifications, and QA-network access remain later phases.
