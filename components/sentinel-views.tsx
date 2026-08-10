@@ -6,7 +6,7 @@ import { FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Button, Card, EmptyState, Feedback, Field, PageHeader, SelectInput, StatusBadge, TextArea, TextInput } from "./ui";
 
 type Product = { id: string; name: string };
-type Step = { id: string; order: number; kind: string; target: Record<string, string>; value?: string | null; isRedacted: boolean; description?: string | null; expectedOutcome?: string | null; variableName?: string | null };
+type Step = { id: string; order: number; kind: string; target: Record<string, string>; value?: string | null; isRedacted: boolean; description?: string | null; expectedOutcome?: string | null; variableName?: string | null; isCheckpoint?: boolean };
 type TestCaseSummary = { id: string; name: string; currentVersion: number; product: Product; owner: { displayName: string }; updatedAt: string };
 type SavedTestCase = TestCaseSummary & { versions: Array<{ version: number; steps: Step[] }> };
 type RecordingContext = { id: string; token: string; testName: string };
@@ -180,7 +180,7 @@ export function TestCaseDetailView({ testCaseId }: { testCaseId: string }) {
   const router = useRouter();
   const [testCase, setTestCase] = useState<SavedTestCase | null>(null);
   const [message, setMessage] = useState("");
-  const [startingRun, setStartingRun] = useState(false);
+  const [startingRun, setStartingRun] = useState<"GUIDED" | "AUTO" | null>(null);
 
   useEffect(() => {
     request(`test-cases/${testCaseId}`).then((result) => setTestCase(result as SavedTestCase)).catch((loadError) => {
@@ -190,37 +190,39 @@ export function TestCaseDetailView({ testCaseId }: { testCaseId: string }) {
     });
   }, [router, testCaseId]);
 
-  async function startRun() {
-    setStartingRun(true);
+  async function startRun(mode: "GUIDED" | "AUTO") {
+    setStartingRun(mode);
     setMessage("");
     try {
-      const result = await request(`test-cases/${testCaseId}/runs`, "POST") as { run: { id: string } };
+      const result = await request(`test-cases/${testCaseId}/${mode === "GUIDED" ? "runs" : "auto-runs"}`, "POST") as { run: { id: string } };
       router.push(`/runs/${result.run.id}`);
     } catch (startError) {
-      setMessage(errorMessage(startError, "Could not start the guided Run."));
+      setMessage(errorMessage(startError, `Could not start the ${mode === "GUIDED" ? "guided" : "Auto"} Run.`));
     } finally {
-      setStartingRun(false);
+      setStartingRun(null);
     }
   }
 
   if (message) return <Feedback tone="danger">{message}</Feedback>;
   if (!testCase) return <Card className="panel-card"><StatusBadge tone="info">Loading saved Test Case</StatusBadge></Card>;
   const steps = testCaseSteps(testCase);
-  return <div className="dashboard-grid"><div className="breadcrumbs"><Link href="/dashboard">Dashboard</Link><span aria-hidden="true">/</span><Link href="/test-cases">Test Cases</Link><span aria-hidden="true">/</span><span>{testCase.name}</span></div><Card className="detail-card"><PageHeader eyebrow="Saved Test Case" title={testCase.name} detail="This current version is read-only. Run it with a tester-guided evidence session." actions={<><StatusBadge tone="success">Version {testCase.currentVersion}</StatusBadge><Button onClick={startRun} disabled={startingRun || steps.length === 0}>{startingRun ? "Starting Run…" : "Run test"} <span aria-hidden="true">→</span></Button></>} /><div className="detail-meta"><span>{testCase.product.name}</span><span aria-hidden="true">•</span><span>Owner: {testCase.owner.displayName}</span><span aria-hidden="true">•</span><span>{steps.length} recorded step{steps.length === 1 ? "" : "s"}</span></div></Card><Card className="detail-card"><div className="panel-card__head"><div><p className="eyebrow">Current version timeline</p><h2>Recorded steps</h2><p>Descriptions, outcomes, and variables are the persisted annotations captured during recording.</p></div></div>{steps.length === 0 ? <EmptyState title="No recorded steps" detail="This Test Case was saved without recorded browser activity." /> : <div className="timeline">{steps.map((step) => <StepTimelineItem key={step.id} step={step} />)}</div>}</Card></div>;
+  return <div className="dashboard-grid"><div className="breadcrumbs"><Link href="/dashboard">Dashboard</Link><span aria-hidden="true">/</span><Link href="/test-cases">Test Cases</Link><span aria-hidden="true">/</span><span>{testCase.name}</span></div><Card className="detail-card"><PageHeader eyebrow="Saved Test Case" title={testCase.name} detail="This current version is read-only. Start a guided evidence session or a separate autonomous replay." actions={<><StatusBadge tone="success">Version {testCase.currentVersion}</StatusBadge><Button variant="secondary" onClick={() => void startRun("GUIDED")} disabled={Boolean(startingRun) || steps.length === 0}>{startingRun === "GUIDED" ? "Starting Guided Run…" : "Guided Run"}</Button><Button onClick={() => void startRun("AUTO")} disabled={Boolean(startingRun) || steps.length === 0}>{startingRun === "AUTO" ? "Queueing Auto Run…" : "Auto Run"} <span aria-hidden="true">→</span></Button></>} /><div className="detail-meta"><span>{testCase.product.name}</span><span aria-hidden="true">•</span><span>Owner: {testCase.owner.displayName}</span><span aria-hidden="true">•</span><span>{steps.length} recorded step{steps.length === 1 ? "" : "s"}</span></div></Card><Card className="detail-card"><div className="panel-card__head"><div><p className="eyebrow">Current version timeline</p><h2>Recorded steps</h2><p>Descriptions, outcomes, variables, and checkpoints are persisted from recording.</p></div></div>{steps.length === 0 ? <EmptyState title="No recorded steps" detail="This Test Case was saved without recorded browser activity." /> : <div className="timeline">{steps.map((step) => <StepTimelineItem key={step.id} step={step} />)}</div>}</Card></div>;
 }
 
 function StepTimelineItem({ step }: { step: Step }) {
   const label = step.target.text || step.target.name || step.target.url || step.target.tag || "Recorded target";
-  return <article className="timeline-item"><div className="timeline-item__rail"><span className="timeline-item__number">{step.order}</span></div><div className="timeline-item__card"><h3>{step.kind.replace("_", " ")}</h3><p className="timeline-item__target">{label}</p>{step.value && <p className="timeline-item__annotation"><strong>Value:</strong> {step.value}</p>}{step.description && <p className="timeline-item__annotation"><strong>Description:</strong> {step.description}</p>}{step.expectedOutcome && <p className="timeline-item__annotation"><strong>Expected outcome:</strong> {step.expectedOutcome}</p>}{step.variableName && <p className="timeline-item__annotation"><strong>Variable:</strong> {step.variableName}</p>}</div></article>;
+  return <article className="timeline-item"><div className="timeline-item__rail"><span className="timeline-item__number">{step.order}</span></div><div className="timeline-item__card"><h3>{step.kind.replace("_", " ")}</h3><p className="timeline-item__target">{label}</p>{step.value && <p className="timeline-item__annotation"><strong>Value:</strong> {step.value}</p>}{step.description && <p className="timeline-item__annotation"><strong>Description:</strong> {step.description}</p>}{step.expectedOutcome && <p className="timeline-item__annotation"><strong>Expected outcome:</strong> {step.expectedOutcome}</p>}{step.variableName && <p className="timeline-item__annotation"><strong>Variable:</strong> {step.variableName}</p>}{step.isCheckpoint && <p className="timeline-item__annotation"><strong>Checkpoint:</strong> Review required during Auto Run</p>}</div></article>;
 }
 
 type EvidenceItem = { id: string; kind: string; objectKey?: string | null; checksum?: string | null; byteSize?: number | null; metadata?: unknown; captureError?: string | null; capturedAt: string };
-type RunStepResult = { id: string; order: number; status: "PENDING" | "PASSED" | "FAILED"; testStep: Step; evidence?: EvidenceItem[] };
-type RunSummary = { id: string; status: "QUEUED" | "RUNNING" | "COMPLETED"; outcome?: "PASSED" | "FAILED" | "INTERRUPTED" | null; evidenceStatus: "COMPLETE" | "PARTIAL"; createdAt: string; product: Product; testCase: { id: string; name: string }; initiatedBy: { displayName: string }; stepResults: Array<{ status: string }> };
-type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; evidence: EvidenceItem[]; viewerUrl?: string | null };
+type RunStepResult = { id: string; order: number; status: "PENDING" | "RUNNING" | "WAITING_FOR_CONFIRMATION" | "PASSED" | "FAILED"; testStep: Step; evidence?: EvidenceItem[] };
+type RunAttempt = { id: string; attemptNumber: number; status: string; failureReason?: string | null; activeDurationMs?: number | null };
+type RunSummary = { id: string; mode: "GUIDED" | "AUTO"; status: "QUEUED" | "RUNNING" | "PAUSED" | "CANCELLING" | "COMPLETED"; outcome?: "PASSED" | "FAILED" | "INTERRUPTED" | null; evidenceStatus: "COMPLETE" | "PARTIAL"; createdAt: string; product: Product; testCase: { id: string; name: string }; initiatedBy: { displayName: string }; stepResults: Array<{ status: string }>; attempts?: RunAttempt[] };
+type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; checkpointDeadline?: string | null; failureReason?: string | null; activeDurationMs?: number | null; benchmarkMedianMs?: number | null; durationDeltaMs?: number | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; attempts: RunAttempt[]; evidence: EvidenceItem[]; viewerUrl?: string | null };
 
 function runOutcomeTone(run: Pick<RunSummary, "status" | "outcome">) {
   if (run.status === "RUNNING") return "info" as const;
+  if (run.status === "QUEUED" || run.status === "PAUSED" || run.status === "CANCELLING") return "warning" as const;
   if (run.outcome === "PASSED") return "success" as const;
   if (run.outcome === "FAILED") return "danger" as const;
   return "warning" as const;
@@ -228,6 +230,8 @@ function runOutcomeTone(run: Pick<RunSummary, "status" | "outcome">) {
 
 function runLabel(run: Pick<RunSummary, "status" | "outcome">) {
   if (run.status === "RUNNING") return "Running";
+  if (run.status === "PAUSED") return "Checkpoint review";
+  if (run.status === "CANCELLING") return "Cancelling";
   if (!run.outcome) return "Queued";
   return `${run.outcome.slice(0, 1)}${run.outcome.slice(1).toLowerCase()}`;
 }
@@ -243,8 +247,8 @@ export function RunsView() {
     request("runs").then((result) => setRuns(result as RunSummary[])).catch((loadError) => setMessage(errorMessage(loadError, "Could not load Runs.")));
   }, []);
 
-  const filtered = runs.filter((run) => (!productId || run.product.id === productId) && (!outcome || (outcome === "RUNNING" ? run.status === "RUNNING" : run.outcome === outcome)));
-  return <div className="dashboard-grid"><PageHeader eyebrow="Execution history" title="Runs" detail="Tester-guided executions retain their outcome and redacted evidence separately." actions={<StatusBadge tone="info">{filtered.length} / {runs.length} visible Run{runs.length === 1 ? "" : "s"}</StatusBadge>} />{message && <Feedback tone="danger">{message}</Feedback>}<Card className="panel-card"><div className="inventory-toolbar"><Field label="Filter by Product"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)}><option value="">All accessible Products</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field><Field label="Filter by outcome"><SelectInput value={outcome} onChange={(event) => setOutcome(event.target.value)}><option value="">All outcomes</option><option value="RUNNING">Running</option><option value="PASSED">Passed</option><option value="FAILED">Failed</option><option value="INTERRUPTED">Interrupted</option></SelectInput></Field></div>{filtered.length === 0 ? <EmptyState title="No Runs found" detail="Start a tester-guided Run from a saved Test Case to capture its first evidence bundle." /> : <div className="run-list">{filtered.map((run) => <article className="run-list__item" key={run.id}><div><div className="run-list__head"><h2>{run.testCase.name}</h2><StatusBadge tone={runOutcomeTone(run)}>{runLabel(run)}</StatusBadge>{run.evidenceStatus === "PARTIAL" && <StatusBadge tone="warning">Evidence partial</StatusBadge>}</div><p>{run.product.name} · Started by {run.initiatedBy.displayName} · {run.stepResults.filter((step) => step.status === "PASSED").length}/{run.stepResults.length} steps passed</p></div><Link className="button button--secondary" href={`/runs/${run.id}`}>Open Run <span aria-hidden="true">→</span></Link></article>)}</div>}</Card></div>;
+  const filtered = runs.filter((run) => (!productId || run.product.id === productId) && (!outcome || (outcome === "ACTIVE" ? run.status !== "COMPLETED" : run.outcome === outcome)));
+  return <div className="dashboard-grid"><PageHeader eyebrow="Execution history" title="Runs" detail="Guided and autonomous executions retain their outcome and redacted evidence separately." actions={<StatusBadge tone="info">{filtered.length} / {runs.length} visible Run{runs.length === 1 ? "" : "s"}</StatusBadge>} />{message && <Feedback tone="danger">{message}</Feedback>}<Card className="panel-card"><div className="inventory-toolbar"><Field label="Filter by Product"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)}><option value="">All accessible Products</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field><Field label="Filter by outcome"><SelectInput value={outcome} onChange={(event) => setOutcome(event.target.value)}><option value="">All outcomes</option><option value="ACTIVE">Queued, running, or paused</option><option value="PASSED">Passed</option><option value="FAILED">Failed</option><option value="INTERRUPTED">Interrupted</option></SelectInput></Field></div>{filtered.length === 0 ? <EmptyState title="No Runs found" detail="Start a Guided Run or Auto Run from a saved Test Case." /> : <div className="run-list">{filtered.map((run) => <article className="run-list__item" key={run.id}><div><div className="run-list__head"><h2>{run.testCase.name}</h2><StatusBadge tone={run.mode === "AUTO" ? "info" : "neutral"}>{run.mode === "AUTO" ? "Auto" : "Guided"}</StatusBadge><StatusBadge tone={runOutcomeTone(run)}>{runLabel(run)}</StatusBadge>{run.evidenceStatus === "PARTIAL" && <StatusBadge tone="warning">Evidence partial</StatusBadge>}</div><p>{run.product.name} · Started by {run.initiatedBy.displayName} · {run.stepResults.filter((step) => step.status === "PASSED").length}/{run.stepResults.length} steps passed{run.mode === "AUTO" && run.attempts?.length ? ` · ${run.attempts.length} attempt${run.attempts.length === 1 ? "" : "s"}` : ""}</p></div><Link className="button button--secondary" href={`/runs/${run.id}`}>Open Run <span aria-hidden="true">→</span></Link></article>)}</div>}</Card></div>;
 }
 
 function runStepLabel(step: RunStepResult) {
@@ -269,7 +273,7 @@ export function RunWorkspaceView({ runId }: { runId: string }) {
 
   useEffect(() => {
     void load();
-    const timer = window.setInterval(() => { if (run?.status === "RUNNING") void load(); }, 1200);
+    const timer = window.setInterval(() => { if (run?.status !== "COMPLETED") void load(); }, 1200);
     return () => window.clearInterval(timer);
   }, [run?.status, runId]);
 
@@ -297,6 +301,30 @@ export function RunWorkspaceView({ runId }: { runId: string }) {
     }
   }
 
+  async function resumeAutoRun() {
+    setWorking(true);
+    try {
+      await request(`runs/${runId}/resume`, "POST");
+      await load();
+    } catch (resumeError) {
+      setMessage(errorMessage(resumeError, "Could not resume this Auto Run."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function cancelAutoRun() {
+    setWorking(true);
+    try {
+      await request(`runs/${runId}/cancel`, "POST");
+      await load();
+    } catch (cancelError) {
+      setMessage(errorMessage(cancelError, "Could not cancel this Auto Run."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function openEvidence(evidence: EvidenceItem) {
     if (!evidence.objectKey) return;
     try {
@@ -309,12 +337,14 @@ export function RunWorkspaceView({ runId }: { runId: string }) {
 
   if (message && !run) return <div className="recording-page recording-page--loading"><Feedback tone="danger">{message}</Feedback><Button variant="secondary" onClick={() => router.push("/runs")}>Back to Runs</Button></div>;
   if (!run) return <div className="recording-page recording-page--loading"><StatusBadge tone="info">Loading Run</StatusBadge></div>;
+  const isAuto = run.mode === "AUTO";
   const activeStep = run.stepResults.find((step) => step.order === run.activeStepOrder && step.status === "PENDING");
   const isActive = run.status === "RUNNING";
+  const autoIsLive = run.status === "QUEUED" || run.status === "RUNNING" || run.status === "PAUSED" || run.status === "CANCELLING";
   const screenshots = run.evidence.filter((evidence) => evidence.kind === "SCREENSHOT");
   const groupedEvidence = ["NETWORK", "CONSOLE", "STORAGE", "CAPTURE_ERROR"] as const;
 
-  return <div className="run-page"><header className="recording-bar"><div className="recording-bar__title"><Button variant="ghost" onClick={() => router.push("/runs")} disabled={working}>Back to Runs</Button><h1>{run.testCase.name}</h1></div><div className="recording-bar__actions"><StatusBadge tone={runOutcomeTone(run)}>{runLabel(run)}</StatusBadge>{isActive && <Button variant="danger" onClick={interrupt} disabled={working}>Interrupt Run</Button>}</div></header>{message && <Feedback tone="danger">{message}</Feedback>}<section className="recording-workspace"><aside className="step-panel"><div className="step-panel__head"><div><p className="eyebrow">Guided Run</p><h2>Step Checklist</h2><p>Complete each saved step in order. Evidence is captured at each boundary.</p></div><StatusBadge tone={run.evidenceStatus === "PARTIAL" ? "warning" : "success"}>Evidence {run.evidenceStatus.toLowerCase()}</StatusBadge></div><div className="step-panel__list">{run.stepResults.map((step) => <article className={`run-step ${step.order === run.activeStepOrder && step.status === "PENDING" ? "run-step--active" : ""}`} key={step.id}><div className="step-editor__head"><h3>Step {step.order}</h3><StatusBadge tone={step.status === "PASSED" ? "success" : step.status === "FAILED" ? "danger" : step.order === run.activeStepOrder ? "info" : "neutral"}>{step.status.toLowerCase()}</StatusBadge></div><p>{runStepLabel(step)}</p>{step.testStep.expectedOutcome && <p className="run-step__expected">Expected: {step.testStep.expectedOutcome}</p>}{isActive && step.id === activeStep?.id && <div className="run-step__actions"><Button onClick={() => completeStep(step, "PASSED")} disabled={working}>Pass step</Button><Button variant="danger" onClick={() => completeStep(step, "FAILED")} disabled={working}>Fail step</Button></div>}</article>)}</div></aside><section className="browser-stage" aria-label="Guided Run browser">{isActive && run.viewerUrl ? <iframe title="Guided Run browser" src={run.viewerUrl} allow="clipboard-read; clipboard-write" /> : <RunEvidenceDetail screenshots={screenshots} evidence={run.evidence.filter((item) => groupedEvidence.includes(item.kind as typeof groupedEvidence[number]))} onOpenEvidence={openEvidence} />}</section></section><section className="recording-desktop-guidance"><p className="eyebrow">Desktop workspace required</p><h2>Use a wider screen to guide this Run.</h2><p>The saved-step checklist and remote browser work together in a desktop-sized workspace.</p><Button variant="secondary" onClick={() => router.push("/runs")}>Back to Runs</Button></section></div>;
+  return <div className="run-page"><header className="recording-bar"><div className="recording-bar__title"><Button variant="ghost" onClick={() => router.push("/runs")} disabled={working}>Back to Runs</Button><h1>{run.testCase.name}</h1></div><div className="recording-bar__actions"><StatusBadge tone={isAuto ? "info" : "neutral"}>{isAuto ? "Auto Run" : "Guided Run"}</StatusBadge><StatusBadge tone={runOutcomeTone(run)}>{runLabel(run)}</StatusBadge>{!isAuto && isActive && <Button variant="danger" onClick={interrupt} disabled={working}>Interrupt Run</Button>}{isAuto && run.status === "PAUSED" && <Button onClick={resumeAutoRun} disabled={working}>Continue</Button>}{isAuto && autoIsLive && run.status !== "CANCELLING" && <Button variant="danger" onClick={cancelAutoRun} disabled={working}>Cancel</Button>}</div></header>{message && <Feedback tone="danger">{message}</Feedback>}<section className="recording-workspace"><aside className="step-panel"><div className="step-panel__head"><div><p className="eyebrow">{isAuto ? "Autonomous replay" : "Guided Run"}</p><h2>{isAuto ? "Replay progress" : "Step Checklist"}</h2><p>{isAuto ? "Sentinel performs recorded actions in strict order and stops for a marked checkpoint." : "Complete each saved step in order. Evidence is captured at each boundary."}</p></div><StatusBadge tone={run.evidenceStatus === "PARTIAL" ? "warning" : "success"}>Evidence {run.evidenceStatus.toLowerCase()}</StatusBadge></div>{isAuto && <div className="auto-run-summary"><p><strong>Attempt history</strong> {run.attempts.map((attempt) => `#${attempt.attemptNumber} ${attempt.status.toLowerCase()}`).join(" · ")}</p>{run.failureReason && <p><strong>Reason:</strong> {run.failureReason.replaceAll("_", " ").toLowerCase()}</p>}{run.status === "PAUSED" && <p><strong>Checkpoint ready:</strong> Review the screenshot and expected outcome, then Continue or Cancel.</p>}</div>}<div className="step-panel__list">{run.stepResults.map((step) => <article className={`run-step ${step.order === run.activeStepOrder && step.status !== "PASSED" && step.status !== "FAILED" ? "run-step--active" : ""}`} key={step.id}><div className="step-editor__head"><h3>Step {step.order}</h3><StatusBadge tone={step.status === "PASSED" ? "success" : step.status === "FAILED" ? "danger" : step.order === run.activeStepOrder ? "info" : "neutral"}>{step.status.replaceAll("_", " ").toLowerCase()}</StatusBadge></div><p>{runStepLabel(step)}</p>{step.testStep.expectedOutcome && <p className="run-step__expected">Expected: {step.testStep.expectedOutcome}</p>}{step.testStep.isCheckpoint && <p className="run-step__expected">Checkpoint review required after this action.</p>}{!isAuto && isActive && step.id === activeStep?.id && <div className="run-step__actions"><Button onClick={() => completeStep(step, "PASSED")} disabled={working}>Pass step</Button><Button variant="danger" onClick={() => completeStep(step, "FAILED")} disabled={working}>Fail step</Button></div>}</article>)}</div></aside><section className="browser-stage" aria-label={isAuto ? "Auto Run evidence" : "Guided Run browser"}>{!isAuto && isActive && run.viewerUrl ? <iframe title="Guided Run browser" src={run.viewerUrl} allow="clipboard-read; clipboard-write" /> : <div className="auto-run-evidence"><div className="auto-run-evidence__summary"><p className="eyebrow">{isAuto ? "Headless execution" : "Run detail"}</p><h2>{isAuto && autoIsLive ? run.status === "PAUSED" ? "Checkpoint review required" : "Replay in progress" : "Execution evidence"}</h2><p>{isAuto ? "Auto Run uses an isolated headless browser. No browser video is retained." : "Outcome and evidence remain independently reported."}</p>{isAuto && run.activeDurationMs !== null && run.activeDurationMs !== undefined && <p><strong>Active duration:</strong> {Math.round(run.activeDurationMs / 100) / 10}s{run.benchmarkMedianMs ? ` · Guided median: ${Math.round(run.benchmarkMedianMs / 100) / 10}s` : " · Guided benchmark unavailable"}</p>}</div><RunEvidenceDetail screenshots={screenshots} evidence={run.evidence.filter((item) => groupedEvidence.includes(item.kind as typeof groupedEvidence[number]))} onOpenEvidence={openEvidence} /></div>}</section></section><section className="recording-desktop-guidance"><p className="eyebrow">Desktop workspace required</p><h2>Use a wider screen to review this Run.</h2><p>{isAuto ? "Auto Runs retain private screenshots and redacted operational evidence without retaining browser video." : "The saved-step checklist and remote browser work together in a desktop-sized workspace."}</p><Button variant="secondary" onClick={() => router.push("/runs")}>Back to Runs</Button></section></div>;
 }
 
 function RunEvidenceDetail({ screenshots, evidence, onOpenEvidence }: { screenshots: EvidenceItem[]; evidence: EvidenceItem[]; onOpenEvidence: (evidence: EvidenceItem) => Promise<void> }) {
@@ -439,5 +469,5 @@ export function RecordingWorkspaceView({ recordingId }: { recordingId: string })
 
 function StepEditor({ step, onUpdate }: { step: Step; onUpdate: (step: Step, patch: Partial<Step>) => Promise<void> }) {
   const label = step.target.text || step.target.name || step.target.url || step.target.tag || "Recorded target";
-  return <article className="step-editor step"><div className="step-editor__head"><h3>Step {step.order}: {step.kind.replace("_", " ")}</h3><StatusBadge tone={step.isRedacted ? "warning" : "info"}>{step.isRedacted ? "Redacted" : "Captured"}</StatusBadge></div><p className="step-editor__target">{label}</p>{step.value && <p className="step-editor__value">Value: {step.value}</p>}<Field label="Description"><TextArea defaultValue={step.description ?? ""} onBlur={(event) => void onUpdate(step, { description: event.target.value })} /></Field><Field label="Expected outcome"><TextArea defaultValue={step.expectedOutcome ?? ""} onBlur={(event) => void onUpdate(step, { expectedOutcome: event.target.value })} /></Field>{step.kind === "TEXT_ENTRY" && <Field label="Variable name"><TextInput defaultValue={step.variableName ?? ""} placeholder="Optional variable" onBlur={(event) => void onUpdate(step, { variableName: event.target.value })} /></Field>}</article>;
+  return <article className="step-editor step"><div className="step-editor__head"><h3>Step {step.order}: {step.kind.replace("_", " ")}</h3><StatusBadge tone={step.isRedacted ? "warning" : step.isCheckpoint ? "success" : "info"}>{step.isRedacted ? "Redacted" : step.isCheckpoint ? "Checkpoint" : "Captured"}</StatusBadge></div><p className="step-editor__target">{label}</p>{step.value && <p className="step-editor__value">Value: {step.value}</p>}<Field label="Description"><TextArea defaultValue={step.description ?? ""} onBlur={(event) => void onUpdate(step, { description: event.target.value })} /></Field><Field label="Expected outcome"><TextArea defaultValue={step.expectedOutcome ?? ""} onBlur={(event) => void onUpdate(step, { expectedOutcome: event.target.value })} /></Field>{step.kind === "TEXT_ENTRY" && <Field label="Variable name"><TextInput defaultValue={step.variableName ?? ""} placeholder="Optional variable" onBlur={(event) => void onUpdate(step, { variableName: event.target.value })} /></Field>}<label className="checkpoint-toggle"><input type="checkbox" checked={Boolean(step.isCheckpoint)} onChange={(event) => void onUpdate(step, { isCheckpoint: event.target.checked })} /> <span>Pause Auto Run after this action for review</span></label></article>;
 }
