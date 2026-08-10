@@ -4,7 +4,7 @@ import { chromium, type Page, type Request } from "playwright";
 import { persistRunSnapshot, recordCaptureFailure } from "./lib/evidence";
 import { prisma } from "./lib/prisma";
 import { AUTO_RUN_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData } from "./lib/queue";
-import { initialReplayState, ReplayError, replayStep, type ReplayStep, unsupportedVariableStep } from "./lib/replay";
+import { canRetryAutoRun, initialReplayState, ReplayError, replayStep, type ReplayStep, unsupportedVariableStep } from "./lib/replay";
 
 const CHECKPOINT_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -183,7 +183,7 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
       activeStepResultId = result.id;
       await prisma.runStepResult.update({ where: { id: result.id }, data: { status: RunStepStatus.RUNNING, startedAt: now() } });
       const actionStartedAt = Date.now();
-      await replayStep(page, step as ReplayStep, state);
+      await replayStep(page, step as ReplayStep, state, run.targetUrl);
       activeDurationMs += Date.now() - actionStartedAt;
 
       if (step.isCheckpoint) {
@@ -219,7 +219,7 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
     }
     if (collector) await captureEvidence(collector, runId, attemptId, replayError.reason === "CANCELLED" ? "END" : "FAILURE");
     else await recordCaptureFailure(runId, "AUTO_BROWSER_UNAVAILABLE", undefined, attemptId).catch(() => undefined);
-    if (replayError.transient && attempt.attemptNumber === 1) await retryRun(runId, attemptId, activeDurationMs, replayError.reason);
+    if (canRetryAutoRun(replayError, attempt.attemptNumber)) await retryRun(runId, attemptId, activeDurationMs, replayError.reason);
     else await completeRun(runId, attemptId, replayError.reason === "CANCELLED" || replayError.reason === "CHECKPOINT_TIMEOUT" ? RunOutcome.INTERRUPTED : RunOutcome.FAILED, replayError.reason, activeDurationMs);
   } finally {
     await browser?.close().catch(() => undefined);
