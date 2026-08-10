@@ -26,9 +26,9 @@ function evidenceBucket() {
   return process.env.MINIO_BUCKET ?? "sentinel-evidence";
 }
 
-function evidenceClient() {
+function evidenceClient(endpoint = process.env.MINIO_ENDPOINT ?? "http://minio:9000") {
   return new S3Client({
-    endpoint: process.env.MINIO_ENDPOINT ?? "http://minio:9000",
+    endpoint,
     region: process.env.MINIO_REGION ?? "us-east-1",
     forcePathStyle: true,
     credentials: {
@@ -164,5 +164,6 @@ export async function recordCaptureFailure(runId: string, message: string, runSt
 
 export async function signedEvidenceUrl(objectKey: string) {
   await ensureBucket();
-  return getSignedUrl(evidenceClient(), new GetObjectCommand({ Bucket: evidenceBucket(), Key: objectKey }), { expiresIn: 15 * 60 });
+  const browserEndpoint = process.env.MINIO_PUBLIC_ENDPOINT ?? process.env.MINIO_ENDPOINT ?? "http://minio:9000";
+  return getSignedUrl(evidenceClient(browserEndpoint), new GetObjectCommand({ Bucket: evidenceBucket(), Key: objectKey }), { expiresIn: 15 * 60 });
 }
