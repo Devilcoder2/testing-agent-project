@@ -14,7 +14,8 @@ type RunSnapshot = {
 type SnapshotInput = RunSnapshot & {
   runId: string;
   runStepResultId?: string;
-  label: "START" | "END" | "FAILURE" | "STEP";
+  runAttemptId?: string;
+  label: "START" | "END" | "FAILURE" | "STEP" | "CHECKPOINT";
   includeScreenshot?: boolean;
 };
 
@@ -141,7 +142,7 @@ function consoleMetadata(entries: unknown[], label: string) {
 }
 
 export async function persistRunSnapshot(input: SnapshotInput) {
-  const shared = { runId: input.runId, runStepResultId: input.runStepResultId ?? null };
+  const shared = { runId: input.runId, runStepResultId: input.runStepResultId ?? null, runAttemptId: input.runAttemptId ?? null };
   const evidence: Array<Prisma.EvidenceItemCreateManyInput> = [{ ...shared, kind: EvidenceKind.STORAGE, metadata: jsonValue({ label: input.label, ...redactedStorageSnapshot(input.storage) }) }];
   if (input.includeScreenshot !== false) {
     await ensureBucket();
@@ -155,9 +156,9 @@ export async function persistRunSnapshot(input: SnapshotInput) {
   await prisma.evidenceItem.createMany({ data: evidence });
 }
 
-export async function recordCaptureFailure(runId: string, message: string, runStepResultId?: string) {
+export async function recordCaptureFailure(runId: string, message: string, runStepResultId?: string, runAttemptId?: string) {
   await prisma.$transaction([
-    prisma.evidenceItem.create({ data: { runId, runStepResultId, kind: EvidenceKind.CAPTURE_ERROR, captureError: message } }),
+    prisma.evidenceItem.create({ data: { runId, runStepResultId, runAttemptId, kind: EvidenceKind.CAPTURE_ERROR, captureError: message } }),
     prisma.run.update({ where: { id: runId }, data: { evidenceStatus: "PARTIAL" } })
   ]);
 }
