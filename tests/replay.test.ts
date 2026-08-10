@@ -1,6 +1,6 @@
 import { StepKind } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { initialReplayState, ReplayError, replayStep, type ReplayStep, unsupportedVariableStep } from "../lib/replay";
+import { initialReplayState, replayStep, type ReplayStep, unsupportedVariableStep } from "../lib/replay";
 
 function step(overrides: Partial<ReplayStep> = {}): ReplayStep {
   return {
