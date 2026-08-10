@@ -128,4 +128,16 @@ describe("Phase 3 Auto Run API", () => {
     expect(cancelled).toMatchObject({ outcome: "INTERRUPTED", failureReason: "CANCELLED" });
     expect(cancelled.evidence.some((item) => item.kind === "SCREENSHOT" && (item.metadata as { label?: string } | null)?.label === "END")).toBe(true);
   }, 45_000);
+
+  it("blocks non-password variables with Phase 4 guidance", async () => {
+    const ava = await login("ava.tester@example.test");
+    const testCase = await createSavedDemoTest(ava, `Variable journey ${Date.now()}`);
+    const version = await prisma.testCaseVersion.findFirstOrThrow({ where: { testCaseId: testCase.id, version: 1 } });
+    await prisma.testStep.updateMany({ where: { testCaseVersionId: version.id, order: 8 }, data: { variableName: "customerFirstName" } });
+
+    const response = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST");
+    expect(response.status).toBe(409);
+    expect((await response.json() as { error: string }).error).toContain("Phase 4");
+    expect(await prisma.run.count({ where: { testCaseId: testCase.id } })).toBe(0);
+  });
 });
