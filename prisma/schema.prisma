@@ -23,7 +23,14 @@ enum StepKind {
 enum RunStatus {
   QUEUED
   RUNNING
+  PAUSED
+  CANCELLING
   COMPLETED
+}
+
+enum RunMode {
+  GUIDED
+  AUTO
 }
 
 enum RunOutcome {
@@ -39,8 +46,28 @@ enum EvidenceStatus {
 
 enum RunStepStatus {
   PENDING
+  RUNNING
+  WAITING_FOR_CONFIRMATION
   PASSED
   FAILED
+}
+
+enum RunAttemptStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+}
+
+enum RunFailureReason {
+  SELECTOR_NOT_FOUND
+  SELECTOR_AMBIGUOUS
+  ACTION_FAILED
+  NAVIGATION_TIMEOUT
+  BROWSER_STARTUP
+  CHECKPOINT_TIMEOUT
+  CANCELLED
+  VARIABLE_UNSUPPORTED
+  INFRASTRUCTURE_ERROR
 }
 
 enum EvidenceKind {
@@ -52,162 +79,191 @@ enum EvidenceKind {
 }
 
 model User {
-  id           String              @id @default(cuid())
-  email        String              @unique
-  displayName  String
-  devPassword  String
-  memberships  ProductMembership[]
-  products     Product[]
-  recordings   RecordingSession[]  @relation("RecordingOwner")
-  testCases    TestCase[]          @relation("TestCaseOwner")
-  runs         Run[]               @relation("RunInitiator")
-  auditEvents  AuditEvent[]        @relation("AuditActor")
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  id          String              @id @default(cuid())
+  email       String              @unique
+  displayName String
+  devPassword String
+  memberships ProductMembership[]
+  products    Product[]
+  recordings  RecordingSession[]  @relation("RecordingOwner")
+  testCases   TestCase[]          @relation("TestCaseOwner")
+  runs        Run[]               @relation("RunInitiator")
+  auditEvents AuditEvent[]        @relation("AuditActor")
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 }
 
 model Product {
-  id           String              @id @default(cuid())
-  name         String
-  createdById  String
-  createdBy    User                @relation(fields: [createdById], references: [id])
-  memberships  ProductMembership[]
-  recordings   RecordingSession[]
-  testCases    TestCase[]
-  runs         Run[]
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  id          String              @id @default(cuid())
+  name        String
+  createdById String
+  createdBy   User                @relation(fields: [createdById], references: [id])
+  memberships ProductMembership[]
+  recordings  RecordingSession[]
+  testCases   TestCase[]
+  runs        Run[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 
   @@unique([createdById, name])
 }
 
 model ProductMembership {
-  userId      String
-  productId   String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  userId    String
+  productId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
   @@id([userId, productId])
 }
 
 model RecordingSession {
-  id            String          @id @default(cuid())
-  productId     String
-  ownerId       String
-  testName      String
-  targetUrl     String
-  tokenHash     String          @unique
-  status        RecordingStatus @default(DRAFT)
-  product       Product         @relation(fields: [productId], references: [id])
-  owner         User            @relation("RecordingOwner", fields: [ownerId], references: [id])
-  steps         RecordedStep[]
-  testCase      TestCase?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id        String          @id @default(cuid())
+  productId String
+  ownerId   String
+  testName  String
+  targetUrl String
+  tokenHash String          @unique
+  status    RecordingStatus @default(DRAFT)
+  product   Product         @relation(fields: [productId], references: [id])
+  owner     User            @relation("RecordingOwner", fields: [ownerId], references: [id])
+  steps     RecordedStep[]
+  testCase  TestCase?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 }
 
 model RecordedStep {
-  id                  String           @id @default(cuid())
-  recordingSessionId  String
-  order               Int
-  kind                StepKind
-  timestamp           DateTime
-  target              Json
-  value               String?
-  isRedacted          Boolean          @default(false)
-  description         String?
-  expectedOutcome     String?
-  variableName        String?
-  recordingSession    RecordingSession @relation(fields: [recordingSessionId], references: [id], onDelete: Cascade)
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  id                 String           @id @default(cuid())
+  recordingSessionId String
+  order              Int
+  kind               StepKind
+  timestamp          DateTime
+  target             Json
+  value              String?
+  isRedacted         Boolean          @default(false)
+  description        String?
+  expectedOutcome    String?
+  variableName       String?
+  isCheckpoint       Boolean          @default(false)
+  recordingSession   RecordingSession @relation(fields: [recordingSessionId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@unique([recordingSessionId, order])
 }
 
 model TestCase {
-  id                  String           @id @default(cuid())
-  productId           String
-  ownerId             String
-  recordingSessionId  String           @unique
-  name                String
-  currentVersion      Int              @default(1)
-  product             Product          @relation(fields: [productId], references: [id])
-  owner               User             @relation("TestCaseOwner", fields: [ownerId], references: [id])
-  recordingSession    RecordingSession @relation(fields: [recordingSessionId], references: [id])
-  versions            TestCaseVersion[]
-  runs                Run[]
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  id                 String            @id @default(cuid())
+  productId          String
+  ownerId            String
+  recordingSessionId String            @unique
+  name               String
+  currentVersion     Int               @default(1)
+  product            Product           @relation(fields: [productId], references: [id])
+  owner              User              @relation("TestCaseOwner", fields: [ownerId], references: [id])
+  recordingSession   RecordingSession  @relation(fields: [recordingSessionId], references: [id])
+  versions           TestCaseVersion[]
+  runs               Run[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 }
 
 model TestCaseVersion {
-  id          String     @id @default(cuid())
-  testCaseId  String
-  version     Int
-  testCase    TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  steps       TestStep[]
-  runs        Run[]
-  createdAt   DateTime   @default(now())
+  id         String     @id @default(cuid())
+  testCaseId String
+  version    Int
+  testCase   TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  steps      TestStep[]
+  runs       Run[]
+  createdAt  DateTime   @default(now())
 
   @@unique([testCaseId, version])
 }
 
 model TestStep {
-  id                  String          @id @default(cuid())
-  testCaseVersionId   String
-  order               Int
-  kind                StepKind
-  timestamp           DateTime
-  target              Json
-  value               String?
-  isRedacted          Boolean         @default(false)
-  description         String?
-  expectedOutcome     String?
-  variableName        String?
-  testCaseVersion     TestCaseVersion @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
-  runStepResults      RunStepResult[]
+  id                String          @id @default(cuid())
+  testCaseVersionId String
+  order             Int
+  kind              StepKind
+  timestamp         DateTime
+  target            Json
+  value             String?
+  isRedacted        Boolean         @default(false)
+  description       String?
+  expectedOutcome   String?
+  variableName      String?
+  isCheckpoint      Boolean         @default(false)
+  testCaseVersion   TestCaseVersion @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+  runStepResults    RunStepResult[]
 
   @@unique([testCaseVersionId, order])
 }
 
 model Run {
-  id                String         @id @default(cuid())
-  testCaseId        String
-  testCaseVersionId String
-  productId         String
-  initiatedById     String
-  targetUrl         String
-  status            RunStatus      @default(QUEUED)
-  outcome           RunOutcome?
-  evidenceStatus    EvidenceStatus @default(COMPLETE)
-  activeStepOrder   Int?
-  startedAt         DateTime?
-  completedAt       DateTime?
-  testCase          TestCase       @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  testCaseVersion   TestCaseVersion @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
-  product           Product        @relation(fields: [productId], references: [id])
-  initiatedBy       User           @relation("RunInitiator", fields: [initiatedById], references: [id])
-  stepResults       RunStepResult[]
-  evidence          EvidenceItem[]
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id                 String            @id @default(cuid())
+  testCaseId         String
+  testCaseVersionId  String
+  productId          String
+  initiatedById      String
+  targetUrl          String
+  mode               RunMode           @default(GUIDED)
+  status             RunStatus         @default(QUEUED)
+  outcome            RunOutcome?
+  evidenceStatus     EvidenceStatus    @default(COMPLETE)
+  activeStepOrder    Int?
+  failureReason      RunFailureReason?
+  queuedAt           DateTime          @default(now())
+  startedAt          DateTime?
+  pausedAt           DateTime?
+  cancellingAt       DateTime?
+  checkpointDeadline DateTime?
+  completedAt        DateTime?
+  testCase           TestCase          @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  testCaseVersion    TestCaseVersion   @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+  product            Product           @relation(fields: [productId], references: [id])
+  initiatedBy        User              @relation("RunInitiator", fields: [initiatedById], references: [id])
+  stepResults        RunStepResult[]
+  attempts           RunAttempt[]
+  evidence           EvidenceItem[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   @@index([productId, createdAt])
   @@index([testCaseId, createdAt])
+  @@index([mode, status, createdAt])
+}
+
+model RunAttempt {
+  id               String            @id @default(cuid())
+  runId            String
+  attemptNumber    Int
+  status           RunAttemptStatus  @default(QUEUED)
+  failureReason    RunFailureReason?
+  jobId            String?           @unique
+  startedAt        DateTime?
+  completedAt      DateTime?
+  activeDurationMs Int?
+  run              Run               @relation(fields: [runId], references: [id], onDelete: Cascade)
+  evidence         EvidenceItem[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([runId, attemptNumber])
+  @@index([runId, createdAt])
 }
 
 model RunStepResult {
-  id          String        @id @default(cuid())
+  id          String         @id @default(cuid())
   runId       String
   testStepId  String
   order       Int
-  status      RunStepStatus @default(PENDING)
+  status      RunStepStatus  @default(PENDING)
   startedAt   DateTime?
   completedAt DateTime?
-  run         Run           @relation(fields: [runId], references: [id], onDelete: Cascade)
-  testStep    TestStep      @relation(fields: [testStepId], references: [id], onDelete: Cascade)
+  run         Run            @relation(fields: [runId], references: [id], onDelete: Cascade)
+  testStep    TestStep       @relation(fields: [testStepId], references: [id], onDelete: Cascade)
   evidence    EvidenceItem[]
 
   @@unique([runId, order])
@@ -215,31 +271,34 @@ model RunStepResult {
 }
 
 model EvidenceItem {
-  id               String          @id @default(cuid())
-  runId            String
-  runStepResultId  String?
-  kind             EvidenceKind
-  objectKey        String?         @unique
-  checksum         String?
-  contentType      String?
-  byteSize         Int?
-  metadata         Json?
-  captureError     String?
-  capturedAt       DateTime        @default(now())
-  run              Run             @relation(fields: [runId], references: [id], onDelete: Cascade)
-  runStepResult    RunStepResult?  @relation(fields: [runStepResultId], references: [id], onDelete: Cascade)
+  id              String         @id @default(cuid())
+  runId           String
+  runStepResultId String?
+  runAttemptId    String?
+  kind            EvidenceKind
+  objectKey       String?        @unique
+  checksum        String?
+  contentType     String?
+  byteSize        Int?
+  metadata        Json?
+  captureError    String?
+  capturedAt      DateTime       @default(now())
+  run             Run            @relation(fields: [runId], references: [id], onDelete: Cascade)
+  runStepResult   RunStepResult? @relation(fields: [runStepResultId], references: [id], onDelete: Cascade)
+  runAttempt      RunAttempt?    @relation(fields: [runAttemptId], references: [id], onDelete: Cascade)
 
   @@index([runId, capturedAt])
   @@index([runStepResultId])
+  @@index([runAttemptId])
 }
 
 model AuditEvent {
-  id          String   @id @default(cuid())
-  actorId     String
-  action      String
-  entityType  String
-  entityId    String
-  details     Json?
-  actor       User     @relation("AuditActor", fields: [actorId], references: [id])
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  actor      User     @relation("AuditActor", fields: [actorId], references: [id])
+  createdAt  DateTime @default(now())
 }
