@@ -23,6 +23,7 @@ services:
     shm_size: 2gb
     environment:
       SE_VNC_NO_PASSWORD: "true"
+      SE_NODE_SESSION_TIMEOUT: "1800"
     ports:
       - "7900:7900"
 
