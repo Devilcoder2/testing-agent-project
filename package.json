@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "worker": "tsx worker.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts"
@@ -18,7 +19,10 @@
     "@aws-sdk/client-s3": "^3.1106.0",
     "@aws-sdk/s3-request-presigner": "^3.1106.0",
     "@prisma/client": "^6.16.0",
+    "bullmq": "^5.69.0",
+    "ioredis": "^5.7.0",
     "next": "^15.5.3",
+    "playwright": "^1.55.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "selenium-webdriver": "^4.35.0",
