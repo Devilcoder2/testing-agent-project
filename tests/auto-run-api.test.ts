@@ -159,6 +159,35 @@ describe("Phase 3 Auto Run API", () => {
     expect(completed.map((run) => run.outcome)).toEqual(["PASSED", "PASSED"]);
   }, 50_000);
 
+  it("compares a successful Auto Run with the median of three guided Runs", async () => {
+    const ava = await login("ava.tester@example.test");
+    const testCase = await createSavedDemoTest(ava, `Benchmark journey ${Date.now()}`);
+    const version = await prisma.testCaseVersion.findFirstOrThrow({ where: { testCaseId: testCase.id, version: 1 } });
+    const completedAt = Date.now() - 60_000;
+    await prisma.run.createMany({
+      data: [1000, 2000, 3000].map((duration, index) => ({
+        testCaseId: testCase.id,
+        testCaseVersionId: version.id,
+        productId: testCase.productId,
+        initiatedById: testCase.ownerId,
+        targetUrl: "http://demo-target",
+        mode: RunMode.GUIDED,
+        status: "COMPLETED",
+        outcome: "PASSED",
+        startedAt: new Date(completedAt - duration - index),
+        completedAt: new Date(completedAt - index)
+      }))
+    });
+
+    const start = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST");
+    expect(start.status).toBe(201);
+    const queued = await start.json() as { run: { id: string } };
+    const completed = await waitForRun(queued.run.id, (run) => run.status === "COMPLETED", "Benchmarked Auto Run did not complete.");
+    expect(completed.outcome).toBe("PASSED");
+    expect(completed.benchmarkMedianMs).toBe(2000);
+    expect(completed.durationDeltaMs).toBe((completed.activeDurationMs ?? 0) - 2000);
+  }, 30_000);
+
   it("blocks non-password variables with Phase 4 guidance", async () => {
     const ava = await login("ava.tester@example.test");
     const testCase = await createSavedDemoTest(ava, `Variable journey ${Date.now()}`);
