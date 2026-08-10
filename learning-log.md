@@ -844,3 +844,82 @@ The workspace makes only the active step actionable. Passing it persists the ste
 - Owner completes the ten answers above; any incorrect answer should be revisited against the referenced code and tests.
 - Owner manually starts a saved Test Case Run, refreshes while it is active, completes the Demo CRM journey, passes every step, and confirms START/END screenshots, Network entries, and redacted Storage entries. A quiet Console panel is correct for the happy path; use an incorrect Demo CRM password to verify warning capture.
 - Before Phase 3, decide how worker-owned browser allocation, retries, evidence retention, and production object-storage credentials will replace the single local session.
+
+---
+
+## Feature: Phase 3 autonomous replay engine
+
+- Date: 2026-08-10
+- Phase: 3
+- Status: Approved; implementation and understanding review pending.
+- Relevant files: `worker.ts`, `lib/replay.ts`, `lib/queue.ts`, `lib/evidence.ts`, `app/api/[[...route]]/route.ts`, `prisma/schema.prisma`, `docker-compose.yml`.
+- Related decisions: D-024 in `decisions-log.md`.
+
+### What this feature does
+
+It adds an Auto Run alongside the existing tester-guided Run. Sentinel queues a saved Test Case, opens an isolated headless browser, performs safe recorded actions, pauses only at recorded checkpoints, and records outcome plus privacy-safe evidence without storing video.
+
+### End-to-end flow
+
+A product-authorized tester chooses Auto Run. Sentinel validates that the current immutable version has no unsupported variable-marked steps, creates the Run and first attempt in PostgreSQL, and queues it in Redis. A two-concurrency worker opens a fresh Playwright context, uses worker-only Demo CRM credentials for password fields, replays each deterministic action, and saves step/evidence boundaries. It pauses after a checkpoint until Continue or Cancel, retries one transient technical failure as a linked second attempt, and otherwise completes safely with a clear reason. Run Detail shows progress, attempts, evidence, checkpoint review, and duration comparison.
+
+### Technologies and patterns
+
+| Technology / pattern | Why it is used | Important limitation |
+|---|---|---|
+| Redis + BullMQ | Durable queued work, retry control, and bounded worker concurrency | Local Docker reliability is not a production queue deployment. |
+| Playwright contexts | Fresh headless browser isolation for two autonomous Runs | The Phase 3 target remains the local Demo CRM only. |
+| Exact unique selector fallbacks | Tolerate supported cosmetic change without choosing an uncertain element | Missing or multiple matches stop rather than recover automatically. |
+| Run Attempt records | Preserve retry history without overwriting the original Run | Phase 3 supports only one technical retry. |
+
+### Tradeoffs and alternatives
+
+- Keep Guided Run separate from Auto Run so manual verification behavior does not change.
+- Use server-only Demo CRM credentials rather than Phase 4 variable input.
+- Treat free-text expected outcomes as review context instead of unsafe executable assertions.
+- Hold a worker context during a ten-minute checkpoint pause; this is simple locally but consumes one of two worker slots.
+
+### Risks and future improvements
+
+- Non-password variables block Auto Run until Phase 4.
+- External targets, production credentials, larger concurrency, schedules, and worker recovery across a process restart remain later work.
+- The owner must answer the questions below before this feature is considered understood.
+
+### Ten-question understanding check
+
+1. Why are Guided Run and Auto Run separate modes instead of one action?
+2. What transaction must complete before the worker receives an Auto Run job?
+3. How do Redis, BullMQ, and the worker’s concurrency setting prevent more than two local Auto Runs at once?
+4. Why does each Auto Run need a fresh Playwright browser context?
+5. Which selector fallbacks are allowed, and why must each resolve to exactly one element?
+6. Why is a later navigation record verified instead of executed with a page reload?
+7. How are password steps replayed without persisting the secret, and why do non-password variables block Auto Run?
+8. What happens at a checkpoint, timeout, and explicit cancel action?
+9. Which failures receive one retry, and why are ambiguity and action failures excluded?
+10. How is the manual-duration benchmark calculated, and what happens when three guided Runs do not exist?
+
+#### Answers
+
+1. **Answer:**
+2. **Answer:**
+3. **Answer:**
+4. **Answer:**
+5. **Answer:**
+6. **Answer:**
+7. **Answer:**
+8. **Answer:**
+9. **Answer:**
+10. **Answer:**
+
+### Priority-based diff review
+
+| Priority | File group | Why it needs attention | Review action |
+|---|---|---|---|
+| Highest | worker, queue, replay, API, schema, migration | Browser automation, durable state, credentials, cancellation, and retries are behavior-critical | Read now |
+| Medium | Run UI and tests | Exposes state and encodes the replay safety contract | Read next |
+| Lower | Docker and documentation | Local service wiring and learning context | Skim after behavior is understood |
+
+#### Follow-up learning tasks
+
+- Owner answers all ten Phase 3 questions after implementation.
+- Before production, define external target policy, worker deployment, credential provider, retention, and concurrency limits.
