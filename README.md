@@ -51,7 +51,7 @@ docker compose down
 
 Use `ava.tester@example.test` with password `sentinel-dev`. Create a recording for the built-in Demo CRM, launch the browser panel, then complete the demo target’s sign-in and customer-creation journey. Chromium runs in kiosk app mode and is policy-locked to the Demo CRM; the host exposes only the noVNC viewer on port 7900, not Selenium WebDriver.
 
-Phase 2 adds an explicit **Run test** action on a saved Test Case. The tester follows the immutable saved steps in order, marks each active step passed or failed, and can interrupt the Run. Sentinel keeps a separate test outcome and evidence-capture state, stores screenshots in the private local MinIO service, and never stores a browser-video recording. Redis/BullMQ, automatic replay, scheduled Runs, and external QA targets remain later work.
+Phase 2 adds an explicit **Run test** action on a saved Test Case. The tester follows the immutable saved steps in order, marks each active step passed or failed, and can interrupt the Run. Sentinel keeps a separate test outcome and evidence-capture state, stores screenshots in the private local MinIO service, and never stores a browser-video recording. Phase 3 adds a separate **Auto Run** action backed by Redis/BullMQ and up to two isolated headless Playwright contexts. It replays the local Demo CRM only, pauses for recorded checkpoints, retries one transient technical failure, and retains the same privacy-safe evidence without video. Scheduling and external QA targets remain later work.
 
 ## Verify Phase 1
 
