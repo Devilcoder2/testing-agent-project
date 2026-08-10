@@ -97,6 +97,9 @@ describe("Phase 2 guided Run API", () => {
     const screenshot = detail.evidence.find((item) => item.kind === "SCREENSHOT");
     if (!screenshot) throw new Error("Run did not create a screenshot evidence item.");
     expect((await request(ben, `evidence/${screenshot.id}/access`)).status).toBe(403);
+    const evidenceAccess = await request(ava, `evidence/${screenshot.id}/access`);
+    expect(evidenceAccess.status).toBe(200);
+    expect((await evidenceAccess.json() as { url: string }).url).toMatch(/^http:\/\/localhost:9000\/sentinel-evidence\//);
 
     const interrupt = await request(ava, `runs/${started.run.id}/interrupt`, "POST");
     expect(interrupt.status).toBe(200);
@@ -104,7 +107,7 @@ describe("Phase 2 guided Run API", () => {
     expect(completed).toMatchObject({ status: "COMPLETED", outcome: "INTERRUPTED" });
     expect(["COMPLETE", "PARTIAL"]).toContain(completed.evidenceStatus);
 
-    const persisted = await prisma.run.findUniqueOrThrow({ where: { id: started.run.id }, include: { stepResults: true } });
+    const persisted = await prisma.run.findUniqueOrThrow({ where: { id: started.run.id }, include: { stepResults: { orderBy: { order: "asc" } } } });
     expect(persisted.testCaseVersionId).toBe(started.run.testCaseVersionId);
     expect(persisted.stepResults.map((step) => step.status)).toEqual(["PASSED", "PENDING"]);
   }, 30_000);
