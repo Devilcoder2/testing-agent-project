@@ -172,7 +172,7 @@ docker compose down
 ## Phase 3 — Autonomous replay engine
 
 **Depends on:** Phases 1–2
-**Status:** Approved for implementation.
+**Status:** Implementation and automated acceptance verified; owner learning review pending.
 **Outcome:** A saved Test Case can run autonomously in an isolated headless browser, stop safely on uncertainty, and retain the Phase 2 evidence bundle.
 
 ### In scope
@@ -194,18 +194,18 @@ docker compose down
 
 ### Acceptance checklist
 
-- [ ] A product-authorized tester can queue an Auto Run separately from a guided Run.
-- [ ] Redis/BullMQ persists queued Auto Runs and the worker processes at most two isolated Playwright contexts concurrently.
-- [ ] An Auto Run executes the Demo CRM sign-in and customer journey without tester interaction and produces the Phase 2 evidence bundle without video.
-- [ ] Password credentials never appear in persisted steps, attempts, evidence, logs, or API responses.
-- [ ] Existing saved Test Cases replay without re-recording; a variable-marked non-password step blocks only Auto Run with clear Phase 4 guidance.
-- [ ] Unique exact selector fallbacks recover supported cosmetic selector changes; missing or multiple matches stop safely with an explicit reason.
-- [ ] A checkpoint pauses after its marked action, shows checkpoint evidence and expected outcome context, resumes within 10 minutes, or interrupts safely on timeout/cancel.
-- [ ] An explicit cancellation captures final available evidence and never retries.
-- [ ] Exactly one technical retry is linked to the original Run; non-technical failures never retry.
-- [ ] Auto Run duration is compared against the defined three-guided-Run median when available.
-- [ ] Product authorization protects Auto Run queueing, inspection, resume, cancel, attempts, and evidence access.
-- [ ] Guided Run behavior, single noVNC browser isolation, and Phase 1–2 acceptance remain unchanged.
+- [x] A product-authorized tester can queue an Auto Run separately from a guided Run.
+- [x] Redis/BullMQ persists queued Auto Runs and the worker processes at most two isolated Playwright contexts concurrently.
+- [x] An Auto Run executes the Demo CRM sign-in and customer journey without tester interaction and produces the Phase 2 evidence bundle without video.
+- [x] Password credentials never appear in persisted steps, attempts, evidence, logs, or API responses.
+- [x] Existing saved Test Cases replay without re-recording; a variable-marked non-password step blocks only Auto Run with clear Phase 4 guidance.
+- [x] Unique exact selector fallbacks recover supported cosmetic selector changes; missing or multiple matches stop safely with an explicit reason.
+- [x] A checkpoint pauses after its marked action, shows checkpoint evidence and expected outcome context, resumes within 10 minutes, or interrupts safely on timeout/cancel.
+- [x] An explicit cancellation captures final available evidence and never retries.
+- [x] Exactly one technical retry is linked to the original Run; non-technical failures never retry.
+- [x] Auto Run duration is compared against the defined three-guided-Run median when available.
+- [x] Product authorization protects Auto Run queueing, inspection, resume, cancel, attempts, and evidence access.
+- [x] Guided Run behavior, single noVNC browser isolation, and Phase 1–2 acceptance remain unchanged.
 
 ### Verification
 
@@ -219,6 +219,8 @@ docker compose exec sentinel npx playwright test tests/phase-2-runs.spec.ts
 docker compose exec sentinel npx playwright test tests/phase-1-recording.spec.ts
 docker compose down
 ```
+
+Automated verification on 2026-08-11 covered the six-file, 19-test Vitest suite; the Phase 1 browser-lock, Product creation, recording, and frontend regressions; the Phase 2 guided-Run regression; and the Phase 3 Auto Run browser flow. The ten Phase 3 owner questions in `learning-log.md` remain an explicit follow-up, so the phase is not yet marked fully understood.
 
 ### Deliverables
 
