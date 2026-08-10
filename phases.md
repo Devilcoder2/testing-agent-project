@@ -127,7 +127,7 @@ docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.t
 ## Phase 2 — Run model and complete evidence
 
 **Depends on:** Phases 1 and 1.5
-**Status:** Implementation and automated acceptance verified; manual owner check and learning review remain pending.
+**Status:** Functional acceptance verified; owner learning review remains pending.
 **Outcome:** A saved Test Case can produce a locally guided Run record and a Run Detail view with privacy-safe, timeline-linked evidence metadata.
 
 ### In scope
@@ -156,7 +156,7 @@ docker compose exec sentinel npx playwright test tests/frontend-phase-1-5.spec.t
 - [x] Screenshots are private in MinIO, checksummed, and available only to authorized users through short-lived signed URLs.
 - [x] Evidence capture problems are visible as `PARTIAL` without replacing the test outcome.
 - [x] A user without Product membership cannot list, inspect, start, or obtain evidence for that Product's Runs.
-- [ ] Owner manually completes the guided-browser checklist after the automated unit, integration, and Playwright checks pass.
+- [x] Owner manually completes the guided-browser checklist after the automated unit, integration, and Playwright checks pass.
 
 ### Verification
 
@@ -171,14 +171,61 @@ docker compose down
 
 ## Phase 3 — Autonomous replay engine
 
-**Depends on:** Phases 1–2  
-**Outcome:** A Test Case can replay safely and stop on uncertainty.
+**Depends on:** Phases 1–2
+**Status:** Approved for implementation.
+**Outcome:** A saved Test Case can run autonomously in an isolated headless browser, stop safely on uncertainty, and retain the Phase 2 evidence bundle.
 
-- Implement isolated browser contexts and recorded action execution.
-- Add bounded selector resilience and confidence-based stopping.
-- Support checkpoints, pause/resume, cancellation, retries, and controlled concurrency.
-- Compare replay duration with a defined manual benchmark.
-- Verify every replay produces the Phase 2 evidence bundle.
+### In scope
+
+- Keep the existing guided Run unchanged and add a separate **Auto Run** action.
+- Use Redis and BullMQ with one Docker-local worker process that executes at most two Auto Runs concurrently in isolated headless Playwright Chromium contexts.
+- Bind every Auto Run to the current immutable Test Case version and create one persistent Run Attempt per execution attempt.
+- Replay the allowlisted Demo CRM only. Supply its login credentials through worker-only Docker environment variables; never persist them in a Run, Step Result, evidence item, or browser log.
+- Add `GUIDED` and `AUTO` Run modes; queued, running, paused, cancelling, and completed lifecycle states; attempt history; and explicit failure reasons.
+- Replay first navigation steps with `goto`; treat later navigation steps as URL milestones so in-page state is preserved.
+- Resolve click and text-entry targets only through ordered, exact, unique selector fallbacks: test ID, name/label, role plus exact accessible name, then tag plus exact text. Missing or ambiguous matches fail safely without guessing.
+- Treat free-text expected outcomes as human-readable context in evidence and failure reporting, not executable assertions.
+- Block an Auto Run when a non-password step has a variable marker, with clear Phase 4 guidance. Existing saved Test Cases remain compatible without re-recording and have no checkpoints unless a new recording marks them.
+- Add a checkpoint toggle to draft-step editing. After an Auto Run executes a marked step, capture checkpoint evidence, pause for screenshot/outcome review, and wait up to 10 minutes for Continue or Cancel while retaining the browser context.
+- Support explicit cancellation with final available evidence and `INTERRUPTED` outcome.
+- Retry exactly once and only for allowlisted technical startup/navigation failures. Preserve the failed attempt and its evidence, then enqueue a linked second attempt. Never retry ambiguity, action failures, checkpoints, cancellation, or user-visible test failures.
+- Capture screenshots at start, end, failure, and checkpoints plus the existing redacted network, warning/error-console, and storage evidence. Full browser video remains prohibited.
+- Compare successful Auto Run active duration, excluding queue, checkpoint, and retry wait time, to the median duration of the latest three successful guided Runs of the same Test Case version. Show benchmark unavailable when fewer than three exist; do not fail the Run for that reason.
+
+### Acceptance checklist
+
+- [ ] A product-authorized tester can queue an Auto Run separately from a guided Run.
+- [ ] Redis/BullMQ persists queued Auto Runs and the worker processes at most two isolated Playwright contexts concurrently.
+- [ ] An Auto Run executes the Demo CRM sign-in and customer journey without tester interaction and produces the Phase 2 evidence bundle without video.
+- [ ] Password credentials never appear in persisted steps, attempts, evidence, logs, or API responses.
+- [ ] Existing saved Test Cases replay without re-recording; a variable-marked non-password step blocks only Auto Run with clear Phase 4 guidance.
+- [ ] Unique exact selector fallbacks recover supported cosmetic selector changes; missing or multiple matches stop safely with an explicit reason.
+- [ ] A checkpoint pauses after its marked action, shows checkpoint evidence and expected outcome context, resumes within 10 minutes, or interrupts safely on timeout/cancel.
+- [ ] An explicit cancellation captures final available evidence and never retries.
+- [ ] Exactly one technical retry is linked to the original Run; non-technical failures never retry.
+- [ ] Auto Run duration is compared against the defined three-guided-Run median when available.
+- [ ] Product authorization protects Auto Run queueing, inspection, resume, cancel, attempts, and evidence access.
+- [ ] Guided Run behavior, single noVNC browser isolation, and Phase 1–2 acceptance remain unchanged.
+
+### Verification
+
+```text
+docker compose up --build -d
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/phase-3-auto-runs.spec.ts
+docker compose exec sentinel npx playwright test tests/phase-2-runs.spec.ts
+docker compose exec sentinel npx playwright test tests/phase-1-recording.spec.ts
+docker compose down
+```
+
+### Deliverables
+
+- Redis/BullMQ queue and two-concurrency Playwright worker.
+- Auto Run persistence, API, controls, attempt history, checkpoint review, cancellation, retry, and duration comparison.
+- Selector-resolution and replay engine with privacy-safe evidence reuse.
+- Phase 3 automated and manual acceptance evidence plus a learning-log entry with exactly 10 questions.
 
 ## Phase 4 — Variables and test-data lifecycle
 
