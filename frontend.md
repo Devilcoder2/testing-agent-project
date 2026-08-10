@@ -65,7 +65,7 @@ The following are documented design targets only. Phase 1.5 must not create plac
 
 | Future route | Intended experience |
 |---|---|
-| `/runs` and `/runs/[id]` | Phase 2 delivers the core guided Run inventory and Run Detail. Future work adds autonomous execution, database context, release grouping, and richer comparison tools. |
+| `/runs` and `/runs/[id]` | Phase 3 adds Auto Run queue/running/paused states, attempt history, checkpoint screenshot review, Continue/Cancel controls, selector-failure reasons, and duration comparison beside the existing guided Run detail. Later work adds database context and release grouping. |
 | `/releases` | Release health, grouped Test Cases, batch status, and readiness reporting. |
 | `/review` | Change proposals, negative-test suggestions, checkpoint decisions, and owner approvals. |
 | `/settings` | Product access, integration health, notification configuration, and safe connection state. |
@@ -84,11 +84,11 @@ Use the shared App Shell and keep responsibilities separate: Dashboard is a clea
 
 ### Saved Test Case detail
 
-Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Once Phase 2 is available, a single **Run test** primary action starts an explicitly guided Run of the current saved version.
+Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Show separate **Guided Run** and **Auto Run** actions: the latter queues autonomous replay and reports a clear Phase 4 preflight error for variable-marked steps.
 
 ### Run inventory and Run Detail
 
-Use the shared App Shell for `/runs`, with compact Product and outcome filters and a list whose status always communicates outcome and evidence completeness together. `/runs/[id]` uses the same distraction-reduced 100vh treatment as recording while a Run is active: a strict saved-step checklist occupies 30% of the width and the browser stage 70%. Pass/fail controls apply only to the active step; an explicit Interrupt action ends the Run safely. On page refresh, the view restores the active step and viewer. Once completed, the same route becomes a readable Run Detail with an ordered result timeline and evidence tabs for Screenshots, Network, Console, and Storage. Evidence failures are explicit text/status items, not hidden behind a successful test outcome. No browser-video player is designed or displayed.
+Use the shared App Shell for `/runs`, with compact Product, outcome, and Run-mode filters and a list whose status always communicates outcome and evidence completeness together. Guided `/runs/[id]` retains its distraction-reduced browser workspace. An active Auto Run uses an operational detail view rather than a live browser: show queue/running state, current step, attempt number, retry reason when applicable, and an explicit Cancel action. At a checkpoint, replace progress with the captured screenshot, expected-outcome context, a ten-minute countdown, and Continue/Cancel controls. Once completed, either mode becomes a readable Run Detail with ordered result timeline, duration comparison, attempts, and Screenshots, Network, Console, and Storage evidence panels. Evidence failures are explicit text/status items, not hidden behind a successful test outcome. No browser-video player is designed or displayed.
 
 ### Recording Workspace
 
