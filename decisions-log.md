@@ -189,3 +189,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** This supplies a useful, inspectable Run and evidence baseline without falsely claiming autonomous replay, prematurely introducing queue infrastructure, or storing a sensitive browser recording.
 - **Impact:** Run outcome (`passed`, `failed`, `interrupted`) is distinct from capture status (`complete`, `partial`), so unavailable evidence cannot alter the factual test result. Phase 2 adds no Redis/BullMQ, skip/pause/cancel flow, external targets, retention automation, or stored video. Only one browser-backed recording or Run may exist locally at a time.
 - **Status:** Confirmed by project owner; implementation in progress.
+
+## D-023 — Keep guided Run browser sessions alive and make Demo CRM evidence observable
+
+- **Date:** 2026-08-10
+- **Decision:** Give the local Selenium browser a 30-minute guided-Run session limit and make the Demo CRM issue same-origin activity requests plus store minimal session state during successful sign-in and customer creation. Sentinel continues to capture only warning/error console output, not ordinary log noise.
+- **Reason:** Selenium’s five-minute inactivity limit expires while a tester interacts through noVNC because noVNC input is not a WebDriver command. The original static demo performed no network request and stored no browser state, so its empty Network and Storage evidence was accurate but could not demonstrate the Phase 2 evidence contract.
+- **Impact:** A normal guided Run has enough time for manual testing and produces START/END screenshots, request metadata, and redacted storage-key metadata. The Demo CRM remains a local fixture; production targets are not expected to add synthetic activity merely for Sentinel. A quiet Console panel on a successful journey remains correct unless the target emits a warning or error.
+- **Status:** Confirmed by observed Phase 2 verification failure; implementation in progress.
