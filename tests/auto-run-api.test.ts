@@ -34,7 +34,7 @@ async function readRun(runId: string) {
 type StoredRun = Awaited<ReturnType<typeof readRun>>;
 
 async function waitForRun(runId: string, matches: (run: StoredRun) => boolean, message: string) {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  for (let attempt = 0; attempt < 70; attempt += 1) {
     const run = await readRun(runId);
     if (matches(run)) return run;
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -187,6 +187,28 @@ describe("Phase 3 Auto Run API", () => {
     expect(completed.benchmarkMedianMs).toBe(2000);
     expect(completed.durationDeltaMs).toBe((completed.activeDurationMs ?? 0) - 2000);
   }, 30_000);
+
+  it("links exactly one retry after a transient navigation timeout", async () => {
+    const ava = await login("ava.tester@example.test");
+    const testCase = await createSavedDemoTest(ava, `Retry journey ${Date.now()}`);
+    const version = await prisma.testCaseVersion.findFirstOrThrow({ where: { testCaseId: testCase.id, version: 1 } });
+    await prisma.testStep.deleteMany({ where: { testCaseVersionId: version.id } });
+    await prisma.testStep.createMany({
+      data: [
+        { testCaseVersionId: version.id, order: 1, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: "http://demo-target" } },
+        { testCaseVersionId: version.id, order: 2, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: "http://demo-target/#unreachable-milestone" } }
+      ]
+    });
+
+    const start = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST");
+    expect(start.status).toBe(201);
+    const queued = await start.json() as { run: { id: string } };
+    const completed = await waitForRun(queued.run.id, (run) => run.status === "COMPLETED", "Retrying Auto Run did not complete.");
+    expect(completed).toMatchObject({ outcome: "FAILED", failureReason: "NAVIGATION_TIMEOUT" });
+    expect(completed.attempts).toHaveLength(2);
+    expect(completed.attempts.map((attempt) => attempt.failureReason)).toEqual(["NAVIGATION_TIMEOUT", "NAVIGATION_TIMEOUT"]);
+    expect(completed.evidence.filter((item) => item.runAttemptId === completed.attempts[0]?.id).length).toBeGreaterThan(0);
+  }, 35_000);
 
   it("blocks non-password variables with Phase 4 guidance", async () => {
     const ava = await login("ava.tester@example.test");
