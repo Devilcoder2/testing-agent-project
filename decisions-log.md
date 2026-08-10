@@ -197,3 +197,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Selenium’s five-minute inactivity limit expires while a tester interacts through noVNC because noVNC input is not a WebDriver command. The original static demo performed no network request and stored no browser state, so its empty Network and Storage evidence was accurate but could not demonstrate the Phase 2 evidence contract.
 - **Impact:** A normal guided Run has enough time for manual testing and produces START/END screenshots, request metadata, and redacted storage-key metadata. The Demo CRM remains a local fixture; production targets are not expected to add synthetic activity merely for Sentinel. A quiet Console panel on a successful journey remains correct unless the target emits a warning or error.
 - **Status:** Confirmed by observed Phase 2 verification failure; implementation in progress.
+
+## D-024 — Phase 3 autonomous replay safety model
+
+- **Date:** 2026-08-10
+- **Decision:** Keep Guided Run and Auto Run separate. Auto Run uses a Redis/BullMQ Playwright worker with two isolated local contexts, server-only Demo CRM credentials, ordered exact unique selector fallbacks, and one retry only for transient startup/navigation failures. Checkpoints are marked during new recordings, pause after the marked action for screenshot review up to ten minutes, and can resume or cancel. Free-text outcomes remain context; non-password variable-marked steps block Auto Run until Phase 4.
+- **Reason:** Autonomous replay must add useful speed without guessing at ambiguous pages, persisting credentials, changing the established guided workflow, or prematurely implementing variable management.
+- **Impact:** Auto Runs preserve attempt history, evidence, cancellation, checkpoint, and benchmark state in PostgreSQL. A missing/multiple selector fails safely; cancellation and checkpoint timeout interrupt without retry. Successful Auto Runs compare active duration with the median of three successful guided Runs of the same version when available.
+- **Status:** Confirmed by project owner; implementation in progress.
