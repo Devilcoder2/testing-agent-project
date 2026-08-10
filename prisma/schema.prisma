@@ -220,6 +220,9 @@ model Run {
   cancellingAt       DateTime?
   checkpointDeadline DateTime?
   completedAt        DateTime?
+  activeDurationMs   Int?
+  benchmarkMedianMs  Int?
+  durationDeltaMs    Int?
   testCase           TestCase          @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   testCaseVersion    TestCaseVersion   @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
   product            Product           @relation(fields: [productId], references: [id])
