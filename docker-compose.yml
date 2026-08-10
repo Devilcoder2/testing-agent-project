@@ -107,6 +107,9 @@ services:
       AUTO_RUN_DEMO_EMAIL: qa.tester@example.test
       AUTO_RUN_DEMO_PASSWORD: TestPassword!
     command: sh -c "npm run db:generate && npm run db:migrate && npm run worker"
+    volumes:
+      - .:/app
+      - sentinel-node-modules:/app/node_modules
 
 volumes:
   sentinel-postgres:
