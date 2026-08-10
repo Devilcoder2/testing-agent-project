@@ -28,6 +28,15 @@ export class ReplayError extends Error {
   }
 }
 
+const retryableReasons = new Set<RunFailureReason>([
+  "BROWSER_STARTUP",
+  "NAVIGATION_TIMEOUT"
+]);
+
+export function canRetryAutoRun(error: ReplayError, attemptNumber: number) {
+  return attemptNumber === 1 && error.transient && retryableReasons.has(error.reason);
+}
+
 function targetOf(value: unknown): Target {
   return value && typeof value === "object" ? value as Target : {};
 }
@@ -110,12 +119,14 @@ function navigationUrl(step: ReplayStep) {
   return url;
 }
 
-export async function replayStep(page: Page, step: ReplayStep, state: ReplayState) {
+export async function replayStep(page: Page, step: ReplayStep, state: ReplayState, approvedInitialUrl?: string) {
   try {
     if (step.kind === StepKind.NAVIGATION) {
       const url = navigationUrl(step);
       if (!state.initialNavigationComplete) {
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: ACTION_TIMEOUT_MS });
+        // The Run target comes from an allowlisted recording. Recorded navigation
+        // data is useful evidence, but must never choose the first destination.
+        await page.goto(approvedInitialUrl ?? url, { waitUntil: "domcontentloaded", timeout: ACTION_TIMEOUT_MS });
         state.initialNavigationComplete = true;
       } else {
         await page.waitForURL(url, { waitUntil: "domcontentloaded", timeout: ACTION_TIMEOUT_MS });
