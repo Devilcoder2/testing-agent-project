@@ -80,7 +80,7 @@ docker compose exec sentinel npm test
 docker compose exec sentinel npx playwright test tests/phase-2-runs.spec.ts
 ```
 
-The Phase 2 checks cover strict guided-step order, immutable version binding, browser-session recovery after refresh, failed/interrupted outcomes, redaction, MinIO screenshot metadata, and product authorization. A human owner should also start a saved Test Case Run, refresh while it is active, pass one step, fail another, and inspect the evidence timeline before accepting the phase manually.
+The Phase 2 checks cover strict guided-step order, immutable version binding, browser-session recovery after refresh, failed/interrupted outcomes, redaction, START/END screenshot capture, network/console/storage evidence, MinIO screenshot metadata, and product authorization. A human owner should also start a saved Test Case Run, refresh while it is active, complete the Demo CRM sign-in and customer journey, pass each step, and inspect the evidence timeline before accepting the phase manually. A successful Demo CRM Run shows START and END screenshots, its same-origin activity requests in Network, and redacted session-storage keys after the journey; an empty START storage snapshot is correct because it is taken before sign-in. Console remains empty unless the target emits a warning or error—entering an incorrect Demo CRM password is a safe way to verify warning capture.
 
 ## Status
 
