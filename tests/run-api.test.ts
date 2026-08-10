@@ -6,6 +6,7 @@ const baseUrl = process.env.SENTINEL_BASE_URL ?? "http://localhost:3000";
 const createdProductIds: string[] = [];
 
 type Session = { cookie: string };
+type SeleniumStatus = { value?: { nodes?: Array<{ slots?: Array<{ session?: { sessionId?: string } }> }> } };
 
 async function login(email: string): Promise<Session> {
   const response = await fetch(`${baseUrl}/api/auth/dev-login`, {
@@ -25,6 +26,19 @@ async function request(session: Session, path: string, method = "GET", body?: un
     headers: { cookie: session.cookie, ...(body ? { "content-type": "application/json" } : {}) },
     body: body ? JSON.stringify(body) : undefined
   });
+}
+
+async function runInActiveBrowser(script: string, asynchronous = false) {
+  const status = await (await fetch("http://browser:4444/status")).json() as SeleniumStatus;
+  const sessionId = status.value?.nodes?.flatMap((node) => node.slots ?? []).flatMap((slot) => slot.session?.sessionId ? [slot.session.sessionId] : [])[0];
+  if (!sessionId) throw new Error("The test could not find the active guided Run browser session.");
+  const response = await fetch(`http://browser:4444/session/${sessionId}/execute/${asynchronous ? "async" : "sync"}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ script, args: [] })
+  });
+  expect(response.status).toBe(200);
+  return response.json();
 }
 
 async function createSavedTest(session: Session, name: string) {
@@ -101,14 +115,24 @@ describe("Phase 2 guided Run API", () => {
     expect(evidenceAccess.status).toBe(200);
     expect((await evidenceAccess.json() as { url: string }).url).toMatch(/^http:\/\/localhost:9000\/sentinel-evidence\//);
 
+    await runInActiveBrowser("console.warn('Sentinel Run integration warning'); sessionStorage.setItem('demo-run-marker', 'must-not-be-stored'); return true;");
+    await runInActiveBrowser("const done = arguments[arguments.length - 1]; fetch('/events.json?event=integration').then(() => done(true)).catch((error) => done(String(error)));", true);
+
     const interrupt = await request(ava, `runs/${started.run.id}/interrupt`, "POST");
     expect(interrupt.status).toBe(200);
     const completed = await interrupt.json() as { status: string; outcome: string; evidenceStatus: string };
     expect(completed).toMatchObject({ status: "COMPLETED", outcome: "INTERRUPTED" });
     expect(["COMPLETE", "PARTIAL"]).toContain(completed.evidenceStatus);
 
-    const persisted = await prisma.run.findUniqueOrThrow({ where: { id: started.run.id }, include: { stepResults: { orderBy: { order: "asc" } } } });
+    const persisted = await prisma.run.findUniqueOrThrow({ where: { id: started.run.id }, include: { stepResults: { orderBy: { order: "asc" } }, evidence: true } });
     expect(persisted.testCaseVersionId).toBe(started.run.testCaseVersionId);
     expect(persisted.stepResults.map((step) => step.status)).toEqual(["PASSED", "PENDING"]);
+    expect(persisted.evidence.filter((item) => item.kind === "SCREENSHOT").map((item) => (item.metadata as { label?: string }).label)).toEqual(expect.arrayContaining(["START", "END"]));
+    expect(persisted.evidence.some((item) => item.kind === "CAPTURE_ERROR")).toBe(false);
+    expect(JSON.stringify(persisted.evidence.filter((item) => item.kind === "NETWORK"))).toContain("/events.json?event=integration");
+    const storageEvidence = JSON.stringify(persisted.evidence.filter((item) => item.kind === "STORAGE"));
+    expect(storageEvidence).toContain("demo-run-marker");
+    expect(storageEvidence).not.toContain("must-not-be-stored");
+    expect(JSON.stringify(persisted.evidence.filter((item) => item.kind === "CONSOLE"))).toContain("Sentinel Run integration warning");
   }, 30_000);
 });
