@@ -129,6 +129,36 @@ describe("Phase 3 Auto Run API", () => {
     expect(cancelled.evidence.some((item) => item.kind === "SCREENSHOT" && (item.metadata as { label?: string } | null)?.label === "END")).toBe(true);
   }, 45_000);
 
+  it("keeps two isolated Auto Runs active at checkpoints concurrently", async () => {
+    const ava = await login("ava.tester@example.test");
+    const firstTestCase = await createSavedDemoTest(ava, `Concurrent first ${Date.now()}`, 4);
+    const secondTestCase = await createSavedDemoTest(ava, `Concurrent second ${Date.now()}`, 4);
+
+    const [firstResponse, secondResponse] = await Promise.all([
+      request(ava, `test-cases/${firstTestCase.id}/auto-runs`, "POST"),
+      request(ava, `test-cases/${secondTestCase.id}/auto-runs`, "POST")
+    ]);
+    const first = await firstResponse.json() as { run: { id: string } };
+    const second = await secondResponse.json() as { run: { id: string } };
+
+    const [firstPaused, secondPaused] = await Promise.all([
+      waitForRun(first.run.id, (run) => run.status === "PAUSED", "First Auto Run did not reach its checkpoint."),
+      waitForRun(second.run.id, (run) => run.status === "PAUSED", "Second Auto Run did not reach its checkpoint concurrently.")
+    ]);
+    expect(firstPaused.attempts[0]?.status).toBe("RUNNING");
+    expect(secondPaused.attempts[0]?.status).toBe("RUNNING");
+
+    await Promise.all([
+      request(ava, `runs/${first.run.id}/resume`, "POST"),
+      request(ava, `runs/${second.run.id}/resume`, "POST")
+    ]);
+    const completed = await Promise.all([
+      waitForRun(first.run.id, (run) => run.status === "COMPLETED", "First concurrent Auto Run did not complete."),
+      waitForRun(second.run.id, (run) => run.status === "COMPLETED", "Second concurrent Auto Run did not complete.")
+    ]);
+    expect(completed.map((run) => run.outcome)).toEqual(["PASSED", "PASSED"]);
+  }, 50_000);
+
   it("blocks non-password variables with Phase 4 guidance", async () => {
     const ava = await login("ava.tester@example.test");
     const testCase = await createSavedDemoTest(ava, `Variable journey ${Date.now()}`);
