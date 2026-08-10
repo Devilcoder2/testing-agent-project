@@ -100,12 +100,19 @@ Full browser-video recordings must not be captured or retained. Phase 2 provides
 
 ### F3. Autonomous replay
 
-- Run a saved Test Case without a human present unless a checkpoint is reached.
-- Tolerate small cosmetic changes without silently choosing an unsafe alternative.
-- Aim to execute no slower than the equivalent manual journey.
-- Run many Test Cases sequentially or concurrently.
-- Produce the complete F2 Evidence Bundle for every run mode.
-- Stop and clearly flag unresolved elements, ambiguity, or checkpoints.
+- Preserve Phase 2 Guided Run and offer a separate product-authorized Auto Run action.
+- Run a saved Test Case without a human present unless a checkpoint is reached, using an isolated headless browser context.
+- For the Docker-local Demo CRM, use server-only worker credentials; never persist credentials in a Run or evidence bundle.
+- Replay the initial navigation, then execute recorded text and click actions. Later navigation records are URL milestones and must not reload in-page state.
+- Tolerate limited cosmetic change only through ordered exact, unique selector fallbacks. A missing or multiple match must stop safely and report the reason; no fuzzy or AI selector guess may continue a Run.
+- Treat free-text expected outcomes as evidence context, not executable assertions.
+- A checkpoint is marked while recording. After its action executes, Auto Run captures checkpoint evidence and pauses up to 10 minutes for screenshot/outcome review and explicit Continue or Cancel.
+- Support explicit cancellation with final available evidence and an `Interrupted` outcome.
+- Retry once only for allowlisted transient browser startup/navigation failures. Preserve the original failed attempt; never retry ambiguity, action failure, checkpoint timeout, or cancellation.
+- Process at most two autonomous Docker-local Runs concurrently while keeping the Phase 2 noVNC guided browser separate.
+- Compare successful Auto Run active duration, excluding queue/checkpoint/retry wait, against the median of the latest three successful guided Runs of the same Test Case version when available.
+- Produce the complete F2 Evidence Bundle for every Auto Run without retaining browser video.
+- Block Auto Run for a non-password variable-marked step until Phase 4 value substitution exists; existing saved Test Cases without such variables remain replayable.
 
 ### F4. Test data and variables
 
