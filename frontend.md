@@ -84,7 +84,7 @@ Use the shared App Shell and keep responsibilities separate: Dashboard is a clea
 
 ### Saved Test Case detail
 
-Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Show separate **Guided Run** and **Auto Run** actions: the latter queues autonomous replay and reports a clear Phase 4 preflight error for variable-marked steps.
+Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Keep the established **Run test** action for a Guided Run and show **Auto Run** beside it; the latter queues autonomous replay and reports a clear Phase 4 preflight error for variable-marked steps.
 
 ### Run inventory and Run Detail
 
