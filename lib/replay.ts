@@ -1,7 +1,7 @@
 import { RunFailureReason, StepKind } from "@prisma/client";
 import type { Locator, Page } from "playwright";
 
-const ACTION_TIMEOUT_MS = 10_000;
+const ACTION_TIMEOUT_MS = Number.parseInt(process.env.AUTO_RUN_ACTION_TIMEOUT_MS ?? "5000", 10);
 
 export type ReplayStep = {
   id: string;
