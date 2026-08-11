@@ -40,6 +40,7 @@
 - Docker Desktop is required for Phases 1–2: Compose runs PostgreSQL, MinIO, Sentinel, the isolated demo target, and the browser-in-browser session.
 - The local Selenium node uses a 30-minute idle session limit for guided Runs because noVNC input does not reset Selenium’s WebDriver activity timer.
 - Auto Run Demo CRM credentials are worker-only environment configuration. They are never stored in PostgreSQL, MinIO metadata, browser logs, or API responses.
+- The worker uses a five-second default action/navigation timeout for the local Demo CRM; `AUTO_RUN_ACTION_TIMEOUT_MS` may tune that worker-only limit without changing saved Test Cases.
 - Phase 1.5 uses local system typography, CSS custom properties, and custom React/CSS primitives; it does not add external fonts, icon packs, Tailwind, shadcn, or a component library.
 - CI should run formatting/lint checks, unit tests, type checks, and browser smoke tests.
 - Structured logs should include correlation IDs for a Test Case, Run, job, evidence event, and external integration request.
