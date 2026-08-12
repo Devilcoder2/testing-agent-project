@@ -3,7 +3,7 @@ import { Prisma, RecordingStatus, RunAttemptStatus, RunFailureReason, RunMode, R
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
-import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordingBrowser, launchRunBrowser } from "@/lib/browser";
+import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordingBrowser, launchRunBrowser, replayGuidedRunStep } from "@/lib/browser";
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
 import { prisma } from "@/lib/prisma";
 import { enqueueAutoRun } from "@/lib/queue";
@@ -256,15 +256,35 @@ async function route(request: Request, context: Context) {
       return json({ ...run, viewerUrl: run.mode === RunMode.GUIDED && run.status === RunStatus.RUNNING ? process.env.BROWSER_VIEWER_URL : null });
     }
     if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "steps" && path[3] && path[4] === "complete") {
-      const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { stepResults: { orderBy: { order: "asc" } } } });
+      const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { stepResults: { include: { testStep: true }, orderBy: { order: "asc" } } } });
       if (!run) return json({ error: "Run not found." }, 404);
       await assertProductMember(user.id, run.productId);
+      if (run.mode !== RunMode.GUIDED) return json({ error: "Auto Runs are completed by their worker, not the guided step controls." }, 409);
       if (run.status !== RunStatus.RUNNING) return json({ error: "This Run is no longer active." }, 409);
       const stepResult = run.stepResults.find((item) => item.id === path[3]);
       if (!stepResult) return json({ error: "Run step not found." }, 404);
       if (stepResult.status !== RunStepStatus.PENDING || stepResult.order !== run.activeStepOrder) return json({ error: "Complete the active Run step before changing another step." }, 409);
       const outcome = body.status === "PASSED" ? RunStepStatus.PASSED : body.status === "FAILED" ? RunStepStatus.FAILED : null;
       if (!outcome) return json({ error: "Step status must be PASSED or FAILED." }, 400);
+      if (outcome === RunStepStatus.PASSED) {
+        try {
+          await replayGuidedRunStep(run.id, stepResult.testStep);
+        } catch (error) {
+          const code = error instanceof Error ? error.message : "GUIDED_STEP_ACTION_FAILED";
+          const messages: Record<string, string> = {
+            GUIDED_NAVIGATION_TARGET_MISSING: "This saved navigation step has no target URL.",
+            GUIDED_NAVIGATION_MISMATCH: "The live browser did not reach the expected URL for this step.",
+            GUIDED_CREDENTIAL_UNAVAILABLE: "The local Demo CRM password is not configured for guided replay.",
+            GUIDED_TEXT_VALUE_MISSING: "This saved text step has no value to apply.",
+            GUIDED_SELECTOR_AMBIGUOUS: "This saved step matches more than one browser element, so Sentinel stopped safely.",
+            GUIDED_SELECTOR_NOT_FOUND: "Sentinel could not find the saved browser element for this step.",
+            GUIDED_TEXT_TARGET_INVALID: "This saved text step does not target an editable browser field.",
+            GUIDED_STEP_TIMEOUT: "The live browser did not complete this step in time.",
+            GUIDED_STEP_ACTION_FAILED: "The live browser could not apply this saved step."
+          };
+          return json({ error: messages[code] ?? messages.GUIDED_STEP_ACTION_FAILED }, 409);
+        }
+      }
       const completedAt = new Date();
       const nextStep = run.stepResults.find((item) => item.order > stepResult.order);
       await prisma.runStepResult.update({ where: { id: stepResult.id }, data: { status: outcome, startedAt: stepResult.startedAt ?? run.startedAt ?? completedAt, completedAt } });
