@@ -65,12 +65,13 @@ The following are documented design targets only. Phase 1.5 must not create plac
 
 | Future route | Intended experience |
 |---|---|
-| `/runs` and `/runs/[id]` | Phase 3 adds Auto Run queue/running/paused states, attempt history, checkpoint screenshot review, Continue/Cancel controls, selector-failure reasons, and duration comparison beside the existing guided Run detail. Later work adds database context and release grouping. |
+| `/runs` and `/runs/[id]` | Phase 3 adds Auto Run queue/running/paused states, attempt history, checkpoint screenshot review, Continue/Cancel controls, selector-failure reasons, and duration comparison beside the existing guided Run detail. Phase 4 adds a pre-run variable-binding dialog and masked binding source summary; later work adds database context and release grouping. |
+| `/test-data` | Phase 4 product-scoped Test Data Sets. The list shows name, field names, lifecycle, and audit context without raw values; a creation/replacement dialog accepts values once and never displays them again. |
 | `/releases` | Release health, grouped Test Cases, batch status, and readiness reporting. |
 | `/review` | Change proposals, negative-test suggestions, checkpoint decisions, and owner approvals. |
 | `/settings` | Product access, integration health, notification configuration, and safe connection state. |
 
-The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 2 navigation exposes Dashboard, Products, Test Cases, and Runs; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Future navigation adds Releases, Review, and Settings when the relevant product capabilities exist.
+The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 4 navigation exposes Dashboard, Products, Test Cases, Test Data, and Runs; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Future navigation adds Releases, Review, and Settings when the relevant product capabilities exist.
 
 ## 5. Page experience decisions
 
@@ -84,7 +85,7 @@ Use the shared App Shell and keep responsibilities separate: Dashboard is a clea
 
 ### Saved Test Case detail
 
-Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Keep the established **Run test** action for a Guided Run and show **Auto Run** beside it; the latter queues autonomous replay and reports a clear Phase 4 preflight error for variable-marked steps.
+Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Phase 4 adds a Variables panel: show canonical names, affected step numbers, and masked static-default status; never display a stored raw value. Both **Run test** and **Auto Run** open the same pre-run binding dialog when variables exist. Each row selects static, a compatible Test Data Set, or a manual entry, and inline errors explain unavailable/consumed data or rejected secret-like input.
 
 ### Run inventory and Run Detail
 
