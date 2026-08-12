@@ -62,7 +62,17 @@ async function createSavedTest(session: Session, name: string) {
           steps: {
             create: [
               { order: 1, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: "http://demo-target" }, description: "Open the Demo CRM" },
-              { order: 2, kind: StepKind.CLICK, timestamp: new Date(), target: { tag: "button", text: "Sign in" }, expectedOutcome: "The dashboard opens" }
+              { order: 2, kind: StepKind.TEXT_ENTRY, timestamp: new Date(), target: { tag: "input", name: "email" }, value: "qa.tester@example.test" },
+              { order: 3, kind: StepKind.TEXT_ENTRY, timestamp: new Date(), target: { tag: "input", name: "password" }, value: "[REDACTED]", isRedacted: true },
+              { order: 4, kind: StepKind.CLICK, timestamp: new Date(), target: { tag: "button", text: "Sign in" }, expectedOutcome: "The dashboard opens" },
+              { order: 5, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: "http://demo-target/#dashboard" } },
+              { order: 6, kind: StepKind.CLICK, timestamp: new Date(), target: { tag: "button", text: "New customer" } },
+              { order: 7, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: "http://demo-target/#customer-new" } },
+              { order: 8, kind: StepKind.TEXT_ENTRY, timestamp: new Date(), target: { tag: "input", name: "firstName" }, value: "Guided" },
+              { order: 9, kind: StepKind.TEXT_ENTRY, timestamp: new Date(), target: { tag: "input", name: "lastName" }, value: "Runner" },
+              { order: 10, kind: StepKind.TEXT_ENTRY, timestamp: new Date(), target: { tag: "input", name: "email" }, value: "guided.runner@example.test" },
+              { order: 11, kind: StepKind.CLICK, timestamp: new Date(), target: { tag: "button", text: "Create customer" } },
+              { order: 12, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: "http://demo-target/#customer-saved" } }
             ]
           }
         }
@@ -97,7 +107,7 @@ describe("Phase 2 guided Run API", () => {
     const detailResponse = await request(ava, `runs/${started.run.id}`);
     expect(detailResponse.status).toBe(200);
     const detail = await detailResponse.json() as { stepResults: Array<{ id: string; order: number; status: string }>; evidence: Array<{ id: string; kind: string; metadata?: unknown }> };
-    expect(detail.stepResults.map((step) => step.status)).toEqual(["PENDING", "PENDING"]);
+    expect(detail.stepResults.map((step) => step.status)).toEqual(Array(12).fill("PENDING"));
     expect(detail.evidence.some((item) => item.kind === "SCREENSHOT")).toBe(true);
     expect(detail.evidence.some((item) => item.kind === "STORAGE")).toBe(true);
     expect(JSON.stringify(detail.evidence)).not.toContain("sentinel-dev");
@@ -118,15 +128,15 @@ describe("Phase 2 guided Run API", () => {
     await runInActiveBrowser("console.warn('Sentinel Run integration warning'); sessionStorage.setItem('demo-run-marker', 'must-not-be-stored'); return true;");
     await runInActiveBrowser("const done = arguments[arguments.length - 1]; fetch('/events.json?event=integration').then(() => done(true)).catch((error) => done(String(error)));", true);
 
-    const interrupt = await request(ava, `runs/${started.run.id}/interrupt`, "POST");
-    expect(interrupt.status).toBe(200);
-    const completed = await interrupt.json() as { status: string; outcome: string; evidenceStatus: string };
-    expect(completed).toMatchObject({ status: "COMPLETED", outcome: "INTERRUPTED" });
-    expect(["COMPLETE", "PARTIAL"]).toContain(completed.evidenceStatus);
+    for (const step of detail.stepResults.slice(1)) {
+      const completed = await request(ava, `runs/${started.run.id}/steps/${step.id}/complete`, "POST", { status: "PASSED" });
+      expect(completed.status).toBe(200);
+    }
 
     const persisted = await prisma.run.findUniqueOrThrow({ where: { id: started.run.id }, include: { stepResults: { orderBy: { order: "asc" } }, evidence: true } });
     expect(persisted.testCaseVersionId).toBe(started.run.testCaseVersionId);
-    expect(persisted.stepResults.map((step) => step.status)).toEqual(["PASSED", "PENDING"]);
+    expect(persisted).toMatchObject({ status: "COMPLETED", outcome: "PASSED" });
+    expect(persisted.stepResults.map((step) => step.status)).toEqual(Array(12).fill("PASSED"));
     expect(persisted.evidence.filter((item) => item.kind === "SCREENSHOT").map((item) => (item.metadata as { label?: string }).label)).toEqual(expect.arrayContaining(["START", "END"]));
     expect(persisted.evidence.some((item) => item.kind === "CAPTURE_ERROR")).toBe(false);
     expect(JSON.stringify(persisted.evidence.filter((item) => item.kind === "NETWORK"))).toContain("/events.json?event=integration");
