@@ -205,3 +205,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Autonomous replay must add useful speed without guessing at ambiguous pages, persisting credentials, changing the established guided workflow, or prematurely implementing variable management.
 - **Impact:** Auto Runs preserve attempt history, evidence, cancellation, checkpoint, and benchmark state in PostgreSQL. A missing/multiple selector fails safely; cancellation and checkpoint timeout interrupt without retry. Successful Auto Runs compare active duration with the median of three successful guided Runs of the same version when available.
 - **Status:** Confirmed by project owner; implementation in progress.
+
+## D-025 — Phase 4 local encrypted test-data lifecycle
+
+- **Date:** 2026-08-12
+- **Decision:** Phase 4 uses a product-scoped PostgreSQL Test Data Set pool with AES-256-GCM-encrypted fields, encrypted static defaults and Run bindings, and a pre-run form for both Guided and Auto Runs. Pool data is `SAFE`, atomically `RESERVED`, `CONSUMED` only after a passed Run, or manually `INVALID`; non-passing terminal Runs release reservations. Consumed and invalid data is replaced, never reset.
+- **Reason:** This delivers all required static, pooled, and manual variable modes safely in local Docker without assuming an external data source or widening Sentinel’s database permissions.
+- **Impact:** Product members can manage data-set metadata but cannot retrieve persisted raw values. Variable-marked steps store placeholders, secret-like values are rejected, and existing server-only password substitution remains outside the variable store. External test-data adapters and QA PostgreSQL state checks stay deferred to Phase 10.
+- **Status:** Confirmed by project owner for Phase 4.
