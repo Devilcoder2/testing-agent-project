@@ -154,8 +154,12 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
   });
   if (!run || run.mode !== RunMode.AUTO || run.status === RunStatus.COMPLETED || run.attempts.length !== 1) return;
   const attempt = run.attempts[0];
+  const claimed = await prisma.run.updateMany({
+    where: { id: runId, status: RunStatus.QUEUED },
+    data: { status: RunStatus.RUNNING, startedAt: run.startedAt ?? now(), failureReason: null }
+  });
+  if (claimed.count !== 1) return;
   await prisma.$transaction([
-    prisma.run.update({ where: { id: runId }, data: { status: RunStatus.RUNNING, startedAt: run.startedAt ?? now(), failureReason: null } }),
     prisma.runAttempt.update({ where: { id: attemptId }, data: { status: RunAttemptStatus.RUNNING, startedAt: now() } }),
     prisma.auditEvent.create({ data: { actorId: run.initiatedById, action: "AUTO_RUN_STARTED", entityType: "Run", entityId: runId, details: { attemptNumber: attempt.attemptNumber } } })
   ]);
@@ -190,9 +194,13 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
 
       if (step.isCheckpoint) {
         const deadline = new Date(Date.now() + CHECKPOINT_TIMEOUT_MS);
+        const paused = await prisma.run.updateMany({
+          where: { id: runId, status: RunStatus.RUNNING },
+          data: { status: RunStatus.PAUSED, activeStepOrder: step.order, pausedAt: now(), checkpointDeadline: deadline }
+        });
+        if (paused.count !== 1) throw new ReplayError("CANCELLED", "Auto Run cancellation was requested.");
         await prisma.$transaction([
           prisma.runStepResult.update({ where: { id: result.id }, data: { status: RunStepStatus.WAITING_FOR_CONFIRMATION, completedAt: now() } }),
-          prisma.run.update({ where: { id: runId }, data: { status: RunStatus.PAUSED, activeStepOrder: step.order, pausedAt: now(), checkpointDeadline: deadline } }),
           prisma.auditEvent.create({ data: { actorId: run.initiatedById, action: "AUTO_RUN_CHECKPOINT_PAUSED", entityType: "Run", entityId: runId, details: { stepOrder: step.order } } })
         ]);
         await captureEvidence(collector, runId, attemptId, "CHECKPOINT", result.id);
