@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Prisma, RecordingStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind } from "@prisma/client";
+import { Prisma, RecordingStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
@@ -7,6 +7,7 @@ import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordi
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
 import { prisma } from "@/lib/prisma";
 import { enqueueAutoRun } from "@/lib/queue";
+import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, suggestedVariable, variablePlaceholder } from "@/lib/variables";
 
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
@@ -55,6 +56,83 @@ async function requireUser() {
 async function assertProductMember(userId: string, productId: string) {
   const membership = await prisma.productMembership.findUnique({ where: { userId_productId: { userId, productId } } });
   if (!membership) throw new Error("FORBIDDEN");
+}
+
+type RunBindingInput = { source?: unknown; dataSetId?: unknown; value?: unknown };
+
+function bindingInputs(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, RunBindingInput> : {};
+}
+
+function publicVariable(variable: { name: string; staticValueEncrypted: string | null }) {
+  return { name: variable.name, hasStaticDefault: Boolean(variable.staticValueEncrypted), maskedValue: variable.staticValueEncrypted ? maskedVariableValue() : null };
+}
+
+async function updateReservedDataSet(runId: string, outcome: RunOutcome) {
+  await prisma.testDataSet.updateMany({
+    where: { reservedByRunId: runId, status: TestDataStatus.RESERVED },
+    data: { status: outcome === RunOutcome.PASSED ? TestDataStatus.CONSUMED : TestDataStatus.SAFE, reservedByRunId: null }
+  });
+}
+
+async function createRunBindings(tx: Prisma.TransactionClient, runId: string, productId: string, variables: Array<{ id: string; name: string; staticValueEncrypted: string | null }>, rawInputs: unknown) {
+  const inputs = bindingInputs(rawInputs);
+  const selectedDataSetIds = new Set<string>();
+  const resolved: Array<{ name: string; source: VariableSource; value: string; testVariableId: string; dataSetId?: string }> = [];
+
+  for (const variable of variables) {
+    const input = inputs[variable.name];
+    const source = input?.source;
+    if (source === "STATIC") {
+      if (!variable.staticValueEncrypted) throw new Error(`VARIABLE_BINDING_REQUIRED:${variable.name}`);
+      resolved.push({ name: variable.name, source: VariableSource.STATIC, value: decryptVariableValue(variable.staticValueEncrypted), testVariableId: variable.id });
+      continue;
+    }
+    if (source === "MANUAL") {
+      if (typeof input?.value !== "string" || !input.value.trim()) throw new Error(`VARIABLE_VALUE_REQUIRED:${variable.name}`);
+      if (isSecretLikeVariable(variable.name, input.value)) throw new Error("VARIABLE_SECRET_REJECTED");
+      resolved.push({ name: variable.name, source: VariableSource.MANUAL, value: input.value, testVariableId: variable.id });
+      continue;
+    }
+    if (source === "POOL") {
+      if (typeof input?.dataSetId !== "string") throw new Error(`VARIABLE_DATA_SET_REQUIRED:${variable.name}`);
+      const dataSet = await tx.testDataSet.findFirst({ where: { id: input.dataSetId, productId, status: TestDataStatus.SAFE } });
+      if (!dataSet) throw new Error("VARIABLE_DATA_SET_UNAVAILABLE");
+      const fields = JSON.parse(decryptVariableValue(dataSet.encryptedFields)) as Record<string, string>;
+      const value = fields[variable.name];
+      if (typeof value !== "string" || !value) throw new Error(`VARIABLE_DATA_SET_FIELD_MISSING:${variable.name}`);
+      if (isSecretLikeVariable(variable.name, value)) throw new Error("VARIABLE_SECRET_REJECTED");
+      selectedDataSetIds.add(dataSet.id);
+      resolved.push({ name: variable.name, source: VariableSource.POOL, value, testVariableId: variable.id, dataSetId: dataSet.id });
+      continue;
+    }
+    throw new Error(`VARIABLE_BINDING_REQUIRED:${variable.name}`);
+  }
+
+  for (const dataSetId of selectedDataSetIds) {
+    const reservation = await tx.testDataSet.updateMany({ where: { id: dataSetId, productId, status: TestDataStatus.SAFE, reservedByRunId: null }, data: { status: TestDataStatus.RESERVED, reservedByRunId: runId } });
+    if (reservation.count !== 1) throw new Error("VARIABLE_DATA_SET_UNAVAILABLE");
+  }
+  if (resolved.length) await tx.runVariableBinding.createMany({ data: resolved.map((binding) => ({ runId, name: binding.name, source: binding.source, valueEncrypted: encryptVariableValue(binding.value), testVariableId: binding.testVariableId, dataSetId: binding.dataSetId })) });
+}
+
+async function migrateLegacyVariables(version: { id: string; steps: Array<{ id: string; variableName: string | null; value: string | null; isRedacted: boolean }> }) {
+  const grouped = new Map<string, Array<{ id: string; value: string | null }>>();
+  for (const step of version.steps) {
+    if (!step.variableName || step.isRedacted) continue;
+    const name = canonicalVariableName(step.variableName);
+    grouped.set(name, [...(grouped.get(name) ?? []), { id: step.id, value: step.value }]);
+  }
+  if (!grouped.size) return prisma.testVariable.findMany({ where: { testCaseVersionId: version.id } });
+  return prisma.$transaction(async (tx) => {
+    for (const [name, steps] of grouped) {
+      const values = [...new Set(steps.map((step) => step.value).filter((value): value is string => Boolean(value) && value !== variablePlaceholder(name)))];
+      const staticValueEncrypted = values.length === 1 && !isSecretLikeVariable(name, values[0]) ? encryptVariableValue(values[0]) : null;
+      await tx.testVariable.upsert({ where: { testCaseVersionId_name: { testCaseVersionId: version.id, name } }, create: { testCaseVersionId: version.id, name, staticValueEncrypted }, update: {} });
+      await tx.testStep.updateMany({ where: { id: { in: steps.map((step) => step.id) } }, data: { variableName: name, value: variablePlaceholder(name) } });
+    }
+    return tx.testVariable.findMany({ where: { testCaseVersionId: version.id } });
+  });
 }
 
 function allowedTarget(url: string) {
@@ -140,27 +218,84 @@ async function route(request: Request, context: Context) {
       });
       return json(testCases);
     }
-    if (request.method === "GET" && path[0] === "test-cases" && path[1]) {
+    if (request.method === "GET" && path[0] === "test-cases" && path[1] && path.length === 2) {
       const testCase = await prisma.testCase.findUnique({
         where: { id: path[1] },
-        include: { product: true, owner: { select: { displayName: true } }, versions: { include: { steps: { orderBy: { order: "asc" } } }, orderBy: { version: "desc" } } }
+        include: { product: true, owner: { select: { displayName: true } }, versions: { include: { steps: { orderBy: { order: "asc" } }, variables: true }, orderBy: { version: "desc" } } }
       });
       if (!testCase) return json({ error: "Test Case not found." }, 404);
       await assertProductMember(user.id, testCase.productId);
-      return json(testCase);
+      return json({ ...testCase, versions: testCase.versions.map((version) => ({ ...version, variables: version.variables.map(publicVariable) })) });
+    }
+    if (request.method === "GET" && path[0] === "test-cases" && path[1] && path[2] === "variables") {
+      const testCase = await prisma.testCase.findUnique({ where: { id: path[1] }, include: { versions: { include: { variables: true, steps: true } } } });
+      if (!testCase) return json({ error: "Test Case not found." }, 404);
+      await assertProductMember(user.id, testCase.productId);
+      const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
+      if (!version) return json({ error: "Current Test Case version not found." }, 404);
+      return json({ variables: version.variables.map(publicVariable), steps: version.steps.filter((step) => step.variableName && !step.isRedacted).map((step) => ({ order: step.order, variableName: step.variableName })) });
+    }
+    if (request.method === "PATCH" && path[0] === "test-cases" && path[1] && path[2] === "variables" && path[3]) {
+      const testCase = await prisma.testCase.findUnique({ where: { id: path[1] }, include: { versions: { include: { variables: true } } } });
+      if (!testCase) return json({ error: "Test Case not found." }, 404);
+      await assertProductMember(user.id, testCase.productId);
+      const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
+      const name = canonicalVariableName(path[3]);
+      if (!version || !version.variables.some((variable) => variable.name === name)) return json({ error: "Variable not found on the current Test Case version." }, 404);
+      if (typeof body.value !== "string" || !body.value.trim()) return json({ error: "A static value is required." }, 400);
+      if (isSecretLikeVariable(name, body.value)) return json({ error: "Passwords, tokens, and other secret-like values cannot be saved as variables." }, 400);
+      const variable = await prisma.testVariable.update({ where: { testCaseVersionId_name: { testCaseVersionId: version.id, name } }, data: { staticValueEncrypted: encryptVariableValue(body.value) } });
+      await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_VARIABLE_STATIC_VALUE_SET", entityType: "TestCase", entityId: testCase.id, details: { variable: name } } });
+      return json(publicVariable(variable));
+    }
+    if (path[0] === "products" && path[1] && path[2] === "test-data") {
+      await assertProductMember(user.id, path[1]);
+      if (request.method === "GET") {
+        const dataSets = await prisma.testDataSet.findMany({ where: { productId: path[1] }, select: { id: true, name: true, fieldNames: true, status: true, createdAt: true, updatedAt: true }, orderBy: { createdAt: "desc" } });
+        return json(dataSets);
+      }
+      if (request.method === "POST" && !path[3]) {
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        const rawFields = body.fields && typeof body.fields === "object" && !Array.isArray(body.fields) ? body.fields as Record<string, unknown> : {};
+        const fields: Record<string, string> = {};
+        for (const [rawName, rawValue] of Object.entries(rawFields)) {
+          const fieldName = canonicalVariableName(rawName);
+          if (typeof rawValue !== "string" || !rawValue.trim()) return json({ error: "Every Test Data field needs a value." }, 400);
+          if (isSecretLikeVariable(fieldName, rawValue)) return json({ error: "Passwords, tokens, and other secret-like values cannot be stored in Test Data." }, 400);
+          fields[fieldName] = rawValue;
+        }
+        if (!name || Object.keys(fields).length === 0) return json({ error: "A Test Data Set needs a name and at least one field." }, 400);
+        try {
+          const created = await prisma.testDataSet.create({ data: { productId: path[1], name, fieldNames: Object.keys(fields).sort(), encryptedFields: encryptVariableValue(JSON.stringify(fields)) }, select: { id: true, name: true, fieldNames: true, status: true, createdAt: true } });
+          await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_CREATED", entityType: "TestDataSet", entityId: created.id, details: { productId: path[1], fieldNames: created.fieldNames } } });
+          return json(created, 201);
+        } catch (error) {
+          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return json({ error: "A Test Data Set with this name already exists for this Product." }, 409);
+          throw error;
+        }
+      }
+      if (request.method === "POST" && path[3] && path[4] === "invalidate") {
+        const dataSet = await prisma.testDataSet.findFirst({ where: { id: path[3], productId: path[1] } });
+        if (!dataSet) return json({ error: "Test Data Set not found." }, 404);
+        if (dataSet.status !== TestDataStatus.SAFE) return json({ error: "Only safe Test Data Sets can be invalidated. Create a replacement instead." }, 409);
+        const invalidated = await prisma.testDataSet.update({ where: { id: dataSet.id }, data: { status: TestDataStatus.INVALID }, select: { id: true, name: true, fieldNames: true, status: true } });
+        await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_INVALIDATED", entityType: "TestDataSet", entityId: dataSet.id } });
+        return json(invalidated);
+      }
     }
     if (request.method === "POST" && path[0] === "test-cases" && path[1] && path[2] === "runs") {
       const testCase = await prisma.testCase.findUnique({
         where: { id: path[1] },
-        include: { recordingSession: true, versions: { include: { steps: { orderBy: { order: "asc" } } } } }
+        include: { recordingSession: true, versions: { include: { steps: { orderBy: { order: "asc" } }, variables: true } } }
       });
       if (!testCase) return json({ error: "Test Case not found." }, 404);
       await assertProductMember(user.id, testCase.productId);
       const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
       if (!version || version.steps.length === 0) return json({ error: "This Test Case has no saved steps to guide a Run." }, 409);
+      const variables = await migrateLegacyVariables(version);
       if (await prisma.run.findFirst({ where: { mode: RunMode.GUIDED, status: RunStatus.RUNNING } })) return json({ error: "Another local browser session is active. Finish it before starting a Run." }, 409);
-      const run = await prisma.$transaction(async (tx) => {
-        const created = await tx.run.create({
+        const run = await prisma.$transaction(async (tx) => {
+          const created = await tx.run.create({
           data: {
             testCaseId: testCase.id,
             testCaseVersionId: version.id,
@@ -170,14 +305,16 @@ async function route(request: Request, context: Context) {
             activeStepOrder: version.steps[0].order,
             stepResults: { create: version.steps.map((step) => ({ testStepId: step.id, order: step.order })) }
           }
-        });
-        await tx.auditEvent.create({ data: { actorId: user.id, action: "RUN_QUEUED", entityType: "Run", entityId: created.id, details: { testCaseVersion: version.version } } });
+          });
+          await createRunBindings(tx, created.id, testCase.productId, variables, body.bindings);
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "RUN_QUEUED", entityType: "Run", entityId: created.id, details: { testCaseVersion: version.version } } });
         return created;
       });
       try {
         await launchRunBrowser(run.targetUrl, run.id);
       } catch (error) {
         await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.INTERRUPTED, evidenceStatus: "PARTIAL", completedAt: new Date() } });
+        await updateReservedDataSet(run.id, RunOutcome.INTERRUPTED);
         throw error;
       }
       const started = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.RUNNING, startedAt: new Date() } });
@@ -188,14 +325,13 @@ async function route(request: Request, context: Context) {
     if (request.method === "POST" && path[0] === "test-cases" && path[1] && path[2] === "auto-runs") {
       const testCase = await prisma.testCase.findUnique({
         where: { id: path[1] },
-        include: { recordingSession: true, versions: { include: { steps: { orderBy: { order: "asc" } } } } }
+        include: { recordingSession: true, versions: { include: { steps: { orderBy: { order: "asc" } }, variables: true } } }
       });
       if (!testCase) return json({ error: "Test Case not found." }, 404);
       await assertProductMember(user.id, testCase.productId);
       const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
       if (!version || version.steps.length === 0) return json({ error: "This Test Case has no saved steps to replay." }, 409);
-      const unsupportedVariable = version.steps.find((step) => Boolean(step.variableName) && !step.isRedacted);
-      if (unsupportedVariable) return json({ error: `Step ${unsupportedVariable.order} uses variable "${unsupportedVariable.variableName}". Auto Run variables require Phase 4; use Guided Run for this Test Case.` }, 409);
+      const variables = await migrateLegacyVariables(version);
       const created = await prisma.$transaction(async (tx) => {
         const run = await tx.run.create({
           data: {
@@ -211,6 +347,7 @@ async function route(request: Request, context: Context) {
           },
           include: { attempts: true }
         });
+        await createRunBindings(tx, run.id, testCase.productId, variables, body.bindings);
         await tx.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_QUEUED", entityType: "Run", entityId: run.id, details: { testCaseVersion: version.version } } });
         return run;
       });
@@ -225,6 +362,7 @@ async function route(request: Request, context: Context) {
           prisma.runAttempt.update({ where: { id: attempt.id }, data: { status: RunAttemptStatus.COMPLETED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, completedAt } }),
           prisma.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_QUEUE_FAILED", entityType: "Run", entityId: created.id } })
         ]);
+        await updateReservedDataSet(created.id, RunOutcome.FAILED);
         console.error("Sentinel could not enqueue Auto Run", error);
         return json({ error: "Auto Run could not be queued. Redis is unavailable; try again." }, 503);
       }
@@ -248,6 +386,7 @@ async function route(request: Request, context: Context) {
           initiatedBy: { select: { displayName: true } },
           stepResults: { include: { testStep: true, evidence: { orderBy: { capturedAt: "asc" } } }, orderBy: { order: "asc" } },
           attempts: { orderBy: { attemptNumber: "asc" } },
+          variableBindings: { select: { name: true, source: true, dataSetId: true } },
           evidence: { orderBy: { capturedAt: "asc" } }
         }
       });
@@ -256,7 +395,7 @@ async function route(request: Request, context: Context) {
       return json({ ...run, viewerUrl: run.mode === RunMode.GUIDED && run.status === RunStatus.RUNNING ? process.env.BROWSER_VIEWER_URL : null });
     }
     if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "steps" && path[3] && path[4] === "complete") {
-      const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { stepResults: { include: { testStep: true }, orderBy: { order: "asc" } } } });
+      const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { stepResults: { include: { testStep: true }, orderBy: { order: "asc" } }, variableBindings: true } });
       if (!run) return json({ error: "Run not found." }, 404);
       await assertProductMember(user.id, run.productId);
       if (run.mode !== RunMode.GUIDED) return json({ error: "Auto Runs are completed by their worker, not the guided step controls." }, 409);
@@ -268,13 +407,15 @@ async function route(request: Request, context: Context) {
       if (!outcome) return json({ error: "Step status must be PASSED or FAILED." }, 400);
       if (outcome === RunStepStatus.PASSED) {
         try {
-          await replayGuidedRunStep(run.id, stepResult.testStep);
+          const binding = stepResult.testStep.variableName && !stepResult.testStep.isRedacted ? run.variableBindings.find((item) => item.name === stepResult.testStep.variableName) : undefined;
+          await replayGuidedRunStep(run.id, stepResult.testStep, binding ? decryptVariableValue(binding.valueEncrypted) : undefined);
         } catch (error) {
           const code = error instanceof Error ? error.message : "GUIDED_STEP_ACTION_FAILED";
           const messages: Record<string, string> = {
             GUIDED_NAVIGATION_TARGET_MISSING: "This saved navigation step has no target URL.",
             GUIDED_NAVIGATION_MISMATCH: "The live browser did not reach the expected URL for this step.",
             GUIDED_CREDENTIAL_UNAVAILABLE: "The local Demo CRM password is not configured for guided replay.",
+            GUIDED_VARIABLE_VALUE_MISSING: "This Run has no usable value for the saved variable.",
             GUIDED_TEXT_VALUE_MISSING: "This saved text step has no value to apply.",
             GUIDED_SELECTOR_AMBIGUOUS: "This saved step matches more than one browser element, so Sentinel stopped safely.",
             GUIDED_SELECTOR_NOT_FOUND: "Sentinel could not find the saved browser element for this step.",
@@ -291,6 +432,7 @@ async function route(request: Request, context: Context) {
       if (outcome === RunStepStatus.FAILED) {
         await captureRunEvidence(run.id, "FAILURE", stepResult.id);
         const completed = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.FAILED, activeStepOrder: null, completedAt } });
+        await updateReservedDataSet(run.id, RunOutcome.FAILED);
         await prisma.auditEvent.create({ data: { actorId: user.id, action: "RUN_FAILED", entityType: "Run", entityId: run.id, details: { stepOrder: stepResult.order } } });
         await closeRunBrowser(run.id);
         return json(completed);
@@ -302,6 +444,7 @@ async function route(request: Request, context: Context) {
       }
       await captureRunEvidence(run.id, "END", stepResult.id);
       const completed = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.PASSED, activeStepOrder: null, completedAt } });
+      await updateReservedDataSet(run.id, RunOutcome.PASSED);
       await prisma.auditEvent.create({ data: { actorId: user.id, action: "RUN_PASSED", entityType: "Run", entityId: run.id } });
       await closeRunBrowser(run.id);
       return json(completed);
@@ -314,6 +457,7 @@ async function route(request: Request, context: Context) {
       if (run.status !== RunStatus.RUNNING) return json({ error: "This Run is no longer active." }, 409);
       await captureRunEvidence(run.id, "END");
       const completed = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.INTERRUPTED, activeStepOrder: null, completedAt: new Date() } });
+      await updateReservedDataSet(run.id, RunOutcome.INTERRUPTED);
       await prisma.auditEvent.create({ data: { actorId: user.id, action: "RUN_INTERRUPTED", entityType: "Run", entityId: run.id } });
       await closeRunBrowser(run.id);
       return json(completed);
@@ -343,6 +487,7 @@ async function route(request: Request, context: Context) {
           await tx.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_CANCELLED", entityType: "Run", entityId: run.id, details: { beforeStart: true } } });
           return updated;
         });
+        await updateReservedDataSet(run.id, RunOutcome.INTERRUPTED);
         return json(cancelled);
       }
       const cancelling = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.CANCELLING, cancellingAt: completedAt } });
@@ -357,10 +502,10 @@ async function route(request: Request, context: Context) {
     }
     const recordingId = path[1];
     if (path[0] === "recordings" && recordingId) {
-      const recording = await prisma.recordingSession.findUnique({ where: { id: recordingId }, include: { steps: { orderBy: { order: "asc" } } } });
+      const recording = await prisma.recordingSession.findUnique({ where: { id: recordingId }, include: { steps: { orderBy: { order: "asc" } }, variables: true } });
       if (!recording) return json({ error: "Recording not found." }, 404);
       await assertProductMember(user.id, recording.productId);
-      if (request.method === "GET" && path[2] === "steps") return json(recording.steps);
+      if (request.method === "GET" && path[2] === "steps") return json(recording.steps.map((step) => ({ ...step, suggestion: !step.variableName && !step.isRedacted ? suggestedVariable(step.target, step.value) ?? null : null })));
       if (request.method === "POST" && path[2] === "launch") {
         const token = body.token;
         if (!token || hash(token) !== recording.tokenHash) return json({ error: "Invalid recording launch token." }, 403);
@@ -377,23 +522,35 @@ async function route(request: Request, context: Context) {
         return json({ viewerUrl: process.env.BROWSER_VIEWER_URL });
       }
       if (request.method === "PATCH" && path[2] === "steps" && path[3]) {
-        if (!recording.steps.some((step) => step.id === path[3])) return json({ error: "Step not found." }, 404);
+        const currentStep = recording.steps.find((step) => step.id === path[3]);
+        if (!currentStep) return json({ error: "Step not found." }, 404);
         if (body.isCheckpoint !== undefined && typeof body.isCheckpoint !== "boolean") return json({ error: "Checkpoint must be true or false." }, 400);
-        const step = await prisma.recordedStep.update({
-          where: { id: path[3] },
-          data: {
-            ...(body.description !== undefined ? { description: body.description || null } : {}),
-            ...(body.expectedOutcome !== undefined ? { expectedOutcome: body.expectedOutcome || null } : {}),
-            ...(body.variableName !== undefined ? { variableName: body.variableName || null } : {}),
-            ...(body.isCheckpoint !== undefined ? { isCheckpoint: body.isCheckpoint } : {})
+        const step = await prisma.$transaction(async (tx) => {
+          if (body.variableName !== undefined && body.variableName) {
+            if (currentStep.kind !== StepKind.TEXT_ENTRY || currentStep.isRedacted || !currentStep.value) throw new Error("VARIABLE_STEP_UNSUPPORTED");
+            const variableName = canonicalVariableName(body.variableName);
+            if (isSecretLikeVariable(variableName, currentStep.value)) throw new Error("VARIABLE_SECRET_REJECTED");
+            const existing = await tx.recordingVariable.findUnique({ where: { recordingSessionId_name: { recordingSessionId: recording.id, name: variableName } } });
+            if (existing?.encryptedValue && decryptVariableValue(existing.encryptedValue) !== currentStep.value) throw new Error("VARIABLE_VALUE_CONFLICT");
+            await tx.recordingVariable.upsert({ where: { recordingSessionId_name: { recordingSessionId: recording.id, name: variableName } }, create: { recordingSessionId: recording.id, name: variableName, encryptedValue: encryptVariableValue(currentStep.value) }, update: {} });
+            return tx.recordedStep.update({ where: { id: path[3] }, data: { ...(body.description !== undefined ? { description: body.description || null } : {}), ...(body.expectedOutcome !== undefined ? { expectedOutcome: body.expectedOutcome || null } : {}), variableName, value: variablePlaceholder(variableName), ...(body.isCheckpoint !== undefined ? { isCheckpoint: body.isCheckpoint } : {}) } });
           }
+          return tx.recordedStep.update({
+            where: { id: path[3] },
+            data: {
+              ...(body.description !== undefined ? { description: body.description || null } : {}),
+              ...(body.expectedOutcome !== undefined ? { expectedOutcome: body.expectedOutcome || null } : {}),
+              ...(body.variableName !== undefined ? { variableName: null } : {}),
+              ...(body.isCheckpoint !== undefined ? { isCheckpoint: body.isCheckpoint } : {})
+            }
+          });
         });
         return json(step);
       }
       if (request.method === "POST" && path[2] === "save") {
         if (recording.status === RecordingStatus.SAVED) return json({ error: "Recording already saved." }, 409);
         const testCase = await prisma.$transaction(async (tx) => {
-          const created = await tx.testCase.create({ data: { productId: recording.productId, ownerId: recording.ownerId, recordingSessionId: recording.id, name: recording.testName, versions: { create: { version: 1, steps: { create: recording.steps.map((step) => ({ order: step.order, kind: step.kind, timestamp: step.timestamp, target: step.target === null ? Prisma.JsonNull : step.target as Prisma.InputJsonValue, value: step.value, isRedacted: step.isRedacted, description: step.description, expectedOutcome: step.expectedOutcome, variableName: step.variableName, isCheckpoint: step.isCheckpoint })) } } } } });
+          const created = await tx.testCase.create({ data: { productId: recording.productId, ownerId: recording.ownerId, recordingSessionId: recording.id, name: recording.testName, versions: { create: { version: 1, steps: { create: recording.steps.map((step) => ({ order: step.order, kind: step.kind, timestamp: step.timestamp, target: step.target === null ? Prisma.JsonNull : step.target as Prisma.InputJsonValue, value: step.value, isRedacted: step.isRedacted, description: step.description, expectedOutcome: step.expectedOutcome, variableName: step.variableName, isCheckpoint: step.isCheckpoint })) }, variables: { create: recording.variables.map((variable) => ({ name: variable.name, staticValueEncrypted: variable.encryptedValue })) } } } } });
           await tx.recordingSession.update({ where: { id: recording.id }, data: { status: RecordingStatus.SAVED } });
           await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_CASE_SAVED", entityType: "TestCase", entityId: created.id } });
           return created;
@@ -415,6 +572,17 @@ async function route(request: Request, context: Context) {
     if (code === "BROWSER_LAUNCH_IN_PROGRESS") return json({ error: "The live browser is still starting. Wait a moment, then try again." }, 409);
     if (code === "BROWSER_BUSY") return json({ error: "Another local browser session is active. Finish it before launching this workspace." }, 409);
     if (code === "RUN_BROWSER_UNAVAILABLE") return json({ error: "The guided Run browser is unavailable. Refresh the Run or start a new one." }, 409);
+    if (code === "VARIABLE_ENCRYPTION_UNAVAILABLE") return json({ error: "Variable encryption is not configured. Set VARIABLE_ENCRYPTION_KEY and try again." }, 503);
+    if (code === "VARIABLE_CIPHERTEXT_INVALID") return json({ error: "A saved variable value cannot be read safely. Configure a replacement value before running this Test Case." }, 409);
+    if (code === "VARIABLE_NAME_INVALID") return json({ error: "Variable names must start with a letter and contain only lowercase letters, numbers, or underscores." }, 400);
+    if (code === "VARIABLE_SECRET_REJECTED") return json({ error: "Passwords, tokens, cookies, authorization values, and API-key values cannot be stored as Phase 4 variables." }, 400);
+    if (code === "VARIABLE_STEP_UNSUPPORTED") return json({ error: "Only non-secret text-entry steps can become variables." }, 400);
+    if (code === "VARIABLE_VALUE_CONFLICT") return json({ error: "Steps using the same variable name must have the same recorded value." }, 409);
+    if (code === "VARIABLE_DATA_SET_UNAVAILABLE") return json({ error: "The selected Test Data Set is no longer safe and available. Choose another data set." }, 409);
+    if (code.startsWith("VARIABLE_BINDING_REQUIRED:")) return json({ error: `Choose a value source for ${code.slice("VARIABLE_BINDING_REQUIRED:".length)} before starting this Run.` }, 409);
+    if (code.startsWith("VARIABLE_VALUE_REQUIRED:")) return json({ error: `Enter a value for ${code.slice("VARIABLE_VALUE_REQUIRED:".length)} before starting this Run.` }, 400);
+    if (code.startsWith("VARIABLE_DATA_SET_REQUIRED:")) return json({ error: `Choose a Test Data Set for ${code.slice("VARIABLE_DATA_SET_REQUIRED:".length)} before starting this Run.` }, 400);
+    if (code.startsWith("VARIABLE_DATA_SET_FIELD_MISSING:")) return json({ error: `The selected Test Data Set does not provide ${code.slice("VARIABLE_DATA_SET_FIELD_MISSING:".length)}.` }, 409);
     if (code.startsWith("BROWSER_")) return json({ error: "The live browser could not start. Try launching it again." }, 503);
     console.error("Sentinel API failure", error);
     return json({ error: "The recording browser could not be launched. Check the Sentinel container logs for details." }, 500);
