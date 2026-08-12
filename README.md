@@ -52,7 +52,7 @@ docker compose down
 
 Use `ava.tester@example.test` with password `sentinel-dev`. Create a recording for the built-in Demo CRM, launch the browser panel, then complete the demo target’s sign-in and customer-creation journey. Chromium runs in kiosk app mode and is policy-locked to the Demo CRM; the host exposes only the noVNC viewer on port 7900, not Selenium WebDriver.
 
-Phase 2 adds an explicit **Run test** action on a saved Test Case. The tester follows the immutable saved steps in order, marks each active step passed or failed, and can interrupt the Run. Sentinel keeps a separate test outcome and evidence-capture state, stores screenshots in the private local MinIO service, and never stores a browser-video recording. Phase 3 adds a separate **Auto Run** action backed by Redis/BullMQ and up to two isolated headless Playwright contexts. It replays the local Demo CRM only, pauses for recorded checkpoints, retries one transient technical failure, and retains the same privacy-safe evidence without video. Scheduling and external QA targets remain later work.
+Phase 2 adds an explicit **Run test** action on a saved Test Case. The tester follows the immutable saved steps in order, marks each active step passed or failed, and can interrupt the Run. Sentinel keeps a separate test outcome and evidence-capture state, stores screenshots in the private local MinIO service, and never stores a browser-video recording. Phase 3 adds a separate **Auto Run** action backed by Redis/BullMQ and up to two isolated headless Playwright contexts. It replays the local Demo CRM only, pauses for recorded checkpoints, retries one transient technical failure, and retains the same privacy-safe evidence without video. Phase 4 adds encrypted static defaults, product-scoped Test Data Sets, and manual pre-run values for variable-marked Test Cases; both Guided and Auto Runs use the same binding form and never expose retained raw values. Scheduling and external QA targets remain later work.
 
 ## Verify Phase 1
 
@@ -96,6 +96,19 @@ docker compose exec sentinel npx playwright test tests/phase-3-auto-runs.spec.ts
 
 The Phase 3 checks cover isolated autonomous Demo CRM replay, safe exact selector matching, worker-only credential redaction, checkpoint Continue/Cancel behavior, two concurrent worker contexts, one linked technical retry, duration benchmarking, and guided-Run regression behavior. To check it manually, save a Demo CRM Test Case, choose **Auto Run**, then inspect its outcome, redacted evidence, attempts, and duration comparison in Run Detail. Marking a recording step as a checkpoint pauses the Auto Run for review; choose Continue or Cancel from the Run Detail.
 
+## Verify Phase 4
+
+Set a local, untracked `VARIABLE_ENCRYPTION_KEY` to a base64-encoded 32-byte value before starting the stack. The API and worker require it for variable setup and variable-backed Runs.
+
+```text
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/phase-4-variables.spec.ts
+```
+
+Phase 4 checks cover encrypted variable persistence, static/pool/manual selection, product authorization, local Test Data Set lifecycle, Guided and Auto substitution, refresh/retry binding reuse, suggestion review, and redaction. Manually create a Test Data Set, record a variable-marked Demo CRM Test Case, choose bindings in the pre-run dialog, run it, and confirm the selected data becomes consumed only after a Passed outcome. The Test Data and Run Detail views show sources and masked metadata, never saved raw values.
+
 ## Status
 
-Phases 1, 1.5, 2, and 3 are implementation and acceptance-verified. Their owner learning reviews remain pending in `learning-log.md`, so they are not yet marked fully understood. External integrations, scheduling, external QA targets, variables, releases, notifications, and QA-network access remain later phases.
+Phases 1, 1.5, 2, and 3 are implementation and acceptance-verified. Phase 4 is in implementation. Owner learning reviews remain pending in `learning-log.md`, so completed phases are not yet marked fully understood. External integrations, scheduling, external QA targets, releases, notifications, and QA-network access remain later phases.
