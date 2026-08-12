@@ -160,13 +160,20 @@ async function route(request: Request, context: Context) {
     if (!recording || recording.status !== RecordingStatus.ACTIVE) return recorderJson({ error: "Inactive recording." }, 401);
     const kind = body.kind as StepKind;
     if (!Object.values(StepKind).includes(kind)) return recorderJson({ error: "Unsupported step." }, 400);
-    const prior = await prisma.recordedStep.findFirst({ where: { recordingSessionId: recording.id }, orderBy: { order: "desc" } });
     const target = (body.target ?? {}) as Prisma.InputJsonValue;
-    if (prior && prior.kind === kind && JSON.stringify(prior.target) === JSON.stringify(target) && kind !== StepKind.TEXT_ENTRY) return recorderJson({ skipped: true });
-    const step = await prisma.recordedStep.create({
-      data: { recordingSessionId: recording.id, order: (prior?.order ?? 0) + 1, kind, timestamp: new Date(body.timestamp ?? Date.now()), target, value: body.value ?? null, isRedacted: Boolean(body.isRedacted) }
-    });
-    return recorderJson({ step });
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const prior = await prisma.recordedStep.findFirst({ where: { recordingSessionId: recording.id }, orderBy: { order: "desc" } });
+      if (prior && prior.kind === kind && JSON.stringify(prior.target) === JSON.stringify(target) && kind !== StepKind.TEXT_ENTRY) return recorderJson({ skipped: true });
+      try {
+        const step = await prisma.recordedStep.create({
+          data: { recordingSessionId: recording.id, order: (prior?.order ?? 0) + 1, kind, timestamp: new Date(body.timestamp ?? Date.now()), target, value: body.value ?? null, isRedacted: Boolean(body.isRedacted) }
+        });
+        return recorderJson({ step });
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002" || attempt === 2) throw error;
+      }
+    }
+    return recorderJson({ error: "Unable to persist this recording event." }, 409);
   }
 
   try {
