@@ -57,6 +57,8 @@ function roleForTag(tag?: string) {
   return undefined;
 }
 
+// Retained as an explicit preflight helper for callers that do not yet provide
+// bindings. Phase 4's worker supplies bindings and therefore does not call it.
 export function unsupportedVariableStep(steps: ReplayStep[]) {
   return steps.find((step) => Boolean(step.variableName) && !step.isRedacted);
 }
@@ -101,10 +103,15 @@ function configuredCredential(name: "AUTO_RUN_DEMO_EMAIL" | "AUTO_RUN_DEMO_PASSW
   return value;
 }
 
-function valueForStep(step: ReplayStep, state: ReplayState) {
+function valueForStep(step: ReplayStep, state: ReplayState, variableValues: Map<string, string>) {
   const target = targetOf(step.target);
   const fieldName = target.name?.toLowerCase() ?? "";
   if (step.isRedacted || fieldName.includes("password")) return configuredCredential("AUTO_RUN_DEMO_PASSWORD");
+  if (step.variableName) {
+    const value = variableValues.get(step.variableName);
+    if (!value) throw new ReplayError("ACTION_FAILED", `Step ${step.order} has no resolved value for variable ${step.variableName}.`);
+    return value;
+  }
   if (!state.loginEmailUsed && fieldName === "email") {
     state.loginEmailUsed = true;
     return configuredCredential("AUTO_RUN_DEMO_EMAIL");
@@ -119,7 +126,7 @@ function navigationUrl(step: ReplayStep) {
   return url;
 }
 
-export async function replayStep(page: Page, step: ReplayStep, state: ReplayState, approvedInitialUrl?: string) {
+export async function replayStep(page: Page, step: ReplayStep, state: ReplayState, approvedInitialUrl?: string, variableValues = new Map<string, string>()) {
   try {
     if (step.kind === StepKind.NAVIGATION) {
       const url = navigationUrl(step);
@@ -140,7 +147,7 @@ export async function replayStep(page: Page, step: ReplayStep, state: ReplayStat
       return;
     }
     if (step.kind === StepKind.TEXT_ENTRY) {
-      await locator.fill(valueForStep(step, state), { timeout: ACTION_TIMEOUT_MS });
+      await locator.fill(valueForStep(step, state, variableValues), { timeout: ACTION_TIMEOUT_MS });
       return;
     }
     throw new ReplayError("ACTION_FAILED", `Step ${step.order} has an unsupported action type.`);
