@@ -80,4 +80,37 @@ describe("Phase 4 variable API", () => {
     const afterCancellation = await prisma.testDataSet.findUniqueOrThrow({ where: { id: dataSet.id } });
     expect(afterCancellation.status).toBe("SAFE");
   }, 30_000);
+
+  it("accepts one-off values without serializing them and rejects secret-like inputs", async () => {
+    const ava = await login("ava.tester@example.test");
+    const { testCase } = await variableTestCase(ava);
+
+    const rejected = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST", { bindings: { customer_email: { source: "MANUAL", value: "Bearer should-not-be-stored" } } });
+    expect(rejected.status).toBe(400);
+    expect(JSON.stringify(await rejected.json())).not.toContain("should-not-be-stored");
+
+    const started = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST", { bindings: { customer_email: { source: "MANUAL", value: "customer.manual@example.test" } } });
+    expect(started.status).toBe(201);
+    const { run } = await started.json() as { run: { id: string } };
+    const detail = await request(ava, `runs/${run.id}`);
+    expect(detail.status).toBe(200);
+    expect(JSON.stringify(await detail.json())).not.toContain("customer.manual@example.test");
+    const stored = await prisma.runVariableBinding.findUniqueOrThrow({ where: { runId_name: { runId: run.id, name: "customer_email" } } });
+    expect(stored.source).toBe("MANUAL");
+    expect(stored.valueEncrypted).not.toContain("customer.manual@example.test");
+
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const current = await prisma.run.findUniqueOrThrow({ where: { id: run.id } });
+      if (current.status === "PAUSED") break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    expect((await prisma.run.findUniqueOrThrow({ where: { id: run.id } })).status).toBe("PAUSED");
+    expect([200, 202]).toContain((await request(ava, `runs/${run.id}/cancel`, "POST")).status);
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const current = await prisma.run.findUniqueOrThrow({ where: { id: run.id } });
+      if (current.status === "COMPLETED") break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    expect((await prisma.run.findUniqueOrThrow({ where: { id: run.id } })).status).toBe("COMPLETED");
+  }, 30_000);
 });
