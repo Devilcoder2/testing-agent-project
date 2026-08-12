@@ -1,10 +1,11 @@
-import { RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus } from "@prisma/client";
+import { RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, TestDataStatus } from "@prisma/client";
 import { Worker, type Job } from "bullmq";
 import { chromium, type Page, type Request } from "playwright";
 import { persistRunSnapshot, recordCaptureFailure } from "./lib/evidence";
 import { prisma } from "./lib/prisma";
 import { AUTO_RUN_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData } from "./lib/queue";
-import { canRetryAutoRun, initialReplayState, ReplayError, replayStep, type ReplayStep, unsupportedVariableStep } from "./lib/replay";
+import { canRetryAutoRun, initialReplayState, ReplayError, replayStep, type ReplayStep } from "./lib/replay";
+import { decryptVariableValue } from "./lib/variables";
 
 const CHECKPOINT_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -127,6 +128,7 @@ async function completeRun(runId: string, attemptId: string, outcome: RunOutcome
     data: { status: RunStatus.COMPLETED, outcome, failureReason: reason, activeStepOrder: null, pausedAt: null, cancellingAt: null, checkpointDeadline: null, completedAt, activeDurationMs, ...comparison }
   });
   await prisma.runAttempt.update({ where: { id: attemptId }, data: { status: RunAttemptStatus.COMPLETED, failureReason: reason, completedAt, activeDurationMs } });
+  await prisma.testDataSet.updateMany({ where: { reservedByRunId: runId, status: TestDataStatus.RESERVED }, data: { status: outcome === RunOutcome.PASSED ? TestDataStatus.CONSUMED : TestDataStatus.SAFE, reservedByRunId: null } });
   await prisma.auditEvent.create({ data: { actorId: run.initiatedById, action: outcome === RunOutcome.PASSED ? "AUTO_RUN_PASSED" : outcome === RunOutcome.FAILED ? "AUTO_RUN_FAILED" : "AUTO_RUN_INTERRUPTED", entityType: "Run", entityId: run.id, details: reason ? { reason } : undefined } });
 }
 
@@ -148,16 +150,10 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
   const { runId, attemptId } = job.data;
   const run = await prisma.run.findUnique({
     where: { id: runId },
-    include: { testCaseVersion: { include: { steps: { orderBy: { order: "asc" } } } }, stepResults: { orderBy: { order: "asc" } }, attempts: { where: { id: attemptId } } }
+    include: { testCaseVersion: { include: { steps: { orderBy: { order: "asc" } } } }, stepResults: { orderBy: { order: "asc" } }, attempts: { where: { id: attemptId } }, variableBindings: true }
   });
   if (!run || run.mode !== RunMode.AUTO || run.status === RunStatus.COMPLETED || run.attempts.length !== 1) return;
   const attempt = run.attempts[0];
-  const unsupportedStep = unsupportedVariableStep(run.testCaseVersion.steps as ReplayStep[]);
-  if (unsupportedStep) {
-    await completeRun(runId, attemptId, RunOutcome.FAILED, RunFailureReason.VARIABLE_UNSUPPORTED, 0);
-    return;
-  }
-
   await prisma.$transaction([
     prisma.run.update({ where: { id: runId }, data: { status: RunStatus.RUNNING, startedAt: run.startedAt ?? now(), failureReason: null } }),
     prisma.runAttempt.update({ where: { id: attemptId }, data: { status: RunAttemptStatus.RUNNING, startedAt: now() } }),
@@ -174,6 +170,7 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
     const page = await context.newPage();
     collector = attachEvidence(page);
     const state = initialReplayState();
+    const variableValues = new Map(run.variableBindings.map((binding) => [binding.name, decryptVariableValue(binding.valueEncrypted)]));
     let startCaptured = false;
 
     for (const step of run.testCaseVersion.steps) {
@@ -183,7 +180,7 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
       activeStepResultId = result.id;
       await prisma.runStepResult.update({ where: { id: result.id }, data: { status: RunStepStatus.RUNNING, startedAt: now() } });
       const actionStartedAt = Date.now();
-      await replayStep(page, step as ReplayStep, state, run.targetUrl);
+      await replayStep(page, step as ReplayStep, state, run.targetUrl, variableValues);
       activeDurationMs += Date.now() - actionStartedAt;
 
       if (step.isCheckpoint) {
