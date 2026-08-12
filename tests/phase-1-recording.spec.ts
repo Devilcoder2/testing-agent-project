@@ -103,23 +103,27 @@ test("records the remote demo journey and preserves saved annotations after refr
     await expect.poll(async () => (await readSteps(page, created.recording.id)).find((step) => step.isRedacted)?.description).toBe("Enter the secret test password");
     await passwordStep.getByLabel("Expected outcome").fill("The password stays redacted");
     await passwordStep.getByLabel("Expected outcome").blur();
-    await passwordStep.getByLabel("Variable name").fill("demoPassword");
-    await passwordStep.getByLabel("Variable name").blur();
-    await expect.poll(async () => (await readSteps(page, created.recording.id)).find((step) => step.isRedacted)?.variableName).toBe("demoPassword");
+    const safeVariableValue = captured.find((step) => step.kind === "TEXT_ENTRY" && !step.isRedacted && step.value)?.value;
+    expect(safeVariableValue).toBeTruthy();
+    const safeTextStep = page.locator(".step").filter({ hasText: `Value: ${safeVariableValue}` }).first();
+    await expect(safeTextStep).toBeVisible();
+    await safeTextStep.getByLabel("Variable name").fill("demoEmail");
+    await safeTextStep.getByLabel("Variable name").blur();
+    await expect.poll(async () => (await readSteps(page, created.recording.id)).find((step) => step.variableName === "demoemail")?.variableName).toBe("demoemail");
 
     await page.getByRole("button", { name: "Save Test" }).click();
     await expect(page.getByRole("heading", { name: testName })).toBeVisible();
     await expect(page.locator(".timeline-item")).toHaveCount(capturedStepCount);
     await expect(page.getByText("Description: Enter the secret test password")).toBeVisible();
     await expect(page.getByText("Expected outcome: The password stays redacted")).toBeVisible();
-    await expect(page.getByText("Variable: demoPassword")).toBeVisible();
+    await expect(page.getByText("Variable: demoemail")).toBeVisible();
 
     await page.locator(".breadcrumbs").getByRole("link", { name: "Dashboard" }).click();
     await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
     const savedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await savedTest.getByRole("link", { name: "Open" }).click();
     await expect(page.locator(".timeline-item")).toHaveCount(capturedStepCount);
-    await expect(page.getByText("Variable: demoPassword")).toBeVisible();
+    await expect(page.getByText("Variable: demoemail")).toBeVisible();
 
     await page.reload();
     await signIn(page, "ava.tester@example.test");
@@ -129,7 +133,7 @@ test("records the remote demo journey and preserves saved annotations after refr
     await expect(page.locator(".timeline-item")).toHaveCount(capturedStepCount);
     await expect(page.getByText("Description: Enter the secret test password")).toBeVisible();
     await expect(page.getByText("Expected outcome: The password stays redacted")).toBeVisible();
-    await expect(page.getByText("Variable: demoPassword")).toBeVisible();
+    await expect(page.getByText("Variable: demoemail")).toBeVisible();
     await expect(page.getByText("Value: [REDACTED]")).toBeVisible();
     await expect(page.getByText("TestPassword!")).toHaveCount(0);
   } finally {
