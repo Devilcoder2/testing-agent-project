@@ -1,3 +1,4 @@
+import { StepKind } from "@prisma/client";
 import { Builder, type ThenableWebDriver } from "selenium-webdriver";
 
 type BrowserOwner = { kind: "recording" | "run" | "adhoc"; id: string };
@@ -10,12 +11,21 @@ export type BrowserRunSnapshot = {
   storage: unknown;
 };
 
+export type GuidedReplayStep = {
+  order: number;
+  kind: StepKind;
+  target: unknown;
+  value: string | null;
+  isRedacted: boolean;
+};
+
 let driver: ThenableWebDriver | undefined;
 let browserOwner: BrowserOwner | undefined;
 let launchInFlight: Promise<ThenableWebDriver> | undefined;
 const runEvidenceOffsets = new Map<string, RunEvidenceOffsets>();
 
 const BROWSER_OPERATION_TIMEOUT_MS = 15_000;
+const GUIDED_STEP_TIMEOUT_MS = 5_000;
 
 type SeleniumStatus = {
   value?: {
@@ -230,6 +240,110 @@ export async function captureRunBrowserSnapshot(runId: string): Promise<BrowserR
     console: evidence.console.slice(offsets.console),
     storage
   };
+}
+
+function pause(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function normalizedUrl(value: string) {
+  const url = new URL(value);
+  return `${url.origin}${url.pathname}${url.search}${url.hash}`;
+}
+
+async function verifyGuidedNavigation(activeDriver: ThenableWebDriver, step: GuidedReplayStep) {
+  const target = step.target && typeof step.target === "object" ? step.target as { url?: unknown } : {};
+  if (typeof target.url !== "string") throw new Error("GUIDED_NAVIGATION_TARGET_MISSING");
+  const expected = normalizedUrl(target.url);
+  const deadline = Date.now() + GUIDED_STEP_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const observed = normalizedUrl(await activeDriver.executeScript("return window.location.href;") as string);
+    if (observed === expected) return;
+    await pause(150);
+  }
+  throw new Error("GUIDED_NAVIGATION_MISMATCH");
+}
+
+function guidedValueFor(step: GuidedReplayStep) {
+  const target = step.target && typeof step.target === "object" ? step.target as { name?: unknown } : {};
+  const fieldName = typeof target.name === "string" ? target.name.toLowerCase() : "";
+  if (step.isRedacted || fieldName.includes("password")) {
+    const password = process.env.GUIDED_RUN_DEMO_PASSWORD;
+    if (!password) throw new Error("GUIDED_CREDENTIAL_UNAVAILABLE");
+    return password;
+  }
+  if (step.value === null) throw new Error("GUIDED_TEXT_VALUE_MISSING");
+  return step.value;
+}
+
+function guidedActionScript(parameters: unknown[]) {
+  return `
+  const [target, kind, value] = ${JSON.stringify(parameters)};
+  const exact = (left, right) => String(left || '').trim() === String(right || '').trim();
+  const readableName = (element) => element.getAttribute('aria-label') || element.getAttribute('name') || element.textContent || '';
+  const roleForTag = { button: 'button', a: 'link', input: 'textbox', textarea: 'textbox', select: 'combobox' };
+  const choose = (label, candidates) => {
+    const unique = [...new Set(candidates)];
+    if (unique.length === 1) return unique[0];
+    if (unique.length > 1) throw new Error('GUIDED_SELECTOR_AMBIGUOUS:' + label);
+    return undefined;
+  };
+  const tag = String(target.tag || '').toLowerCase();
+  const name = String(target.name || '').trim();
+  const text = String(target.text || '').trim();
+  let element;
+  if (target.testId) element = choose('data-testid', [...document.querySelectorAll('[data-testid]')].filter((node) => exact(node.getAttribute('data-testid'), target.testId)));
+  if (!element && name) {
+    element = choose('field-name', [...document.querySelectorAll('[name]')].filter((node) => exact(node.getAttribute('name'), name)));
+    if (!element) {
+      element = choose('field-label', [...document.querySelectorAll('label')].filter((label) => exact(label.textContent, name)).flatMap((label) => {
+        const control = label.htmlFor ? document.getElementById(label.htmlFor) : label.querySelector('input, textarea, select');
+        return control ? [control] : [];
+      }));
+    }
+  }
+  const role = roleForTag[tag];
+  if (!element && role && (text || name)) {
+    const accessibleName = text || name;
+    element = choose('role-and-name', [...document.querySelectorAll('*')].filter((node) => (node.getAttribute('role') === role || node.tagName.toLowerCase() === tag) && exact(readableName(node), accessibleName)));
+  }
+  if (!element && tag && text && text !== '[REDACTED]') {
+    element = choose('tag-and-text', [...document.querySelectorAll(tag)].filter((node) => exact(node.textContent, text)));
+  }
+  if (!element) throw new Error('GUIDED_SELECTOR_NOT_FOUND');
+  if (kind === 'CLICK') {
+    element.focus();
+    element.click();
+    return { ok: true };
+  }
+  if (kind === 'TEXT_ENTRY') {
+    if (!('value' in element)) throw new Error('GUIDED_TEXT_TARGET_INVALID');
+    element.focus();
+    element.value = value;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    return { ok: true };
+  }
+  throw new Error('GUIDED_STEP_UNSUPPORTED');
+`;
+}
+
+export async function replayGuidedRunStep(runId: string, step: GuidedReplayStep) {
+  const activeDriver = requireRunDriver(runId);
+  if (step.kind === StepKind.NAVIGATION) {
+    await verifyGuidedNavigation(activeDriver, step);
+    return;
+  }
+  const value = step.kind === StepKind.TEXT_ENTRY ? guidedValueFor(step) : null;
+  try {
+    await withTimeout(activeDriver.executeScript(guidedActionScript([step.target, step.kind, value])).then(() => undefined), "GUIDED_STEP_TIMEOUT");
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("GUIDED_")) throw error;
+    const message = error instanceof Error ? error.message : "Unknown guided browser action failure.";
+    if (message.includes("GUIDED_SELECTOR_AMBIGUOUS")) throw new Error("GUIDED_SELECTOR_AMBIGUOUS");
+    if (message.includes("GUIDED_SELECTOR_NOT_FOUND")) throw new Error("GUIDED_SELECTOR_NOT_FOUND");
+    throw new Error("GUIDED_STEP_ACTION_FAILED");
+  }
 }
 
 export async function closeRunBrowser(runId: string) {
