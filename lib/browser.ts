@@ -17,6 +17,7 @@ export type GuidedReplayStep = {
   target: unknown;
   value: string | null;
   isRedacted: boolean;
+  variableName?: string | null;
 };
 
 let driver: ThenableWebDriver | undefined;
@@ -264,13 +265,17 @@ async function verifyGuidedNavigation(activeDriver: ThenableWebDriver, step: Gui
   throw new Error("GUIDED_NAVIGATION_MISMATCH");
 }
 
-function guidedValueFor(step: GuidedReplayStep) {
+function guidedValueFor(step: GuidedReplayStep, variableValue?: string) {
   const target = step.target && typeof step.target === "object" ? step.target as { name?: unknown } : {};
   const fieldName = typeof target.name === "string" ? target.name.toLowerCase() : "";
   if (step.isRedacted || fieldName.includes("password")) {
     const password = process.env.GUIDED_RUN_DEMO_PASSWORD;
     if (!password) throw new Error("GUIDED_CREDENTIAL_UNAVAILABLE");
     return password;
+  }
+  if (step.variableName) {
+    if (!variableValue) throw new Error("GUIDED_VARIABLE_VALUE_MISSING");
+    return variableValue;
   }
   if (step.value === null) throw new Error("GUIDED_TEXT_VALUE_MISSING");
   return step.value;
@@ -328,13 +333,13 @@ function guidedActionScript(parameters: unknown[]) {
 `;
 }
 
-export async function replayGuidedRunStep(runId: string, step: GuidedReplayStep) {
+export async function replayGuidedRunStep(runId: string, step: GuidedReplayStep, variableValue?: string) {
   const activeDriver = requireRunDriver(runId);
   if (step.kind === StepKind.NAVIGATION) {
     await verifyGuidedNavigation(activeDriver, step);
     return;
   }
-  const value = step.kind === StepKind.TEXT_ENTRY ? guidedValueFor(step) : null;
+  const value = step.kind === StepKind.TEXT_ENTRY ? guidedValueFor(step, variableValue) : null;
   try {
     await withTimeout(activeDriver.executeScript(guidedActionScript([step.target, step.kind, value])).then(() => undefined), "GUIDED_STEP_TIMEOUT");
   } catch (error) {
