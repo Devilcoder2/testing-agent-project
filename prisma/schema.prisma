@@ -78,6 +78,19 @@ enum EvidenceKind {
   CAPTURE_ERROR
 }
 
+enum TestDataStatus {
+  SAFE
+  RESERVED
+  CONSUMED
+  INVALID
+}
+
+enum VariableSource {
+  STATIC
+  POOL
+  MANUAL
+}
+
 model User {
   id          String              @id @default(cuid())
   email       String              @unique
@@ -102,6 +115,7 @@ model Product {
   recordings  RecordingSession[]
   testCases   TestCase[]
   runs        Run[]
+  testDataSets TestDataSet[]
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
@@ -129,6 +143,7 @@ model RecordingSession {
   product   Product         @relation(fields: [productId], references: [id])
   owner     User            @relation("RecordingOwner", fields: [ownerId], references: [id])
   steps     RecordedStep[]
+  variables RecordingVariable[]
   testCase  TestCase?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
@@ -154,6 +169,18 @@ model RecordedStep {
   @@unique([recordingSessionId, order])
 }
 
+model RecordingVariable {
+  id                 String           @id @default(cuid())
+  recordingSessionId String
+  name               String
+  encryptedValue     String?
+  recordingSession   RecordingSession @relation(fields: [recordingSessionId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([recordingSessionId, name])
+}
+
 model TestCase {
   id                 String            @id @default(cuid())
   productId          String
@@ -176,6 +203,7 @@ model TestCaseVersion {
   version    Int
   testCase   TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   steps      TestStep[]
+  variables  TestVariable[]
   runs       Run[]
   createdAt  DateTime   @default(now())
 
@@ -199,6 +227,36 @@ model TestStep {
   runStepResults    RunStepResult[]
 
   @@unique([testCaseVersionId, order])
+}
+
+model TestVariable {
+  id                  String          @id @default(cuid())
+  testCaseVersionId   String
+  name                String
+  staticValueEncrypted String?
+  testCaseVersion     TestCaseVersion @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@unique([testCaseVersionId, name])
+}
+
+model TestDataSet {
+  id              String          @id @default(cuid())
+  productId       String
+  name            String
+  fieldNames      String[]
+  encryptedFields String
+  status          TestDataStatus  @default(SAFE)
+  reservedByRunId String?         @unique
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reservedByRun   Run?            @relation("ReservedDataSet", fields: [reservedByRunId], references: [id], onDelete: SetNull)
+  bindings        RunVariableBinding[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([productId, name])
+  @@index([productId, status])
 }
 
 model Run {
@@ -230,12 +288,30 @@ model Run {
   stepResults        RunStepResult[]
   attempts           RunAttempt[]
   evidence           EvidenceItem[]
+  variableBindings   RunVariableBinding[]
+  reservedDataSets   TestDataSet[]       @relation("ReservedDataSet")
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
   @@index([productId, createdAt])
   @@index([testCaseId, createdAt])
   @@index([mode, status, createdAt])
+}
+
+model RunVariableBinding {
+  id              String         @id @default(cuid())
+  runId           String
+  testVariableId  String?
+  name            String
+  source          VariableSource
+  valueEncrypted  String
+  dataSetId       String?
+  run             Run            @relation(fields: [runId], references: [id], onDelete: Cascade)
+  dataSet         TestDataSet?   @relation(fields: [dataSetId], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+
+  @@unique([runId, name])
+  @@index([dataSetId])
 }
 
 model RunAttempt {
