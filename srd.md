@@ -112,17 +112,17 @@ Full browser-video recordings must not be captured or retained. Phase 2 provides
 - Process at most two autonomous Docker-local Runs concurrently while keeping the Phase 2 noVNC guided browser separate.
 - Compare successful Auto Run active duration, excluding queue/checkpoint/retry wait, against the median of the latest three successful guided Runs of the same Test Case version when available.
 - Produce the complete F2 Evidence Bundle for every Auto Run without retaining browser video.
-- Block Auto Run for a non-password variable-marked step until Phase 4 value substitution exists; existing saved Test Cases without such variables remain replayable.
+- Resolve non-password variables through encrypted Phase 4 Run bindings. Password steps remain server-configured credentials and are never variable values.
 
 ### F4. Test data and variables
 
-Support:
+Support static reusable defaults, a product-scoped local reusable-data pool, and values supplied manually before either a Guided or Auto Run. A variable name is a case-insensitive identifier shared by every matching step in a Test Case version. Its recorded non-secret value becomes an encrypted static default when the Test Case is saved; the saved and recorded step show a placeholder rather than the raw value.
 
-- Static values safe to reuse.
-- Pooled values drawn from an existing reusable test-record pool.
-- Values supplied manually before a Run.
+Before starting a Run, the tester chooses a static default, one eligible pool data set, or a manual value for each required variable. Sentinel persists an encrypted Run binding once so a refresh or Auto Run retry uses the same value. Bindings, raw pool fields, and raw static values never appear in steps, API responses after entry, Run Detail, audit text, logs, or evidence. Passwords, tokens, secrets, cookies, authorization values, and API-key variants are rejected as Phase 4 variable values; the existing server-only Demo CRM password path remains separate.
 
-Variables are markable during recording; Sentinel may suggest likely variables such as IDs, emails, and order numbers. Track each value’s safe/consumed/invalid lifecycle. Before reuse, verify relevant state through the read-only database integration where configured. Fresh data must come through an application workflow or existing pool, never a database write.
+Product members may manage named local data sets without viewing values after creation. Each data set holds encrypted fields keyed by variable name and has a lifecycle of `safe`, `reserved`, `consumed`, or `invalid`. Starting a Run reserves the selected safe data set atomically after authorization and field-completeness checks. A passed Run consumes it; failed, interrupted, cancelled, and preflight-rejected Runs release it. Consumed and invalid sets are never reset; a product member creates a replacement. Members may invalidate an eligible safe set. Phase 4 validates only the local pool lifecycle and required fields. External adapters and QA PostgreSQL read-only checks remain deferred to F10.
+
+Variables remain markable during recording. Sentinel offers deterministic, editable, non-blocking suggestions for likely email, ID, and order-number fields; it never marks them automatically. Fresh data still comes through an application workflow or an existing pool, never a database write.
 
 ### F5. Edge-case and negative testing
 
@@ -187,6 +187,7 @@ When a Run fails, Sentinel may query relevant QA PostgreSQL data to explain reco
 - A tester can edit step text, add an expected outcome, mark a variable, save, or discard.
 - A saved Test Case can be opened and run independently of the recording screen.
 - A Run has a pass/fail status, timestamps, step results, linked evidence, and a Run Detail location; it has no stored full browser-video recording.
+- A variable-marked Test Case can run in Guided or Auto mode with encrypted static, pooled, or manual bindings, and neither raw values nor secret-like values are exposed through Sentinel artifacts.
 - A failure stops safely, records available evidence, and exposes a clear reason.
 - A Release Run reports every included Test Case and its result.
 - A proposed expectation change cannot alter the baseline without owner approval.
