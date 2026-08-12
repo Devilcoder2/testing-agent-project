@@ -101,12 +101,14 @@ describe("recording API and database persistence", () => {
 
     const testCase = await prisma.testCase.findUnique({
       where: { id: saved.id },
-      include: { versions: { include: { steps: { orderBy: { order: "asc" } } } }, owner: true }
+      include: { versions: { include: { steps: { orderBy: { order: "asc" } }, variables: true } }, owner: true }
     });
     expect(testCase?.owner.email).toBe("ava.tester@example.test");
     expect(testCase?.currentVersion).toBe(1);
     expect(testCase?.versions[0].steps).toHaveLength(4);
-    expect(testCase?.versions[0].steps[2]).toMatchObject({ description: "Enter the QA email", expectedOutcome: "The email field accepts the account", variableName: "qaEmail" });
+    expect(testCase?.versions[0].steps[2]).toMatchObject({ description: "Enter the QA email", expectedOutcome: "The email field accepts the account", variableName: "qaemail", value: "[VARIABLE:qaemail]" });
+    expect(testCase?.versions[0].variables[0]?.name).toBe("qaemail");
+    expect(testCase?.versions[0].variables[0]?.staticValueEncrypted ?? "").not.toContain("qa.tester@example.test");
     expect(testCase?.versions[0].steps[3]).toMatchObject({ value: "[REDACTED]", isRedacted: true });
     expect(await prisma.auditEvent.count({ where: { action: "TEST_CASE_SAVED", entityId: saved.id } })).toBe(1);
   });
