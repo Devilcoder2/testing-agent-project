@@ -248,7 +248,7 @@ model TestDataSet {
   fieldNames      String[]
   encryptedFields String
   status          TestDataStatus  @default(SAFE)
-  reservedByRunId String?         @unique
+  reservedByRunId String?
   product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   reservedByRun   Run?            @relation("ReservedDataSet", fields: [reservedByRunId], references: [id], onDelete: SetNull)
   bindings        RunVariableBinding[]
@@ -257,6 +257,7 @@ model TestDataSet {
 
   @@unique([productId, name])
   @@index([productId, status])
+  @@index([reservedByRunId])
 }
 
 model Run {
