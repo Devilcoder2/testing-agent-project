@@ -210,15 +210,19 @@ describe("Phase 3 Auto Run API", () => {
     expect(completed.evidence.filter((item) => item.runAttemptId === completed.attempts[0]?.id).length).toBeGreaterThan(0);
   }, 35_000);
 
-  it("blocks non-password variables with Phase 4 guidance", async () => {
+  it("migrates a legacy non-password variable and replays it with its static default", async () => {
     const ava = await login("ava.tester@example.test");
     const testCase = await createSavedDemoTest(ava, `Variable journey ${Date.now()}`);
     const version = await prisma.testCaseVersion.findFirstOrThrow({ where: { testCaseId: testCase.id, version: 1 } });
     await prisma.testStep.updateMany({ where: { testCaseVersionId: version.id, order: 8 }, data: { variableName: "customerFirstName" } });
 
-    const response = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST");
-    expect(response.status).toBe(409);
-    expect((await response.json() as { error: string }).error).toContain("Phase 4");
-    expect(await prisma.run.count({ where: { testCaseId: testCase.id } })).toBe(0);
-  });
+    const response = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST", { bindings: { customerfirstname: { source: "STATIC" } } });
+    expect(response.status).toBe(201);
+    const queued = await response.json() as { run: { id: string } };
+    const completed = await waitForRun(queued.run.id, (run) => run.status === "COMPLETED", "Variable-backed Auto Run did not complete.");
+    expect(completed.outcome).toBe("PASSED");
+    const versionVariables = await prisma.testVariable.findMany({ where: { testCaseVersionId: version.id } });
+    expect(versionVariables[0]).toMatchObject({ name: "customerfirstname" });
+    expect(versionVariables[0]?.staticValueEncrypted).not.toContain("Auto");
+  }, 30_000);
 });
