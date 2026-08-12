@@ -924,3 +924,77 @@ A product-authorized tester chooses Auto Run. Sentinel validates that the curren
 - Owner answers all ten Phase 3 questions after implementation.
 - Before production, define external target policy, worker deployment, credential provider, retention, and concurrency limits.
 - Owner manually records and saves the Demo CRM journey, starts an Auto Run, reviews a checkpoint, and checks attempts, redacted evidence, and duration comparison in Run Detail.
+
+---
+
+## Feature: Phase 4 variables and test-data lifecycle
+
+- Date: 2026-08-12
+- Phase: 4
+- Status: Contract approved; implementation in progress; owner understanding review pending.
+- Relevant files: planned `lib/variables.ts`, `prisma/schema.prisma`, `app/api/[[...route]]/route.ts`, `lib/browser.ts`, `lib/replay.ts`, `worker.ts`, `components/sentinel-views.tsx`, and Phase 4 tests.
+- Related decision: D-025 in `decisions-log.md`.
+
+### What this feature does
+
+It lets a tester replace a recorded changing value with one safe reusable value, a field from a product-owned Test Data Set, or a value entered for one Run. It solves the Phase 3 limitation where Auto Run stopped whenever a non-password text step had a variable marker.
+
+### Intended end-to-end flow
+
+While recording, Sentinel suggests—but never automatically creates—variables for likely emails, IDs, and order numbers. When a tester accepts or creates a variable, the browser step keeps a placeholder and Sentinel encrypts the original non-secret value instead of leaving it in the step. Saving copies the variable definition to the immutable Test Case version.
+
+Before either Run mode begins, a binding dialog collects one source for each canonical variable name. The API re-checks Product membership, validates secret-like input, encrypts the resolved values into Run bindings, and reserves any selected safe Test Data Set in one transaction. Guided replay and the Auto Run worker decrypt only the current binding long enough to fill the matching browser field. Evidence and Run Detail expose variable names and source status, not raw values. Passing consumes selected test data; all other terminal outcomes release it.
+
+### Technologies, choices, and tradeoffs
+
+| Technology / pattern | Why it is used | Tradeoff |
+|---|---|---|
+| Node.js AES-256-GCM | Encrypts local variable data with authentication and no new service | Local Docker still needs a carefully protected environment key; production rotation is deferred. |
+| Prisma transactions | Make Run creation and pool reservation atomic | The local pool is intentionally simpler than an external data-provider adapter. |
+| Per-Run encrypted bindings | Refreshes and Auto retries use the same values without asking again | Sentinel retains encrypted values for the Run lifecycle, so response and log redaction must remain strict. |
+| Local Test Data Sets | Gives the Demo CRM a reproducible safe pool now | It does not prove external-system freshness or QA PostgreSQL state. |
+
+### Important implementation and safety details
+
+- Variable names are canonical and case-insensitive. The same name on several steps means one shared value, not several accidental values.
+- Passwords and secret-like values remain outside this system. Existing server-only Demo CRM credentials continue to fill password fields.
+- Test Data Set lists disclose only name, field names, lifecycle, and audit context. Persisted values cannot be read back through Sentinel after creation.
+- A Test Data Set moves from `SAFE` to `RESERVED` only during a successful Run-start transaction. It becomes `CONSUMED` only after a passed Run and can otherwise return to `SAFE`; `INVALID` and `CONSUMED` states require a replacement record rather than a reset.
+
+### Alternatives and limitations
+
+- Sentinel chose a local pool over an external adapter because no existing provider contract was supplied and Phase 4 must remain Docker-local.
+- Sentinel chose explicit binding selection over automatic value choice so a tester can review consequential test data before a Run.
+- Sentinel does not query a QA database in this phase. Phase 10 will define separately credentialed, allowlisted, read-only diagnostic/state checks.
+- The encryption key is environment configuration, not production key management. Rotation, external pools, retention, and per-field data classification remain future work.
+
+### Ten-question understanding check
+
+1. Why do saved browser steps use a variable placeholder instead of retaining the variable’s original value?
+2. Which data crosses the pre-run form, which data is encrypted at rest, and which data must never appear in Run Detail or evidence?
+3. Why is AES-GCM preferable here to plaintext local PostgreSQL fields, and what does it not solve by itself?
+4. Why does the Run-start transaction reserve a Test Data Set at the same time it creates encrypted bindings?
+5. What is the lifecycle difference between `SAFE`, `RESERVED`, `CONSUMED`, and `INVALID`, and which Run outcome causes each transition?
+6. Why does one canonical variable name resolve to one shared value across several steps?
+7. How do Guided replay, Auto replay, page refresh, and an Auto retry obtain the same resolved value without exposing it?
+8. Why are passwords, tokens, cookies, authorization values, and API-key variants rejected as Phase 4 variables?
+9. Why do Test Data Set pages show field names and lifecycle but not stored values, even to Product members?
+10. Which important validity check is deliberately deferred to Phase 10, and why is a local pool-state check not equivalent?
+
+#### Answers
+
+1. **Answer:**
+2. **Answer:**
+3. **Answer:**
+4. **Answer:**
+5. **Answer:**
+6. **Answer:**
+7. **Answer:**
+8. **Answer:**
+9. **Answer:**
+10. **Answer:**
+
+#### Follow-up learning tasks
+
+- Owner answers all ten Phase 4 questions after implementation and reviews any answer against the final source and tests.
+- Before production, choose managed key storage/rotation, an external test-data provider contract, and approved read-only QA database checks.
