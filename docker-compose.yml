@@ -76,6 +76,7 @@ services:
       MINIO_BUCKET: sentinel-evidence
       MINIO_REGION: us-east-1
       REDIS_URL: redis://redis:6379
+      GUIDED_RUN_DEMO_PASSWORD: ${GUIDED_RUN_DEMO_PASSWORD:?Set GUIDED_RUN_DEMO_PASSWORD in an untracked .env file}
     command: sh -c "npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
     ports:
       - "3001:3000"
