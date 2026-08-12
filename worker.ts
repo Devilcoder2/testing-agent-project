@@ -170,7 +170,12 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
     const page = await context.newPage();
     collector = attachEvidence(page);
     const state = initialReplayState();
-    const variableValues = new Map(run.variableBindings.map((binding) => [binding.name, decryptVariableValue(binding.valueEncrypted)]));
+    let variableValues: Map<string, string>;
+    try {
+      variableValues = new Map(run.variableBindings.map((binding) => [binding.name, decryptVariableValue(binding.valueEncrypted)]));
+    } catch {
+      throw new ReplayError("INFRASTRUCTURE_ERROR", "Run variable bindings cannot be decrypted safely.");
+    }
     let startCaptured = false;
 
     for (const step of run.testCaseVersion.steps) {
