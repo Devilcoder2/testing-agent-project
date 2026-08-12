@@ -96,7 +96,7 @@ For every Run, capture and retain the applicable evidence bundle:
 - localStorage, sessionStorage, and cookie state at step boundaries.
 - Screenshots at start, end, failure, and—when later implemented—explicitly flagged steps.
 
-Full browser-video recordings must not be captured or retained. Phase 2 provides an explicitly tester-guided Demo CRM Run: the tester performs saved steps in strict order and marks each active step passed or failed. It is not autonomous replay. All evidence is accessible from one Run Detail view and is timeline-linked to the Step Log for passed, failed, and interrupted Runs.
+Full browser-video recordings must not be captured or retained. Phase 2 provides an explicitly tester-guided Demo CRM Run: the tester approves saved steps in strict order, and Sentinel applies each approved step visibly in the isolated browser before marking it passed. The tester can fail the active step instead. This is reviewed, step-by-step replay rather than an autonomous Run: it has no queue, retry, checkpoint, or unattended execution. All evidence is accessible from one Run Detail view and is timeline-linked to the Step Log for passed, failed, and interrupted Runs.
 
 ### F3. Autonomous replay
 
