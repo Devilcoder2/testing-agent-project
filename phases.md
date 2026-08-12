@@ -232,12 +232,50 @@ Automated verification on 2026-08-11 covered the six-file, 19-test Vitest suite;
 ## Phase 4 — Variables and test-data lifecycle
 
 **Depends on:** Phase 3  
-**Outcome:** Static, pooled, and per-Run values can be selected and tracked safely.
+**Status:** Planned
+**Outcome:** Variable-marked Test Cases can run safely with encrypted static, pooled, or manual values in either Guided or Auto mode.
 
-- Define variable contracts, masking, substitution, and lifecycle states.
-- Integrate an existing reusable pool through an adapter.
-- Add manual per-Run input and conservative variable suggestions.
-- Add read-only state checks where configured and test consumed-value replacement.
+### In scope
+
+- Canonical shared variable names, encrypted static defaults, encrypted per-Run bindings, and placeholders in recorded/saved steps.
+- A Docker-local, product-scoped Test Data Set pool with encrypted keyed fields and `SAFE`, `RESERVED`, `CONSUMED`, and `INVALID` lifecycle states.
+- Product-member Test Data management, invalidation, replacement, audit events, and masked list/detail responses.
+- Deterministic, editable recording suggestions for email, ID, and order-number fields; no automatic marking.
+- A Test Case variable-configuration section and a pre-run binding form for both Guided and Auto Runs.
+- Atomic local-pool field-completeness, authorization, and reservation checks. Passed Runs consume selected data; all non-passing outcomes release it.
+- Guided and Auto substitution from server/worker-only encrypted bindings. Auto retries reuse the original binding.
+- A safe migration of existing variable-marked steps and rejection of secret-like variable values. Existing server-only password handling remains separate.
+
+### Explicit exclusions
+
+- External test-data adapters, QA PostgreSQL state validation, database writes, secrets management beyond existing server-only credentials, scheduling, releases, JIRA, and notifications.
+
+### Acceptance checklist
+
+- [ ] Variable values are encrypted at rest and raw values do not appear in saved steps, API detail responses, Run Detail, evidence, logs, queues, or audit text.
+- [ ] Static, pool, and manual sources work for both Guided and Auto Runs; repeated variable names resolve to one shared value.
+- [ ] Product members can create, replace, list, and invalidate local Test Data Sets without reading persisted raw values.
+- [ ] Run creation atomically reserves only an eligible safe data set that provides all required fields.
+- [ ] Passed Runs consume data; failed, interrupted, cancelled, and rejected Runs release it; consumed and invalid data cannot be reset.
+- [ ] Auto retries and refresh recovery reuse the same encrypted Run binding.
+- [ ] Secret-like values are rejected and password replay remains server-only.
+- [ ] Suggestions are visible but require explicit tester acceptance or editing.
+- [ ] Unauthorized users cannot manage another Product’s data or inspect its bindings.
+- [ ] Unit, integration, browser, and Phase 1–3 regression checks pass; the learning record has exactly ten Phase 4 owner questions.
+
+### Verification
+
+```text
+docker compose up --build -d
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/phase-4-variables.spec.ts
+docker compose exec sentinel npx playwright test tests/phase-1-recording.spec.ts
+docker compose exec sentinel npx playwright test tests/phase-2-runs.spec.ts
+docker compose exec sentinel npx playwright test tests/phase-3-auto-runs.spec.ts
+docker compose down
+```
 
 ## Phase 5 — Test Case and release management
 
