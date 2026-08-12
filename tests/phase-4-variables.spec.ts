@@ -72,7 +72,11 @@ test("creates masked Test Data and binds it to a checkpointed Auto Run", async (
     await expect(page.getByText("Checkpoint ready:", { exact: false })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Variable sources", { exact: false }).locator("..")).toContainText("customer_email: pool");
     await expect(page.locator("body")).not.toContainText("customer.pool@example.test");
-    await page.getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText("passed", { exact: true })).toBeVisible({ timeout: 20_000 });
+    await page.goto(`${baseUrl}/test-data`);
+    await page.locator(".inventory-toolbar").getByLabel("Product").selectOption(created.productId);
+    await expect(page.locator(".run-list__item").filter({ hasText: "Customer pool" })).toContainText("consumed");
   } finally {
     await cleanup(created.productId);
   }
