@@ -122,7 +122,7 @@ Before starting a Run, the tester chooses a static default, one eligible pool da
 
 Product members may manage named local data sets without viewing values after creation. Each data set holds encrypted fields keyed by variable name and has a lifecycle of `safe`, `reserved`, `consumed`, or `invalid`. Starting a Run reserves the selected safe data set atomically after authorization and field-completeness checks. A passed Run consumes it; failed, interrupted, cancelled, and preflight-rejected Runs release it. Consumed and invalid sets are never reset; a product member creates a replacement. Members may invalidate an eligible safe set. Phase 4 validates only the local pool lifecycle and required fields. External adapters and QA PostgreSQL read-only checks remain deferred to F10.
 
-Variables remain markable during recording. Sentinel offers deterministic, editable, non-blocking suggestions for likely email, ID, and order-number fields; it never marks them automatically. Fresh data still comes through an application workflow or an existing pool, never a database write.
+Variables remain markable during recording through an explicit user-entered canonical name. Automated variable-name suggestions are deferred until Sentinel has a recorder design that can identify a settled field value without creating per-keystroke steps. Fresh data still comes through an application workflow or an existing pool, never a database write.
 
 ### F5. Edge-case and negative testing
 
