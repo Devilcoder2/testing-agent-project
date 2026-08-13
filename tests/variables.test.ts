@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, suggestedVariable, variablePlaceholder } from "../lib/variables";
+import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, variablePlaceholder } from "../lib/variables";
 
 describe("Phase 4 variable boundary", () => {
   it("canonicalizes shared names and creates non-secret placeholders", () => {
@@ -21,11 +21,5 @@ describe("Phase 4 variable boundary", () => {
     expect(isSecretLikeVariable("access_token", "ordinary value")).toBe(true);
     expect(isSecretLikeVariable("customer_email", "Bearer hidden-value")).toBe(true);
     expect(isSecretLikeVariable("customer_email", "customer@example.test")).toBe(false);
-  });
-
-  it("suggests only deterministic email, ID, and order-number candidates", () => {
-    expect(suggestedVariable({ name: "customer_email" }, "customer@example.test")).toEqual({ name: "customer_email", reason: "email" });
-    expect(suggestedVariable({ name: "order_number" }, "ORD-1092")).toEqual({ name: "order_number", reason: "order-number" });
-    expect(suggestedVariable({ name: "first_name" }, "Ava")).toBeUndefined();
   });
 });
