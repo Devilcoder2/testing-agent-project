@@ -44,7 +44,7 @@ test("records the remote demo journey and preserves saved annotations after refr
     await page.locator(".topbar").getByRole("button", { name: "New recording" }).click();
     await expect(page.getByRole("dialog", { name: "Create recording workspace" })).toBeVisible();
     await page.getByLabel("Test Name").fill(testName);
-    const createResponse = page.waitForResponse((response) => response.url().endsWith("/api/recordings") && response.request().method() === "POST");
+    const createResponse = page.waitForResponse((response) => response.url().endsWith("/api/recordings") && response.request().method() === "POST" && response.request().postData()?.includes(testName) === true);
     await page.getByRole("button", { name: "Create recording workspace" }).click();
     const created = await (await createResponse).json() as RecordingResponse;
     await expect(page.locator(".step")).toHaveCount(0);
