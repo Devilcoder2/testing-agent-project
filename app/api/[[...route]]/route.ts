@@ -7,7 +7,7 @@ import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordi
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
 import { prisma } from "@/lib/prisma";
 import { enqueueAutoRun } from "@/lib/queue";
-import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, suggestedVariable, variablePlaceholder } from "@/lib/variables";
+import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, variablePlaceholder } from "@/lib/variables";
 
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
@@ -163,7 +163,7 @@ async function route(request: Request, context: Context) {
     const target = (body.target ?? {}) as Prisma.InputJsonValue;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const prior = await prisma.recordedStep.findFirst({ where: { recordingSessionId: recording.id }, orderBy: { order: "desc" } });
-      if (prior && prior.kind === kind && JSON.stringify(prior.target) === JSON.stringify(target) && (kind !== StepKind.TEXT_ENTRY || (prior.value === (body.value ?? null) && prior.isRedacted === Boolean(body.isRedacted)))) return recorderJson({ skipped: true });
+      if (prior && prior.kind === kind && JSON.stringify(prior.target) === JSON.stringify(target) && kind !== StepKind.TEXT_ENTRY) return recorderJson({ skipped: true });
       try {
         const step = await prisma.recordedStep.create({
           data: { recordingSessionId: recording.id, order: (prior?.order ?? 0) + 1, kind, timestamp: new Date(body.timestamp ?? Date.now()), target, value: body.value ?? null, isRedacted: Boolean(body.isRedacted) }
@@ -512,7 +512,7 @@ async function route(request: Request, context: Context) {
       const recording = await prisma.recordingSession.findUnique({ where: { id: recordingId }, include: { steps: { orderBy: { order: "asc" } }, variables: true } });
       if (!recording) return json({ error: "Recording not found." }, 404);
       await assertProductMember(user.id, recording.productId);
-      if (request.method === "GET" && path[2] === "steps") return json(recording.steps.map((step) => ({ ...step, suggestion: !step.variableName && !step.isRedacted ? suggestedVariable(step.target, step.value) ?? null : null })));
+      if (request.method === "GET" && path[2] === "steps") return json(recording.steps);
       if (request.method === "POST" && path[2] === "launch") {
         const token = body.token;
         if (!token || hash(token) !== recording.tokenHash) return json({ error: "Invalid recording launch token." }, 403);
