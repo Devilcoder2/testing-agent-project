@@ -55,7 +55,7 @@ test("records the remote demo journey and preserves saved annotations after refr
       const update = (selector, value) => {
         const element = document.querySelector(selector);
         element.value = value;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
+        element.dispatchEvent(new Event('input', { bubbles: true }));
       };
       update('input[name="email"]', 'qa.tester@example.test');
       update('input[name="password"]', 'TestPassword!');
@@ -107,6 +107,8 @@ test("records the remote demo journey and preserves saved annotations after refr
     expect(safeVariableValue).toBeTruthy();
     const safeTextStep = page.locator(".step").filter({ hasText: `Value: ${safeVariableValue}` }).first();
     await expect(safeTextStep).toBeVisible();
+    await expect(safeTextStep.getByText("Suggested variable:", { exact: false })).toContainText("email");
+    await expect(safeTextStep.getByRole("button", { name: "Use suggestion" })).toBeVisible();
     await safeTextStep.getByLabel("Variable name").fill("demoEmail");
     await safeTextStep.getByLabel("Variable name").blur();
     await expect.poll(async () => (await readSteps(page, created.recording.id)).find((step) => step.variableName === "demoemail")?.variableName).toBe("demoemail");
