@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { RecordingStatus, StepKind } from "@prisma/client";
+import { encryptVariableValue, variablePlaceholder } from "../lib/variables";
 import { prisma } from "../lib/prisma";
 
 const baseUrl = process.env.SENTINEL_BASE_URL ?? "http://localhost:3000";
@@ -144,5 +145,31 @@ describe("Phase 2 guided Run API", () => {
     expect(storageEvidence).toContain("demo-run-marker");
     expect(storageEvidence).not.toContain("must-not-be-stored");
     expect(JSON.stringify(persisted.evidence.filter((item) => item.kind === "CONSOLE"))).toContain("Sentinel Run integration warning");
+  }, 30_000);
+
+  it("replays a manually bound Phase 4 variable without exposing its value in Run Detail", async () => {
+    const ava = await login("ava.tester@example.test");
+    const testCase = await createSavedTest(ava, `Guided variable Run ${Date.now()}`);
+    const version = await prisma.testCaseVersion.findFirstOrThrow({ where: { testCaseId: testCase.id } });
+    const customerEmail = "guided.variable@example.test";
+    await prisma.$transaction([
+      prisma.testVariable.create({ data: { testCaseVersionId: version.id, name: "customer_email", staticValueEncrypted: encryptVariableValue("static.variable@example.test") } }),
+      prisma.testStep.updateMany({ where: { testCaseVersionId: version.id, order: 10 }, data: { variableName: "customer_email", value: variablePlaceholder("customer_email") } })
+    ]);
+
+    const started = await request(ava, `test-cases/${testCase.id}/runs`, "POST", { bindings: { customer_email: { source: "MANUAL", value: customerEmail } } });
+    expect(started.status).toBe(201);
+    const { run } = await started.json() as { run: { id: string } };
+    const detail = await request(ava, `runs/${run.id}`);
+    expect(detail.status).toBe(200);
+    expect(JSON.stringify(await detail.json())).not.toContain(customerEmail);
+
+    const stepResults = (await prisma.run.findUniqueOrThrow({ where: { id: run.id }, include: { stepResults: { orderBy: { order: "asc" } } } })).stepResults;
+    for (const step of stepResults.slice(0, 10)) {
+      expect((await request(ava, `runs/${run.id}/steps/${step.id}/complete`, "POST", { status: "PASSED" })).status).toBe(200);
+    }
+    const browserValue = await runInActiveBrowser("return document.querySelector('input[name=\"email\"]')?.value;");
+    expect(browserValue).toMatchObject({ value: customerEmail });
+    expect((await request(ava, `runs/${run.id}/interrupt`, "POST")).status).toBe(200);
   }, 30_000);
 });
