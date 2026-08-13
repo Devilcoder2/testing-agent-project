@@ -232,7 +232,7 @@ Automated verification on 2026-08-11 covered the six-file, 19-test Vitest suite;
 ## Phase 4 — Variables and test-data lifecycle
 
 **Depends on:** Phase 3  
-**Status:** Planned
+**Status:** Implementation and automated acceptance verified; owner learning review pending.
 **Outcome:** Variable-marked Test Cases can run safely with encrypted static, pooled, or manual values in either Guided or Auto mode.
 
 ### In scope
@@ -252,16 +252,16 @@ Automated verification on 2026-08-11 covered the six-file, 19-test Vitest suite;
 
 ### Acceptance checklist
 
-- [ ] Variable values are encrypted at rest and raw values do not appear in saved steps, API detail responses, Run Detail, evidence, logs, queues, or audit text.
-- [ ] Static, pool, and manual sources work for both Guided and Auto Runs; repeated variable names resolve to one shared value.
-- [ ] Product members can create, replace, list, and invalidate local Test Data Sets without reading persisted raw values.
-- [ ] Run creation atomically reserves only an eligible safe data set that provides all required fields.
-- [ ] Passed Runs consume data; failed, interrupted, cancelled, and rejected Runs release it; consumed and invalid data cannot be reset.
-- [ ] Auto retries and refresh recovery reuse the same encrypted Run binding.
-- [ ] Secret-like values are rejected and password replay remains server-only.
-- [ ] Suggestions are visible but require explicit tester acceptance or editing.
-- [ ] Unauthorized users cannot manage another Product’s data or inspect its bindings.
-- [ ] Unit, integration, browser, and Phase 1–3 regression checks pass; the learning record has exactly ten Phase 4 owner questions.
+- [x] Variable values are encrypted at rest and raw values do not appear in saved steps, API detail responses, Run Detail, evidence, logs, queues, or audit text.
+- [x] Static, pool, and manual sources work for both Guided and Auto Runs; repeated variable names resolve to one shared value.
+- [x] Product members can create, replace, list, and invalidate local Test Data Sets without reading persisted raw values.
+- [x] Run creation atomically reserves only an eligible safe data set that provides all required fields.
+- [x] Passed Runs consume data; failed, interrupted, cancelled, and rejected Runs release it; consumed and invalid data cannot be reset.
+- [x] Auto retries and refresh recovery reuse the same encrypted Run binding.
+- [x] Secret-like values are rejected and password replay remains server-only.
+- [x] Suggestions are visible but require explicit tester acceptance or editing.
+- [x] Unauthorized users cannot manage another Product’s data or inspect its bindings.
+- [x] Unit, integration, browser, and Phase 1–3 regression checks pass; the learning record has exactly ten Phase 4 owner questions.
 
 ### Verification
 
@@ -276,6 +276,8 @@ docker compose exec sentinel npx playwright test tests/phase-2-runs.spec.ts
 docker compose exec sentinel npx playwright test tests/phase-3-auto-runs.spec.ts
 docker compose down
 ```
+
+Automated verification on 2026-08-13 passed Docker lint and type-check; the complete Vitest suite including variable encryption, manual/pool lifecycle, Auto replay, and Guided variable substitution; and the Phase 1 recording, Phase 2 guided Run, Phase 3 Auto Run, and Phase 4 variable browser flows. The owner must still answer the exactly ten Phase 4 questions in `learning-log.md` before the phase is considered fully understood.
 
 ## Phase 5 — Test Case and release management
 
