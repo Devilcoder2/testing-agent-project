@@ -102,18 +102,8 @@ function recorderScript(endpoint: string, token: string) {
         body: JSON.stringify({kind, target, value, isRedacted, timestamp: new Date().toISOString()})
       }).catch(() => undefined);
       const describe = (element) => ({ tag: element.tagName.toLowerCase(), name: element.getAttribute('aria-label') || element.getAttribute('name') || '', text: element instanceof HTMLInputElement && element.type === 'password' ? '[REDACTED]' : (element.innerText || element.value || '').trim().slice(0, 120), testId: element.getAttribute('data-testid') || '' });
-      const pendingText = new WeakMap();
-      const captureText = (element) => {
-        const secret = element instanceof HTMLInputElement && element.type === 'password';
-        emit('TEXT_ENTRY', describe(element), secret ? '[REDACTED]' : element.value, secret);
-      };
-      const scheduleTextCapture = (element) => {
-        const existing = pendingText.get(element); if (existing) clearTimeout(existing);
-        pendingText.set(element, setTimeout(() => { pendingText.delete(element); captureText(element); }, 350));
-      };
       document.addEventListener('click', (event) => { const element = event.target.closest('button,a,input,select,textarea,[role="button"]'); if (element) emit('CLICK', describe(element)); }, true);
-      document.addEventListener('input', (event) => { const element = event.target; if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) scheduleTextCapture(element); }, true);
-      document.addEventListener('change', (event) => { const element = event.target; if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) return; const pending = pendingText.get(element); if (pending) { clearTimeout(pending); pendingText.delete(element); } captureText(element); }, true);
+      document.addEventListener('change', (event) => { const element = event.target; if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) return; const secret = element instanceof HTMLInputElement && element.type === 'password'; emit('TEXT_ENTRY', describe(element), secret ? '[REDACTED]' : element.value, secret); }, true);
       const originalPush = history.pushState; history.pushState = function(...args) { const result = originalPush.apply(this, args); emit('NAVIGATION', {url: location.href, title: document.title}); return result; };
     })();`;
 }
