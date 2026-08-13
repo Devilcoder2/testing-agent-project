@@ -107,7 +107,7 @@ docker compose exec sentinel npm test
 docker compose exec sentinel npx playwright test tests/phase-4-variables.spec.ts
 ```
 
-Phase 4 checks cover encrypted variable persistence, static/pool/manual selection, product authorization, local Test Data Set lifecycle, Guided and Auto substitution, refresh/retry binding reuse, suggestion review, and redaction. Automated verification passed on 2026-08-13. Manually create a Test Data Set, record a variable-marked Demo CRM Test Case, choose bindings in the pre-run dialog, run it, and confirm the selected data becomes consumed only after a Passed outcome. The Test Data and Run Detail views show sources and masked metadata, never saved raw values.
+Phase 4 checks cover encrypted variable persistence, static/pool/manual selection, product authorization, local Test Data Set lifecycle, Guided and Auto substitution, refresh/retry binding reuse, and redaction. Automated verification passed on 2026-08-13. Manually create a Test Data Set, record a variable-marked Demo CRM Test Case, enter a safe variable name manually, choose bindings in the pre-run dialog, run it, and confirm the selected data becomes consumed only after a Passed outcome. The Test Data and Run Detail views show sources and masked metadata, never saved raw values. Automated variable-name suggestions are deferred.
 
 ## Status
 
