@@ -163,7 +163,7 @@ async function route(request: Request, context: Context) {
     const target = (body.target ?? {}) as Prisma.InputJsonValue;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const prior = await prisma.recordedStep.findFirst({ where: { recordingSessionId: recording.id }, orderBy: { order: "desc" } });
-      if (prior && prior.kind === kind && JSON.stringify(prior.target) === JSON.stringify(target) && kind !== StepKind.TEXT_ENTRY) return recorderJson({ skipped: true });
+      if (prior && prior.kind === kind && JSON.stringify(prior.target) === JSON.stringify(target) && (kind !== StepKind.TEXT_ENTRY || (prior.value === (body.value ?? null) && prior.isRedacted === Boolean(body.isRedacted)))) return recorderJson({ skipped: true });
       try {
         const step = await prisma.recordedStep.create({
           data: { recordingSessionId: recording.id, order: (prior?.order ?? 0) + 1, kind, timestamp: new Date(body.timestamp ?? Date.now()), target, value: body.value ?? null, isRedacted: Boolean(body.isRedacted) }
