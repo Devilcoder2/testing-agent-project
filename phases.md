@@ -240,7 +240,6 @@ Automated verification on 2026-08-11 covered the six-file, 19-test Vitest suite;
 - Canonical shared variable names, encrypted static defaults, encrypted per-Run bindings, and placeholders in recorded/saved steps.
 - A Docker-local, product-scoped Test Data Set pool with encrypted keyed fields and `SAFE`, `RESERVED`, `CONSUMED`, and `INVALID` lifecycle states.
 - Product-member Test Data management, invalidation, replacement, audit events, and masked list/detail responses.
-- Deterministic, editable recording suggestions for email, ID, and order-number fields; no automatic marking.
 - A Test Case variable-configuration section and a pre-run binding form for both Guided and Auto Runs.
 - Atomic local-pool field-completeness, authorization, and reservation checks. Passed Runs consume selected data; all non-passing outcomes release it.
 - Guided and Auto substitution from server/worker-only encrypted bindings. Auto retries reuse the original binding.
@@ -259,7 +258,6 @@ Automated verification on 2026-08-11 covered the six-file, 19-test Vitest suite;
 - [x] Passed Runs consume data; failed, interrupted, cancelled, and rejected Runs release it; consumed and invalid data cannot be reset.
 - [x] Auto retries and refresh recovery reuse the same encrypted Run binding.
 - [x] Secret-like values are rejected and password replay remains server-only.
-- [x] Suggestions are visible but require explicit tester acceptance or editing.
 - [x] Unauthorized users cannot manage another Product’s data or inspect its bindings.
 - [x] Unit, integration, browser, and Phase 1–3 regression checks pass; the learning record has exactly ten Phase 4 owner questions.
 
@@ -278,6 +276,10 @@ docker compose down
 ```
 
 Automated verification on 2026-08-13 passed Docker lint and type-check; the complete Vitest suite including variable encryption, manual/pool lifecycle, Auto replay, and Guided variable substitution; and the Phase 1 recording, Phase 2 guided Run, Phase 3 Auto Run, and Phase 4 variable browser flows. The owner must still answer the exactly ten Phase 4 questions in `learning-log.md` before the phase is considered fully understood.
+
+### Deferred follow-up
+
+- Add non-blocking variable-name suggestions for likely email, ID, and order-number fields only after the recorder can reliably capture a settled field value without generating one recorded step per keystroke. Testers enter variable names manually until then.
 
 ## Phase 5 — Test Case and release management
 
