@@ -213,3 +213,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** This delivers all required static, pooled, and manual variable modes safely in local Docker without assuming an external data source or widening Sentinel’s database permissions.
 - **Impact:** Product members can manage data-set metadata but cannot retrieve persisted raw values. Variable-marked steps store placeholders, secret-like values are rejected, and existing server-only password substitution remains outside the variable store. External test-data adapters and QA PostgreSQL state checks stay deferred to Phase 10.
 - **Status:** Implemented and automated-acceptance verified on 2026-08-13; owner learning review remains pending.
+
+## D-026 — Defer recording variable-name suggestions
+
+- **Date:** 2026-08-13
+- **Decision:** Remove Phase 4 automated variable-name suggestions. Testers enter safe canonical variable names manually.
+- **Reason:** Capturing browser `input` events made a suggestion available earlier but created a recorded step for each keystroke. The existing `change`-event recorder preserves the required single meaningful text-entry step.
+- **Impact:** The encrypted variable, Test Data, and binding workflows remain unchanged. Revisit suggestions only with a settled-value capture design that preserves event normalization and duplicate suppression.
+- **Status:** Confirmed by project owner.
