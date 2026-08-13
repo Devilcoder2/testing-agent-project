@@ -941,7 +941,7 @@ It lets a tester replace a recorded changing value with one safe reusable value,
 
 ### Intended end-to-end flow
 
-While recording, Sentinel suggests—but never automatically creates—variables for likely emails, IDs, and order numbers. When a tester accepts or creates a variable, the browser step keeps a placeholder and Sentinel encrypts the original non-secret value instead of leaving it in the step. Saving copies the variable definition to the immutable Test Case version.
+While recording, a tester explicitly enters a canonical variable name. The browser step keeps a placeholder and Sentinel encrypts the original non-secret value instead of leaving it in the step. Saving copies the variable definition to the immutable Test Case version. Automated variable-name suggestions are deferred because the current safe recorder boundary must not create one step for each keystroke.
 
 Before either Run mode begins, a binding dialog collects one source for each canonical variable name. The API re-checks Product membership, validates secret-like input, encrypts the resolved values into Run bindings, and reserves any selected safe Test Data Set in one transaction. Guided replay and the Auto Run worker decrypt only the current binding long enough to fill the matching browser field. Evidence and Run Detail expose variable names and source status, not raw values. Passing consumes selected test data; all other terminal outcomes release it.
 
@@ -970,7 +970,7 @@ Before either Run mode begins, a binding dialog collects one source for each can
 
 ### Verification and priority-based diff review
 
-Docker lint and TypeScript checks passed. The Vitest suite covered encryption, suggestion rules, Test Data reservation/release, one-off-value redaction, Auto replay, and Guided manual substitution. Browser checks passed for the Phase 1 recording flow, Phase 2 guided Runs, Phase 3 Auto Runs, and the Phase 4 masked Test Data/checkpoint/consumption journey.
+Docker lint and TypeScript checks passed. The Vitest suite covered encryption, Test Data reservation/release, one-off-value redaction, Auto replay, and Guided manual substitution. Browser checks passed for the Phase 1 recording flow, Phase 2 guided Runs, Phase 3 Auto Runs, and the Phase 4 masked Test Data/checkpoint/consumption journey.
 
 | Priority | Files and areas | Why review them | Owner action |
 |---|---|---|---|
@@ -1008,3 +1008,4 @@ Docker lint and TypeScript checks passed. The Vitest suite covered encryption, s
 
 - Owner answers all ten Phase 4 questions after implementation and reviews any answer against the final source and tests.
 - Before production, choose managed key storage/rotation, an external test-data provider contract, and approved read-only QA database checks.
+- Revisit non-blocking variable-name suggestions after designing recorder-level settled-value capture that cannot produce per-keystroke recorded steps.
