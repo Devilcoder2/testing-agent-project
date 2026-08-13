@@ -931,8 +931,8 @@ A product-authorized tester chooses Auto Run. Sentinel validates that the curren
 
 - Date: 2026-08-12
 - Phase: 4
-- Status: Contract approved; implementation in progress; owner understanding review pending.
-- Relevant files: planned `lib/variables.ts`, `prisma/schema.prisma`, `app/api/[[...route]]/route.ts`, `lib/browser.ts`, `lib/replay.ts`, `worker.ts`, `components/sentinel-views.tsx`, and Phase 4 tests.
+- Status: Implementation and automated acceptance verified on 2026-08-13; owner understanding review pending.
+- Relevant files: `lib/variables.ts`, `prisma/schema.prisma`, `prisma/migrations/20260812100000_add_variable_lifecycle/migration.sql`, `app/api/[[...route]]/route.ts`, `lib/browser.ts`, `lib/replay.ts`, `worker.ts`, `components/sentinel-views.tsx`, `app/test-data/page.tsx`, and Phase 4 tests.
 - Related decision: D-025 in `decisions-log.md`.
 
 ### What this feature does
@@ -967,6 +967,16 @@ Before either Run mode begins, a binding dialog collects one source for each can
 - Sentinel chose explicit binding selection over automatic value choice so a tester can review consequential test data before a Run.
 - Sentinel does not query a QA database in this phase. Phase 10 will define separately credentialed, allowlisted, read-only diagnostic/state checks.
 - The encryption key is environment configuration, not production key management. Rotation, external pools, retention, and per-field data classification remain future work.
+
+### Verification and priority-based diff review
+
+Docker lint and TypeScript checks passed. The Vitest suite covered encryption, suggestion rules, Test Data reservation/release, one-off-value redaction, Auto replay, and Guided manual substitution. Browser checks passed for the Phase 1 recording flow, Phase 2 guided Runs, Phase 3 Auto Runs, and the Phase 4 masked Test Data/checkpoint/consumption journey.
+
+| Priority | Files and areas | Why review them | Owner action |
+|---|---|---|---|
+| Highest | `lib/variables.ts`; `app/api/[[...route]]/route.ts`; `worker.ts`; `lib/browser.ts`; `lib/replay.ts`; `prisma/schema.prisma`; Phase 4 migrations | Encryption, authorization, atomic reservation, lifecycle state transitions, browser substitution, and migration of prior plaintext step values are security- and behavior-critical. Pay particular attention to `encryptVariableValue`, `createRunBindings`, `migrateLegacyVariables`, `updateReservedDataSet`, and Auto Run cancellation/state claims. | Read now. |
+| Medium | `components/sentinel-views.tsx`; `app/test-data/page.tsx`; `tests/variables-api.test.ts`; `tests/run-api.test.ts`; `tests/phase-4-variables.spec.ts` | These files define the masked user experience and preserve the contracts for sources, suggestion acceptance, lifecycle, and non-serialization. | Read next. |
+| Lower | `.env.example`, `docker-compose.yml`, README and phase documents | They explain required local configuration and the chosen boundary; they do not contain the variable values themselves. | Skim after the behavior-critical code. |
 
 ### Ten-question understanding check
 
