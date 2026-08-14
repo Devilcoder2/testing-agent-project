@@ -66,7 +66,7 @@ The following are documented design targets only. Phase 1.5 must not create plac
 | Future route | Intended experience |
 |---|---|
 | `/runs` and `/runs/[id]` | Phase 3 adds Auto Run queue/running/paused states, attempt history, checkpoint screenshot review, Continue/Cancel controls, selector-failure reasons, and duration comparison beside the existing guided Run detail. Phase 4 adds a pre-run variable-binding dialog and masked binding source summary; later work adds database context and release grouping. |
-| `/test-data` | Phase 4 product-scoped Test Data Sets. The list shows name, field names, lifecycle, and audit context without raw values; a creation/replacement dialog accepts values once and never displays them again. |
+| `/test-data` | Phase 4 product-scoped Test Data Sets. The list shows name, field names, reuse policy, lifecycle, and audit context without raw values; a creation/replacement dialog defaults to reusable data and offers an intentional single-use policy for values that must not be reused after a passed Run. |
 | `/releases` | Release health, grouped Test Cases, batch status, and readiness reporting. |
 | `/review` | Change proposals, negative-test suggestions, checkpoint decisions, and owner approvals. |
 | `/settings` | Product access, integration health, notification configuration, and safe connection state. |
@@ -85,7 +85,7 @@ Use the shared App Shell and keep responsibilities separate: Dashboard is a clea
 
 ### Saved Test Case detail
 
-Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Phase 4 adds a Variables panel: show canonical names, affected step numbers, and masked static-default status; never display a stored raw value. Both **Run test** and **Auto Run** open the same pre-run binding dialog when variables exist. Each row selects static, a compatible Test Data Set, or a manual entry, and inline errors explain unavailable/consumed data or rejected secret-like input.
+Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Phase 4 adds a Variables panel: show canonical names, affected step numbers, and masked static-default status; never display a stored raw value. Both **Run test** and **Auto Run** open the same pre-run binding dialog when variables exist. Each row selects static, a compatible Test Data Set, or a manual entry, and inline errors explain unavailable/consumed data or rejected secret-like input. The Test Data screen labels reusable and single-use sets clearly; reusable means sequential reuse only, because an active Run reserves the set until it ends.
 
 ### Run inventory and Run Detail
 
