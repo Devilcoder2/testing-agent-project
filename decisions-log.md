@@ -221,3 +221,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Capturing browser `input` events made a suggestion available earlier but created a recorded step for each keystroke. The existing `change`-event recorder preserves the required single meaningful text-entry step.
 - **Impact:** The encrypted variable, Test Data, and binding workflows remain unchanged. Revisit suggestions only with a settled-value capture design that preserves event normalization and duplicate suppression.
 - **Status:** Confirmed by project owner.
+
+## D-027 — Reusable Test Data Sets with intentional single-use option
+
+- **Date:** 2026-08-14
+- **Decision:** Test Data Sets default to `REUSABLE`. A product member may deliberately create a `SINGLE_USE` set for unique values that must not be reused after a successful Run. A selected set is reserved to one active Run at a time. Reusable sets return to `SAFE` after every terminal outcome; single-use sets become `CONSUMED` only after a passed Run and otherwise return to `SAFE`. Existing consumed sets migrate to safe reusable sets.
+- **Reason:** The previous policy consumed every passed data set, which prevented standard test fixtures from being reused even though reusable data is the main purpose of the Test Data feature. Some target-mutating values still need one-time protection.
+- **Impact:** The local lifecycle continues to prevent concurrent reuse but does not clean up records in the Demo CRM or any future external target. Values remain encrypted and unreadable after creation. Testers choose single-use where target state makes sequential reuse unsafe.
+- **Status:** Confirmed by project owner; implementation in progress.
