@@ -111,7 +111,7 @@ services:
       AUTO_RUN_DEMO_EMAIL: qa.tester@example.test
       AUTO_RUN_DEMO_PASSWORD: TestPassword!
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
-    command: npm run worker
+    command: sh -c "npm run db:generate && npm run worker"
     volumes:
       - .:/app
       - sentinel-node-modules:/app/node_modules
