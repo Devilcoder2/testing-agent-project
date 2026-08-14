@@ -1009,3 +1009,77 @@ Docker lint and TypeScript checks passed. The Vitest suite covered encryption, T
 - Owner answers all ten Phase 4 questions after implementation and reviews any answer against the final source and tests.
 - Before production, choose managed key storage/rotation, an external test-data provider contract, and approved read-only QA database checks.
 - Revisit non-blocking variable-name suggestions after designing recorder-level settled-value capture that cannot produce per-keystroke recorded steps.
+
+---
+
+## Feature: Phase 4 Test Data reuse policies
+
+- Date: 2026-08-14
+- Phase: 4 adjustment
+- Status: Implementation and automated acceptance verified; owner understanding review pending.
+- Relevant files: `prisma/schema.prisma`, `prisma/migrations/20260814100000_add_test_data_reuse_policy/migration.sql`, `app/api/[[...route]]/route.ts`, `worker.ts`, `components/sentinel-views.tsx`, `docker-compose.yml`, `tests/variables-api.test.ts`, and `tests/phase-4-variables.spec.ts`.
+- Related decision: D-027 in `decisions-log.md`.
+
+### What this feature does
+
+Test Data Sets now default to reusable instead of being permanently consumed after every passed Run. A tester can choose single-use only when a data value, such as a unique customer or order, should not be used again after it has produced a successful result.
+
+### Intended end-to-end flow
+
+When creating a Test Data Set, a product member selects `REUSABLE` or `SINGLE_USE`; the default is reusable. Sentinel encrypts the values as before and returns only the name, field names, status, and policy. Starting a Guided or Auto Run reserves a safe selected set atomically, so another active Run cannot bind the same set. At terminal completion, reusable data returns to safe regardless of outcome. A single-use set returns to safe for Failed, Interrupted, Cancelled, and rejected Runs, but becomes consumed after Passed. The migration reactivates prior consumed data as safe reusable data without exposing or rewriting its encrypted values.
+
+### Technologies, choices, and tradeoffs
+
+| Technology or approach | Why it is used | Tradeoff |
+|---|---|---|
+| Prisma enum and migration | Persists an explicit policy and safely changes existing local data | The database remains local-only and cannot determine whether an external target record is reusable. |
+| Atomic `updateMany` reservations | Retains one-active-Run protection for both policies | Reusable means sequential reuse, not simultaneous reuse. |
+| Shared API and worker lifecycle rules | Keeps Guided and Auto terminal behavior equivalent | The same policy logic exists at two execution boundaries and needs matching tests. |
+| Worker-side Prisma generation | Prevents a worker from using a stale generated client after a schema change | Startup takes a small additional amount of time. |
+
+### Important implementation and safety details
+
+- Values remain AES-256-GCM encrypted and are not returned by Test Data APIs, lists, binding dialogs, evidence, logs, or audit text.
+- Omitting the policy in an API request remains backward-compatible and creates a reusable set. Invalid policy values are rejected.
+- `RESERVED` is not a usage count. It is an exclusive lease that lasts only for one active Run and is cleared at a terminal transition.
+- `CONSUMED` is now meaningful only for a passed single-use Run. Product members can still invalidate an eligible safe set deliberately.
+- The migration changes old consumed records to safe reusable records, preserving their encrypted fields rather than requiring people to enter those values again.
+
+### Alternatives and limitations
+
+- Always-reusable data was rejected because it would allow accidental reuse of successful unique target data.
+- Always-single-use data was rejected because it defeated the main value of reusable test fixtures.
+- Sentinel does not clean up Demo CRM or future QA-target records. The tester selects single-use when external state makes reuse unsafe.
+- External data providers, target-state checking, and automated cleanup remain future work.
+
+### Verification and priority-based diff review
+
+Docker validation passed: `docker compose exec sentinel npm run lint`, `docker compose exec sentinel npm run typecheck`, `docker compose exec sentinel npx vitest run tests/variables-api.test.ts`, and `docker compose exec sentinel npx playwright test tests/phase-4-variables.spec.ts`. The migration applied successfully through `prisma migrate deploy` when the stack started.
+
+| Priority | Files and areas | Why review them | Owner action |
+|---|---|---|---|
+| Highest | `prisma/schema.prisma`; `prisma/migrations/20260814100000_add_test_data_reuse_policy/migration.sql`; `app/api/[[...route]]/route.ts`; `worker.ts`; `docker-compose.yml` | They define persisted lifecycle behavior, migrate existing records, preserve exclusive reservation, and prevent stale generated database clients in the worker. Review `TestDataReusePolicy`, `updateReservedDataSet`, `completeRun`, and the worker command. | Read now. |
+| Medium | `components/sentinel-views.tsx`; `tests/variables-api.test.ts`; `tests/phase-4-variables.spec.ts` | They expose the deliberate policy choice and encode the expected reusable/single-use behavior. | Read next. |
+| Lower | Phase 4 documentation | It records the product intent, manual test path, and limitation around external cleanup. | Skim after the behavior-critical code. |
+
+### Ten-question understanding check
+
+1. Why does Sentinel distinguish a reusable Test Data Set from a single-use Test Data Set?
+2. What does `RESERVED` protect against, and why is a reusable set not available to another active Run?
+3. Which terminal outcomes return reusable data to `SAFE`, and which outcome consumes single-use data?
+4. Why does the migration change old `CONSUMED` records to reusable `SAFE` records instead of asking the tester to enter the values again?
+5. What is the difference between Sentinel marking a set consumed and deleting or cleaning up a record in the Demo CRM?
+6. Where is the reuse policy validated when a Test Data Set is created, and what happens when an older client omits it?
+7. Why must the API and the Auto Run worker implement matching terminal lifecycle behavior?
+8. How do the API integration test and browser test jointly prove that data is safe, hidden, exclusive while active, reusable when intended, and consumed only when intended?
+9. Why does the worker run Prisma Client generation before starting, and what failure can occur if it uses a stale generated client after a schema migration?
+10. If Sentinel later adds external QA-state cleanup, which policy and lifecycle guarantees must remain unchanged?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- Owner answers all ten questions and compares the answers with D-027, the migration, the API lifecycle helper, and the worker completion path.
+- Before production, define an approved external test-data provider or cleanup contract rather than assuming local lifecycle state reflects external target state.
