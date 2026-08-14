@@ -56,8 +56,8 @@ describe("Phase 4 variable API", () => {
 
     const dataSetResponse = await request(ava, `products/${product.id}/test-data`, "POST", { name: "Customer one", fields: { customer_email: "customer.pool@example.test" } });
     expect(dataSetResponse.status).toBe(201);
-    const dataSet = await dataSetResponse.json() as { id: string; fieldNames: string[]; status: string };
-    expect(dataSet).toMatchObject({ fieldNames: ["customer_email"], status: "SAFE" });
+    const dataSet = await dataSetResponse.json() as { id: string; fieldNames: string[]; status: string; reusePolicy: string };
+    expect(dataSet).toMatchObject({ fieldNames: ["customer_email"], status: "SAFE", reusePolicy: "REUSABLE" });
     expect((await request(ben, `products/${product.id}/test-data`)).status).toBe(403);
     const storedDataSet = await prisma.testDataSet.findUniqueOrThrow({ where: { id: dataSet.id } });
     expect(storedDataSet.encryptedFields).not.toContain("customer.pool@example.test");
@@ -70,6 +70,8 @@ describe("Phase 4 variable API", () => {
     const run = await prisma.run.findUniqueOrThrow({ where: { id: queued.run.id }, include: { variableBindings: true } });
     expect(run.variableBindings).toHaveLength(1);
     expect(run.variableBindings[0]?.valueEncrypted).not.toContain("customer.pool@example.test");
+    const concurrentStart = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST", { bindings: { customer_email: { source: "POOL", dataSetId: dataSet.id } } });
+    expect(concurrentStart.status).toBe(409);
     const cancel = await request(ava, `runs/${queued.run.id}/cancel`, "POST");
     expect([200, 202]).toContain(cancel.status);
     for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -78,7 +80,22 @@ describe("Phase 4 variable API", () => {
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     const afterCancellation = await prisma.testDataSet.findUniqueOrThrow({ where: { id: dataSet.id } });
-    expect(afterCancellation.status).toBe("SAFE");
+    expect(afterCancellation).toMatchObject({ status: "SAFE", reusePolicy: "REUSABLE" });
+
+    const singleUseResponse = await request(ava, `products/${product.id}/test-data`, "POST", { name: "Customer one-time", reusePolicy: "SINGLE_USE", fields: { customer_email: "customer.once@example.test" } });
+    expect(singleUseResponse.status).toBe(201);
+    const singleUseDataSet = await singleUseResponse.json() as { id: string; reusePolicy: string };
+    expect(singleUseDataSet.reusePolicy).toBe("SINGLE_USE");
+    const singleUseRun = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST", { bindings: { customer_email: { source: "POOL", dataSetId: singleUseDataSet.id } } });
+    expect(singleUseRun.status).toBe(201);
+    const singleUseRunId = (await singleUseRun.json() as { run: { id: string } }).run.id;
+    expect([200, 202]).toContain((await request(ava, `runs/${singleUseRunId}/cancel`, "POST")).status);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const released = await prisma.testDataSet.findUniqueOrThrow({ where: { id: singleUseDataSet.id } });
+      if (released.status === "SAFE") break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    expect(await prisma.testDataSet.findUniqueOrThrow({ where: { id: singleUseDataSet.id } })).toMatchObject({ status: "SAFE", reusePolicy: "SINGLE_USE" });
   }, 30_000);
 
   it("accepts one-off values without serializing them and rejects secret-like inputs", async () => {
