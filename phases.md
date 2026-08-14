@@ -277,6 +277,8 @@ docker compose down
 
 Automated verification on 2026-08-13 passed Docker lint and type-check; the complete Vitest suite including variable encryption, manual/pool lifecycle, Auto replay, and Guided variable substitution; and the Phase 1 recording, Phase 2 guided Run, Phase 3 Auto Run, and Phase 4 variable browser flows. The owner must still answer the exactly ten Phase 4 questions in `learning-log.md` before the phase is considered fully understood.
 
+The 2026-08-14 Test Data reuse-policy adjustment passed Docker lint and type-check, Test Data API lifecycle/concurrency coverage, and the Phase 4 browser flow for reusable and single-use data. The owner must still answer the Phase 4 learning questions before the phase is considered fully understood.
+
 ### Deferred follow-up
 
 - Add non-blocking variable-name suggestions for likely email, ID, and order-number fields only after the recorder can reliably capture a settled field value without generating one recorded step per keystroke. Testers enter variable names manually until then.
