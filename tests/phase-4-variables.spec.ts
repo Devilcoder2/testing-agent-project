@@ -55,6 +55,7 @@ test("creates masked Test Data and binds it to a checkpointed Auto Run", async (
     await page.getByRole("button", { name: "New Test Data" }).click();
     const dialog = page.getByRole("dialog", { name: "Create Test Data Set" });
     await dialog.getByLabel("Data Set name").fill("Customer pool");
+    await dialog.getByLabel("Reuse policy").selectOption("SINGLE_USE");
     await dialog.getByLabel("Fields").fill("customer_email=customer.pool@example.test");
     await dialog.getByRole("button", { name: "Create Test Data" }).click();
     await expect(page.getByText("Customer pool", { exact: true })).toBeVisible();
@@ -77,7 +78,55 @@ test("creates masked Test Data and binds it to a checkpointed Auto Run", async (
     await expect.poll(async () => (await prisma.testDataSet.findFirst({ where: { productId: created.productId, name: "Customer pool" } }))?.status).toBe("CONSUMED");
     await page.goto(`${baseUrl}/test-data`);
     await page.locator(".inventory-toolbar").getByLabel("Product").selectOption(created.productId);
+    await expect(page.locator(".run-list__item").filter({ hasText: "Customer pool" })).toContainText("single-use");
     await expect(page.locator(".run-list__item").filter({ hasText: "Customer pool" })).toContainText("consumed");
+  } finally {
+    await cleanup(created.productId);
+  }
+});
+
+test("reuses a reusable Test Data Set after a passed Auto Run", async ({ page }) => {
+  const name = `Reusable variable binding ${Date.now()}`;
+  const created = await createVariableTestCase(name);
+  try {
+    await page.goto(baseUrl);
+    await page.getByLabel("Email").fill("ava.tester@example.test");
+    await page.getByLabel("Password").fill("sentinel-dev");
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await page.getByRole("link", { name: "Test Data" }).click();
+    await page.locator(".inventory-toolbar").getByLabel("Product").selectOption(created.productId);
+    await page.getByRole("button", { name: "New Test Data" }).click();
+    const dialog = page.getByRole("dialog", { name: "Create Test Data Set" });
+    await expect(dialog.getByLabel("Reuse policy")).toHaveValue("REUSABLE");
+    await dialog.getByLabel("Data Set name").fill("Reusable customer pool");
+    await dialog.getByLabel("Fields").fill("customer_email=customer.reusable@example.test");
+    await dialog.getByRole("button", { name: "Create Test Data" }).click();
+    await expect(page.locator(".run-list__item").filter({ hasText: "Reusable customer pool" })).toContainText("reusable");
+    await expect(page.locator("body")).not.toContainText("customer.reusable@example.test");
+
+    await page.getByRole("link", { name: "Test Cases" }).click();
+    await page.locator(".test-list__item").filter({ hasText: name }).getByRole("link", { name: "Open" }).click();
+    await page.getByRole("button", { name: "Auto Run" }).click();
+    let bindingDialog = page.getByRole("dialog", { name: "Choose variable values" });
+    await bindingDialog.getByLabel("customer_email").selectOption("POOL");
+    await bindingDialog.getByLabel("Test Data Set for customer_email").selectOption({ label: "Reusable customer pool" });
+    await bindingDialog.getByRole("button", { name: "Queue Auto Run" }).click();
+    await expect(page.getByText("Checkpoint ready:", { exact: false })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByText("passed", { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect.poll(async () => (await prisma.testDataSet.findFirst({ where: { productId: created.productId, name: "Reusable customer pool" } }))?.status).toBe("SAFE");
+
+    await page.goto(`${baseUrl}/test-cases/${created.testCaseId}`);
+    await page.getByRole("button", { name: "Auto Run" }).click();
+    bindingDialog = page.getByRole("dialog", { name: "Choose variable values" });
+    await bindingDialog.getByLabel("customer_email").selectOption("POOL");
+    await expect(bindingDialog.getByLabel("Test Data Set for customer_email")).toContainText("Reusable customer pool");
+    await bindingDialog.getByLabel("Test Data Set for customer_email").selectOption({ label: "Reusable customer pool" });
+    await bindingDialog.getByRole("button", { name: "Queue Auto Run" }).click();
+    await expect(page.getByText("Checkpoint ready:", { exact: false })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect.poll(async () => (await prisma.testDataSet.findFirst({ where: { productId: created.productId, name: "Reusable customer pool" } }))?.status).toBe("SAFE");
   } finally {
     await cleanup(created.productId);
   }
