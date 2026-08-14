@@ -76,4 +76,4 @@ Phase 1 must confirm:
 - Identity provider and named identity mapping for shared login.
 - JIRA project configuration, email provider, and optional Slack provider.
 - Observability platform and production alert thresholds.
-- Production key management, rotation, and an external reusable-test-data adapter. Phase 4 deliberately uses a local PostgreSQL pool and local lifecycle checks only.
+- Production key management, rotation, and an external reusable-test-data adapter. Phase 4 deliberately uses a local PostgreSQL pool and local lifecycle checks only; reusable and single-use policies control only Sentinel's local reservation state, not cleanup in the target application.
