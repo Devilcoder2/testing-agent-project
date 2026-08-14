@@ -238,10 +238,10 @@ Automated verification on 2026-08-11 covered the six-file, 19-test Vitest suite;
 ### In scope
 
 - Canonical shared variable names, encrypted static defaults, encrypted per-Run bindings, and placeholders in recorded/saved steps.
-- A Docker-local, product-scoped Test Data Set pool with encrypted keyed fields and `SAFE`, `RESERVED`, `CONSUMED`, and `INVALID` lifecycle states.
+- A Docker-local, product-scoped Test Data Set pool with encrypted keyed fields, `REUSABLE` (default) and `SINGLE_USE` policies, and `SAFE`, `RESERVED`, `CONSUMED`, and `INVALID` lifecycle states.
 - Product-member Test Data management, invalidation, replacement, audit events, and masked list/detail responses.
 - A Test Case variable-configuration section and a pre-run binding form for both Guided and Auto Runs.
-- Atomic local-pool field-completeness, authorization, and reservation checks. Passed Runs consume selected data; all non-passing outcomes release it.
+- Atomic local-pool field-completeness, authorization, and reservation checks. Reusable data releases after every terminal outcome; single-use data is consumed only after Passed and otherwise releases.
 - Guided and Auto substitution from server/worker-only encrypted bindings. Auto retries reuse the original binding.
 - A safe migration of existing variable-marked steps and rejection of secret-like variable values. Existing server-only password handling remains separate.
 
@@ -255,7 +255,7 @@ Automated verification on 2026-08-11 covered the six-file, 19-test Vitest suite;
 - [x] Static, pool, and manual sources work for both Guided and Auto Runs; repeated variable names resolve to one shared value.
 - [x] Product members can create, replace, list, and invalidate local Test Data Sets without reading persisted raw values.
 - [x] Run creation atomically reserves only an eligible safe data set that provides all required fields.
-- [x] Passed Runs consume data; failed, interrupted, cancelled, and rejected Runs release it; consumed and invalid data cannot be reset.
+- [x] A selected data set is reserved exclusively while its Run is active. Reusable data returns to safe after every terminal outcome; single-use data is consumed only after Passed and otherwise returns to safe. Existing consumed data migrates to safe reusable data.
 - [x] Auto retries and refresh recovery reuse the same encrypted Run binding.
 - [x] Secret-like values are rejected and password replay remains server-only.
 - [x] Unauthorized users cannot manage another Product’s data or inspect its bindings.
