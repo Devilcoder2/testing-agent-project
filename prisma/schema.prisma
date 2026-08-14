@@ -85,6 +85,11 @@ enum TestDataStatus {
   INVALID
 }
 
+enum TestDataReusePolicy {
+  REUSABLE
+  SINGLE_USE
+}
+
 enum VariableSource {
   STATIC
   POOL
@@ -248,6 +253,7 @@ model TestDataSet {
   fieldNames      String[]
   encryptedFields String
   status          TestDataStatus  @default(SAFE)
+  reusePolicy     TestDataReusePolicy @default(REUSABLE)
   reservedByRunId String?
   product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   reservedByRun   Run?            @relation("ReservedDataSet", fields: [reservedByRunId], references: [id], onDelete: SetNull)
