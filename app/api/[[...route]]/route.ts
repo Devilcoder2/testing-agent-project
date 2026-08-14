@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Prisma, RecordingStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataStatus, VariableSource } from "@prisma/client";
+import { Prisma, RecordingStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
@@ -69,9 +69,22 @@ function publicVariable(variable: { name: string; staticValueEncrypted: string |
 }
 
 async function updateReservedDataSet(runId: string, outcome: RunOutcome) {
+  if (outcome === RunOutcome.PASSED) {
+    await prisma.$transaction([
+      prisma.testDataSet.updateMany({
+        where: { reservedByRunId: runId, status: TestDataStatus.RESERVED, reusePolicy: TestDataReusePolicy.REUSABLE },
+        data: { status: TestDataStatus.SAFE, reservedByRunId: null }
+      }),
+      prisma.testDataSet.updateMany({
+        where: { reservedByRunId: runId, status: TestDataStatus.RESERVED, reusePolicy: TestDataReusePolicy.SINGLE_USE },
+        data: { status: TestDataStatus.CONSUMED, reservedByRunId: null }
+      })
+    ]);
+    return;
+  }
   await prisma.testDataSet.updateMany({
     where: { reservedByRunId: runId, status: TestDataStatus.RESERVED },
-    data: { status: outcome === RunOutcome.PASSED ? TestDataStatus.CONSUMED : TestDataStatus.SAFE, reservedByRunId: null }
+    data: { status: TestDataStatus.SAFE, reservedByRunId: null }
   });
 }
 
@@ -258,11 +271,13 @@ async function route(request: Request, context: Context) {
     if (path[0] === "products" && path[1] && path[2] === "test-data") {
       await assertProductMember(user.id, path[1]);
       if (request.method === "GET") {
-        const dataSets = await prisma.testDataSet.findMany({ where: { productId: path[1] }, select: { id: true, name: true, fieldNames: true, status: true, createdAt: true, updatedAt: true }, orderBy: { createdAt: "desc" } });
+        const dataSets = await prisma.testDataSet.findMany({ where: { productId: path[1] }, select: { id: true, name: true, fieldNames: true, status: true, reusePolicy: true, createdAt: true, updatedAt: true }, orderBy: { createdAt: "desc" } });
         return json(dataSets);
       }
       if (request.method === "POST" && !path[3]) {
         const name = typeof body.name === "string" ? body.name.trim() : "";
+        const reusePolicy = body.reusePolicy === undefined ? TestDataReusePolicy.REUSABLE : body.reusePolicy === TestDataReusePolicy.REUSABLE || body.reusePolicy === TestDataReusePolicy.SINGLE_USE ? body.reusePolicy : null;
+        if (!reusePolicy) return json({ error: "Choose whether this Test Data Set is reusable or single-use." }, 400);
         const rawFields = body.fields && typeof body.fields === "object" && !Array.isArray(body.fields) ? body.fields as Record<string, unknown> : {};
         const fields: Record<string, string> = {};
         for (const [rawName, rawValue] of Object.entries(rawFields)) {
@@ -273,8 +288,8 @@ async function route(request: Request, context: Context) {
         }
         if (!name || Object.keys(fields).length === 0) return json({ error: "A Test Data Set needs a name and at least one field." }, 400);
         try {
-          const created = await prisma.testDataSet.create({ data: { productId: path[1], name, fieldNames: Object.keys(fields).sort(), encryptedFields: encryptVariableValue(JSON.stringify(fields)) }, select: { id: true, name: true, fieldNames: true, status: true, createdAt: true } });
-          await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_CREATED", entityType: "TestDataSet", entityId: created.id, details: { productId: path[1], fieldNames: created.fieldNames } } });
+          const created = await prisma.testDataSet.create({ data: { productId: path[1], name, fieldNames: Object.keys(fields).sort(), encryptedFields: encryptVariableValue(JSON.stringify(fields)), reusePolicy }, select: { id: true, name: true, fieldNames: true, status: true, reusePolicy: true, createdAt: true } });
+          await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_CREATED", entityType: "TestDataSet", entityId: created.id, details: { productId: path[1], fieldNames: created.fieldNames, reusePolicy } } });
           return json(created, 201);
         } catch (error) {
           if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return json({ error: "A Test Data Set with this name already exists for this Product." }, 409);
@@ -285,7 +300,7 @@ async function route(request: Request, context: Context) {
         const dataSet = await prisma.testDataSet.findFirst({ where: { id: path[3], productId: path[1] } });
         if (!dataSet) return json({ error: "Test Data Set not found." }, 404);
         if (dataSet.status !== TestDataStatus.SAFE) return json({ error: "Only safe Test Data Sets can be invalidated. Create a replacement instead." }, 409);
-        const invalidated = await prisma.testDataSet.update({ where: { id: dataSet.id }, data: { status: TestDataStatus.INVALID }, select: { id: true, name: true, fieldNames: true, status: true } });
+        const invalidated = await prisma.testDataSet.update({ where: { id: dataSet.id }, data: { status: TestDataStatus.INVALID }, select: { id: true, name: true, fieldNames: true, status: true, reusePolicy: true } });
         await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_INVALIDATED", entityType: "TestDataSet", entityId: dataSet.id } });
         return json(invalidated);
       }
