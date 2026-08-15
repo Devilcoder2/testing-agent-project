@@ -87,5 +87,22 @@ describe("Phase 5 versioning and Release API", () => {
     expect(payload.runs[0]?.items).toHaveLength(2);
     expect(payload.runs[0]?.items.every((item) => item.status === "EXCLUDED" && item.exclusionReason === "CHECKPOINT_REQUIRES_INDIVIDUAL_RUN")).toBe(true);
     expect(payload.runs[0]?.items.find((item) => item.testCaseVersion.version === 2)).toBeTruthy();
+
+    const eligible = await createTestCase(firstProduct.id, `Release eligible ${suffix}`, false);
+    const eligibleReleaseResponse = await request(ava, "releases", "POST", { name: `Eligible Release ${suffix}`, testCaseIds: [eligible.id] });
+    expect(eligibleReleaseResponse.status).toBe(201);
+    const eligibleRelease = await eligibleReleaseResponse.json() as { id: string };
+    releaseIds.push(eligibleRelease.id);
+    const eligibleStart = await request(ava, `releases/${eligibleRelease.id}/runs`, "POST");
+    expect(eligibleStart.status).toBe(201);
+    const eligibleRunId = (await eligibleStart.json() as { releaseRunId: string }).releaseRunId;
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const releaseRun = await prisma.releaseRun.findUnique({ where: { id: eligibleRunId }, include: { items: { include: { run: true } } } });
+      if (releaseRun?.readiness === "READY") break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    const completed = await prisma.releaseRun.findUniqueOrThrow({ where: { id: eligibleRunId }, include: { items: { include: { run: true } } } });
+    expect(completed.readiness).toBe("READY");
+    expect(completed.items[0]).toMatchObject({ status: "PASSED", run: { mode: "AUTO", outcome: "PASSED" } });
   }, 20_000);
 });
