@@ -55,6 +55,8 @@ Playwright is the autonomous replay boundary for Chromium-based web testing. Eac
 
 Phase 4 adds a server/worker-only variable boundary. AES-256-GCM encrypts reusable static values, local Test Data Set fields, and immutable per-Run bindings using a required deployment key. Recorded and saved steps contain placeholders, not variable values. A pre-run transaction validates product membership and local pool eligibility, creates encrypted bindings, reserves any selected pool data set, and then creates the Guided or Auto Run. Every set has an explicit reuse policy: reusable sets return to safe after any terminal Run outcome, while single-use sets become consumed only after a passed Run. The reservation remains exclusive while a Run is active, preventing concurrent use of the same values. Guided replay and the worker decrypt only the binding required to perform a text action. Evidence, audit text, API detail responses, queues, and browser logs receive only variable names, source metadata, and masked placeholders. Existing consumed sets are migrated to safe reusable sets. External pool adapters and read-only QA-database verification remain Phase 10 work.
 
+Phase 5 adds feature-label and Release aggregates to the same modular monolith. A product-local feature-label record is joined to a Test Case, while a Test Case edit transaction clones the current version's ordered steps and variable configuration into the next immutable version. Existing versions and Runs are never altered. A Release owns a set of Test Case tags and a Release Run snapshots their exact current version IDs before submitting eligible items to the existing Auto Run queue. Each Release Run item keeps its own status, exclusion reason, and linked Auto Run. A shared completion helper projects linked Run terminal outcomes into the Release Run and derives readiness; it does not alter an individual Run's existing evidence, attempt, retry, or authorization boundary.
+
 For Phases 1–2, Sentinel hosts one local Chromium session in Docker and exposes its noVNC viewer inside a focused workspace. The embedded viewer hides noVNC's own clipboard, settings, fullscreen, and connection controls so it acts only as the remote display and input surface. Chromium runs in kiosk app mode, and managed browser policies block every URL except the allowlisted demo target and the exact internal recorder-event endpoint. Kiosk app mode removes the browser chrome and the host does not expose the WebDriver port. Developer Tools policy cannot be disabled in this Selenium design because ChromeDriver requires the same browser debugging protocol; URL policy remains the enforced navigation boundary. Before a new launch, Sentinel closes the browser it knows about and reclaims any Selenium session occupying the single slot, including a session that outlived a Sentinel restart. Each startup operation is time-bounded; a failed launch returns a retryable error rather than holding the workspace in a disabled state. The local Selenium node allows a guided session to remain idle for 30 minutes because noVNC input does not itself reset Selenium's idle timer. This replacement behavior is global to Phase 2: a browser-backed recording and a browser-backed Run cannot coexist. The Sentinel server attaches to that session through WebDriver, injects the Phase 1 recorder when teaching, and injects Phase 2 in-page fetch and warning/error-console instrumentation when guiding a Run. Password values are redacted before they leave the browser page.
 
 ### Evidence capture
@@ -79,12 +81,18 @@ erDiagram
     TEST_VERSION ||--o{ STEP : contains
     TEST_CASE ||--o{ RUN : executes
     TEST_VERSION ||--o{ TEST_VARIABLE : configures
+    PRODUCT ||--o{ FEATURE_LABEL : defines
+    TEST_CASE ||--o{ TEST_CASE_FEATURE_LABEL : organizes
+    FEATURE_LABEL ||--o{ TEST_CASE_FEATURE_LABEL : applies
     PRODUCT ||--o{ TEST_DATA_SET : owns
     RUN ||--o{ STEP_RESULT : records
     RUN ||--o{ RUN_VARIABLE_BINDING : resolves
     RUN ||--o| EVIDENCE_BUNDLE : produces
     RELEASE ||--o{ RELEASE_TEST : includes
     TEST_CASE ||--o{ RELEASE_TEST : tagged
+    RELEASE ||--o{ RELEASE_RUN : batches
+    RELEASE_RUN ||--o{ RELEASE_RUN_ITEM : snapshots
+    RUN ||--o| RELEASE_RUN_ITEM : executes
     TEST_CASE ||--o{ CHANGE_PROPOSAL : receives
     USER ||--o{ CHANGE_PROPOSAL : approves
 ```
@@ -94,6 +102,9 @@ Important invariants:
 - A Test Case has exactly one current owner and one product.
 - A saved Test Case references an immutable version; edits create a new version or proposal rather than mutating historical Runs.
 - A Run points to the exact Test Case version used.
+- A Test Case version and its ordered step kinds are immutable after save; an edit creates the next version in one transaction.
+- A Release Run snapshots versions at batch start, so later Release tag edits cannot change an already-started batch.
+- Release readiness is derived from every persisted item; a checkpoint, missing static variable default, or other ineligible item is visible as excluded rather than skipped.
 - Evidence belongs to one Run and is access-controlled through the Run’s Test Case and product.
 - An approval is tied to the owner identity at the time of the decision and is auditable.
 
