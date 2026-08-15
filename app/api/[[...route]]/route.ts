@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Prisma, RecordingStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, VariableSource } from "@prisma/client";
+import { Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
@@ -8,6 +8,7 @@ import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/l
 import { prisma } from "@/lib/prisma";
 import { enqueueAutoRun } from "@/lib/queue";
 import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, variablePlaceholder } from "@/lib/variables";
+import { markReleaseRunItemQueueFailure, refreshReleaseRun, syncReleaseRunItemForRun } from "@/lib/releases";
 
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
@@ -56,6 +57,13 @@ async function requireUser() {
 async function assertProductMember(userId: string, productId: string) {
   const membership = await prisma.productMembership.findUnique({ where: { userId_productId: { userId, productId } } });
   if (!membership) throw new Error("FORBIDDEN");
+}
+
+async function assertReleaseMember(userId: string, releaseId: string) {
+  const release = await prisma.release.findUnique({ where: { id: releaseId }, include: { tests: { include: { testCase: { select: { productId: true } } } } } });
+  if (!release) return null;
+  for (const item of release.tests) await assertProductMember(userId, item.testCase.productId);
+  return release;
 }
 
 type RunBindingInput = { source?: unknown; dataSetId?: unknown; value?: unknown };
@@ -152,6 +160,36 @@ function allowedTarget(url: string) {
   return url === (process.env.DEMO_TARGET_URL ?? "http://demo-target");
 }
 
+function featureLabelNames(value: unknown) {
+  if (!Array.isArray(value) || value.length > 20) throw new Error("FEATURE_LABELS_INVALID");
+  const names = value.map((item) => typeof item === "string" ? item.trim().replace(/\s+/g, " ") : "");
+  if (names.some((name) => !name || name.length > 64)) throw new Error("FEATURE_LABELS_INVALID");
+  const deduplicated = [...new Set(names.map((name) => name.toLocaleLowerCase()))];
+  if (deduplicated.length !== names.length) throw new Error("FEATURE_LABELS_INVALID");
+  return names;
+}
+
+function safeTargetMetadata(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("STEP_TARGET_INVALID");
+  const target = value as Record<string, unknown>;
+  const supportedKeys = new Set(["url", "title", "tag", "testId", "name", "label", "role", "text", "type", "placeholder"]);
+  if (Object.keys(target).some((key) => !supportedKeys.has(key) || typeof target[key] !== "string" || (target[key] as string).length > 512)) throw new Error("STEP_TARGET_INVALID");
+  if (typeof target.url === "string") {
+    try {
+      if (new URL(target.url).origin !== new URL(process.env.DEMO_TARGET_URL ?? "http://demo-target").origin) throw new Error("STEP_TARGET_INVALID");
+    } catch {
+      throw new Error("STEP_TARGET_INVALID");
+    }
+  }
+  return target as Prisma.InputJsonValue;
+}
+
+function optionalSafeText(value: unknown, code: string) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string" || value.length > 4_000) throw new Error(code);
+  return value.trim() || null;
+}
+
 async function route(request: Request, context: Context) {
   const path = (await context.params).route ?? [];
   const body = request.method === "GET" ? {} : await request.json().catch(() => ({}));
@@ -233,7 +271,7 @@ async function route(request: Request, context: Context) {
     if (request.method === "GET" && path.join("/") === "test-cases") {
       const testCases = await prisma.testCase.findMany({
         where: { product: { memberships: { some: { userId: user.id } } } },
-        include: { product: true, owner: { select: { displayName: true } } },
+        include: { product: true, owner: { select: { displayName: true } }, featureLabels: { include: { featureLabel: true }, orderBy: { featureLabel: { name: "asc" } } } },
         orderBy: { updatedAt: "desc" }
       });
       return json(testCases);
@@ -241,11 +279,15 @@ async function route(request: Request, context: Context) {
     if (request.method === "GET" && path[0] === "test-cases" && path[1] && path.length === 2) {
       const testCase = await prisma.testCase.findUnique({
         where: { id: path[1] },
-        include: { product: true, owner: { select: { displayName: true } }, versions: { include: { steps: { orderBy: { order: "asc" } }, variables: true }, orderBy: { version: "desc" } } }
+        include: { product: true, owner: { select: { displayName: true } }, featureLabels: { include: { featureLabel: true }, orderBy: { featureLabel: { name: "asc" } } }, versions: { include: { steps: { orderBy: { order: "asc" } }, variables: true, runs: { select: { id: true, mode: true, outcome: true, createdAt: true } } }, orderBy: { version: "desc" } } }
       });
       if (!testCase) return json({ error: "Test Case not found." }, 404);
       await assertProductMember(user.id, testCase.productId);
       return json({ ...testCase, versions: testCase.versions.map((version) => ({ ...version, variables: version.variables.map(publicVariable) })) });
+    }
+    if (request.method === "GET" && path[0] === "products" && path[1] && path[2] === "feature-labels") {
+      await assertProductMember(user.id, path[1]);
+      return json(await prisma.featureLabel.findMany({ where: { productId: path[1] }, orderBy: { name: "asc" } }));
     }
     if (request.method === "GET" && path[0] === "test-cases" && path[1] && path[2] === "variables") {
       const testCase = await prisma.testCase.findUnique({ where: { id: path[1] }, include: { versions: { include: { variables: true, steps: true } } } });
@@ -267,6 +309,111 @@ async function route(request: Request, context: Context) {
       const variable = await prisma.testVariable.update({ where: { testCaseVersionId_name: { testCaseVersionId: version.id, name } }, data: { staticValueEncrypted: encryptVariableValue(body.value) } });
       await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_VARIABLE_STATIC_VALUE_SET", entityType: "TestCase", entityId: testCase.id, details: { variable: name } } });
       return json(publicVariable(variable));
+    }
+    if (request.method === "POST" && path[0] === "test-cases" && path[1] && path[2] === "versions") {
+      const testCase = await prisma.testCase.findUnique({
+        where: { id: path[1] },
+        include: {
+          featureLabels: { include: { featureLabel: true } },
+          versions: { include: { steps: { orderBy: { order: "asc" } }, variables: true } }
+        }
+      });
+      if (!testCase) return json({ error: "Test Case not found." }, 404);
+      await assertProductMember(user.id, testCase.productId);
+      const current = testCase.versions.find((version) => version.version === testCase.currentVersion);
+      if (!current) return json({ error: "Current Test Case version not found." }, 409);
+      if (!Array.isArray(body.steps) || body.steps.length !== current.steps.length) return json({ error: "Every saved step must remain present when creating a new version." }, 400);
+      const submitted = new Map<string, Record<string, unknown>>();
+      for (const entry of body.steps) {
+        if (!entry || typeof entry !== "object" || typeof (entry as { id?: unknown }).id !== "string") return json({ error: "Each edited step must identify its saved source step." }, 400);
+        const id = (entry as { id: string }).id;
+        if (submitted.has(id)) return json({ error: "A saved step can be edited only once." }, 400);
+        submitted.set(id, entry as Record<string, unknown>);
+      }
+      if (current.steps.some((step) => !submitted.has(step.id))) return json({ error: "Every saved step must remain present when creating a new version." }, 400);
+      const previousVariables = new Map(current.variables.map((variable) => [variable.name, variable]));
+      const nextVariables = new Map<string, string>();
+      const suppliedVariableValues = new Map<string, string>();
+      const stepData: Array<{ order: number; kind: StepKind; timestamp: Date; target: Prisma.InputJsonValue; value: string | null; isRedacted: boolean; description: string | null; expectedOutcome: string | null; variableName: string | null; isCheckpoint: boolean }> = [];
+      try {
+        for (const source of current.steps) {
+          const edit = submitted.get(source.id)!;
+          const target = Object.prototype.hasOwnProperty.call(edit, "target") ? safeTargetMetadata(edit.target) : source.target as Prisma.InputJsonValue;
+          const description = Object.prototype.hasOwnProperty.call(edit, "description") ? optionalSafeText(edit.description, "STEP_DESCRIPTION_INVALID") : source.description;
+          const expectedOutcome = Object.prototype.hasOwnProperty.call(edit, "expectedOutcome") ? optionalSafeText(edit.expectedOutcome, "STEP_EXPECTED_OUTCOME_INVALID") : source.expectedOutcome;
+          const isCheckpoint = Object.prototype.hasOwnProperty.call(edit, "isCheckpoint") ? edit.isCheckpoint : source.isCheckpoint;
+          if (typeof isCheckpoint !== "boolean") throw new Error("STEP_CHECKPOINT_INVALID");
+          if (source.isRedacted) {
+            if (edit.variableName || edit.value) throw new Error("VARIABLE_STEP_UNSUPPORTED");
+            stepData.push({ order: source.order, kind: source.kind, timestamp: source.timestamp, target, value: source.value, isRedacted: true, description, expectedOutcome, variableName: null, isCheckpoint });
+            continue;
+          }
+          const variableInput = Object.prototype.hasOwnProperty.call(edit, "variableName") ? edit.variableName : source.variableName;
+          const variableName = variableInput === null || variableInput === "" ? null : canonicalVariableName(variableInput);
+          const inputValue = Object.prototype.hasOwnProperty.call(edit, "value") ? edit.value : undefined;
+          if (variableName) {
+            if (source.kind !== StepKind.TEXT_ENTRY) throw new Error("VARIABLE_STEP_UNSUPPORTED");
+            const suppliedValue = typeof inputValue === "string" && inputValue && inputValue !== variablePlaceholder(variableName) ? inputValue : null;
+            if (suppliedValue && isSecretLikeVariable(variableName, suppliedValue)) throw new Error("VARIABLE_SECRET_REJECTED");
+            const existing = source.variableName === variableName ? previousVariables.get(variableName)?.staticValueEncrypted : null;
+            const encrypted = suppliedValue ? encryptVariableValue(suppliedValue) : existing;
+            if (!encrypted) throw new Error("VARIABLE_STATIC_VALUE_REQUIRED");
+            const prior = nextVariables.get(variableName);
+            const priorValue = suppliedVariableValues.get(variableName);
+            if (priorValue && suppliedValue && priorValue !== suppliedValue) throw new Error("VARIABLE_VALUE_CONFLICT");
+            if (suppliedValue) suppliedVariableValues.set(variableName, suppliedValue);
+            nextVariables.set(variableName, prior ?? encrypted);
+            stepData.push({ order: source.order, kind: source.kind, timestamp: source.timestamp, target, value: variablePlaceholder(variableName), isRedacted: false, description, expectedOutcome, variableName, isCheckpoint });
+            continue;
+          }
+          const value = inputValue === undefined ? source.value : optionalSafeText(inputValue, "STEP_VALUE_INVALID");
+          if (source.variableName && (!value || value === variablePlaceholder(source.variableName))) throw new Error("STEP_VALUE_REQUIRED");
+          if (typeof value === "string" && isSecretLikeVariable("value", value)) throw new Error("VARIABLE_SECRET_REJECTED");
+          stepData.push({ order: source.order, kind: source.kind, timestamp: source.timestamp, target, value, isRedacted: false, description, expectedOutcome, variableName: null, isCheckpoint });
+        }
+      } catch (error) {
+        const code = error instanceof Error ? error.message : "STEP_UPDATE_INVALID";
+        const messages: Record<string, string> = {
+          FEATURE_LABELS_INVALID: "Feature labels must be unique names of up to 64 characters.",
+          STEP_TARGET_INVALID: "Step target metadata must use the supported Demo CRM fields and URLs.",
+          STEP_DESCRIPTION_INVALID: "Step descriptions must be short text.",
+          STEP_EXPECTED_OUTCOME_INVALID: "Expected outcomes must be short text.",
+          STEP_CHECKPOINT_INVALID: "Checkpoint must be true or false.",
+          VARIABLE_STEP_UNSUPPORTED: "Only non-secret text-entry steps can be marked as variables.",
+          VARIABLE_NAME_INVALID: "Variable names must use lower-case letters, numbers, and underscores.",
+          VARIABLE_SECRET_REJECTED: "Passwords, tokens, and other secret-like values cannot be saved.",
+          VARIABLE_STATIC_VALUE_REQUIRED: "A newly marked variable needs a safe static default value.",
+          VARIABLE_VALUE_CONFLICT: "Matching variable names must use one shared value.",
+          STEP_VALUE_REQUIRED: "Removing a variable marker requires a replacement non-secret value.",
+          STEP_VALUE_INVALID: "Step values must be short text."
+        };
+        return json({ error: messages[code] ?? "The saved Test Case edit is invalid." }, 400);
+      }
+      let labels: string[];
+      try {
+        labels = body.featureLabels === undefined ? testCase.featureLabels.map((item) => item.featureLabel.name) : featureLabelNames(body.featureLabels);
+      } catch {
+        return json({ error: "Feature labels must be unique names of up to 64 characters." }, 400);
+      }
+      const created = await prisma.$transaction(async (tx) => {
+        const version = await tx.testCaseVersion.create({
+          data: {
+            testCaseId: testCase.id,
+            version: current.version + 1,
+            steps: { create: stepData },
+            variables: { create: [...nextVariables].map(([name, staticValueEncrypted]) => ({ name, staticValueEncrypted })) }
+          }
+        });
+        const labelIds: string[] = [];
+        for (const name of labels) {
+          const label = await tx.featureLabel.upsert({ where: { productId_name: { productId: testCase.productId, name } }, create: { productId: testCase.productId, name }, update: {} });
+          labelIds.push(label.id);
+        }
+        await tx.testCase.update({ where: { id: testCase.id }, data: { currentVersion: version.version, featureLabels: { deleteMany: {}, create: labelIds.map((featureLabelId) => ({ featureLabelId })) } } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_CASE_VERSION_CREATED", entityType: "TestCase", entityId: testCase.id, details: { version: version.version, labels } } });
+        return version;
+      });
+      return json({ version: created }, 201);
     }
     if (path[0] === "products" && path[1] && path[2] === "test-data") {
       await assertProductMember(user.id, path[1]);
@@ -304,6 +451,135 @@ async function route(request: Request, context: Context) {
         await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_INVALIDATED", entityType: "TestDataSet", entityId: dataSet.id } });
         return json(invalidated);
       }
+    }
+    if (request.method === "GET" && path.join("/") === "releases") {
+      const releases = await prisma.release.findMany({
+        include: {
+          owner: { select: { displayName: true } },
+          tests: { include: { testCase: { include: { product: true } } } },
+          runs: { select: { id: true, status: true, readiness: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 }
+        },
+        orderBy: { updatedAt: "desc" }
+      });
+      const permitted = [];
+      for (const release of releases) {
+        try {
+          for (const item of release.tests) await assertProductMember(user.id, item.testCase.productId);
+          permitted.push(release);
+        } catch {
+          // Releases are invisible unless the caller belongs to every included Product.
+        }
+      }
+      return json(permitted);
+    }
+    if (request.method === "POST" && path.join("/") === "releases") {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      const testCaseIds = Array.isArray(body.testCaseIds) && (body.testCaseIds as unknown[]).every((id: unknown) => typeof id === "string") ? body.testCaseIds as string[] : [];
+      if (!name || name.length > 120 || testCaseIds.length === 0) return json({ error: "A Release needs a name and at least one Test Case." }, 400);
+      if (new Set(testCaseIds).size !== testCaseIds.length) return json({ error: "A Test Case can be tagged only once in a Release." }, 400);
+      const testCases = await prisma.testCase.findMany({ where: { id: { in: testCaseIds } }, select: { id: true, productId: true } });
+      if (testCases.length !== testCaseIds.length) return json({ error: "One or more selected Test Cases no longer exist." }, 404);
+      for (const testCase of testCases) await assertProductMember(user.id, testCase.productId);
+      const release = await prisma.release.create({ data: { name, ownerId: user.id, tests: { create: testCaseIds.map((testCaseId) => ({ testCaseId })) } }, include: { tests: true } });
+      await prisma.auditEvent.create({ data: { actorId: user.id, action: "RELEASE_CREATED", entityType: "Release", entityId: release.id, details: { testCaseCount: release.tests.length } } });
+      return json(release, 201);
+    }
+    if (request.method === "GET" && path[0] === "releases" && path[1] && path.length === 2) {
+      const basic = await assertReleaseMember(user.id, path[1]);
+      if (!basic) return json({ error: "Release not found." }, 404);
+      const release = await prisma.release.findUniqueOrThrow({
+        where: { id: basic.id },
+        include: {
+          owner: { select: { displayName: true } },
+          tests: { include: { testCase: { include: { product: true, featureLabels: { include: { featureLabel: true } } } } }, orderBy: { createdAt: "asc" } },
+          runs: { include: { items: { include: { testCase: { select: { id: true, name: true } }, testCaseVersion: { select: { version: true } }, product: { select: { id: true, name: true } }, run: { select: { id: true, status: true, outcome: true, failureReason: true } } }, orderBy: { createdAt: "asc" } }, initiatedBy: { select: { displayName: true } } }, orderBy: { createdAt: "desc" } }
+        }
+      });
+      return json(release);
+    }
+    if (request.method === "PATCH" && path[0] === "releases" && path[1] && path[2] === "tests") {
+      const release = await assertReleaseMember(user.id, path[1]);
+      if (!release) return json({ error: "Release not found." }, 404);
+      const testCaseIds = Array.isArray(body.testCaseIds) && (body.testCaseIds as unknown[]).every((id: unknown) => typeof id === "string") ? body.testCaseIds as string[] : [];
+      if (testCaseIds.length === 0) return json({ error: "A Release must keep at least one Test Case." }, 400);
+      if (new Set(testCaseIds).size !== testCaseIds.length) return json({ error: "A Test Case can be tagged only once in a Release." }, 400);
+      const testCases = await prisma.testCase.findMany({ where: { id: { in: testCaseIds } }, select: { id: true, productId: true } });
+      if (testCases.length !== testCaseIds.length) return json({ error: "One or more selected Test Cases no longer exist." }, 404);
+      for (const testCase of testCases) await assertProductMember(user.id, testCase.productId);
+      const updated = await prisma.release.update({ where: { id: release.id }, data: { tests: { deleteMany: {}, create: testCaseIds.map((testCaseId) => ({ testCaseId })) } }, include: { tests: true } });
+      await prisma.auditEvent.create({ data: { actorId: user.id, action: "RELEASE_TESTS_UPDATED", entityType: "Release", entityId: release.id, details: { testCaseCount: updated.tests.length } } });
+      return json(updated);
+    }
+    if (request.method === "POST" && path[0] === "releases" && path[1] && path[2] === "runs") {
+      const accessible = await assertReleaseMember(user.id, path[1]);
+      if (!accessible) return json({ error: "Release not found." }, 404);
+      const created = await prisma.$transaction(async (tx) => {
+        const release = await tx.release.findUniqueOrThrow({
+          where: { id: accessible.id },
+          include: {
+            tests: {
+              include: {
+                testCase: {
+                  include: { recordingSession: true, versions: { include: { steps: { orderBy: { order: "asc" } }, variables: true } } }
+                }
+              }
+            }
+          }
+        });
+        if (!release.tests.length) throw new Error("RELEASE_EMPTY");
+        const releaseRun = await tx.releaseRun.create({ data: { releaseId: release.id, initiatedById: user.id, status: ReleaseRunStatus.RUNNING } });
+        const enqueued: Array<{ runId: string; attemptId: string }> = [];
+        for (const tagged of release.tests) {
+          const testCase = tagged.testCase;
+          const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
+          if (!version || !version.steps.length) throw new Error("RELEASE_TEST_CASE_INVALID");
+          const reason = version.steps.some((step) => step.isCheckpoint)
+            ? ReleaseRunItemReason.CHECKPOINT_REQUIRES_INDIVIDUAL_RUN
+            : version.variables.some((variable) => !variable.staticValueEncrypted)
+              ? ReleaseRunItemReason.VARIABLE_REQUIRES_STATIC_DEFAULT
+              : null;
+          if (reason) {
+            await tx.releaseRunItem.create({ data: { releaseRunId: releaseRun.id, testCaseId: testCase.id, testCaseVersionId: version.id, productId: testCase.productId, status: ReleaseRunItemStatus.EXCLUDED, exclusionReason: reason } });
+            continue;
+          }
+          const run = await tx.run.create({
+            data: {
+              testCaseId: testCase.id,
+              testCaseVersionId: version.id,
+              productId: testCase.productId,
+              initiatedById: user.id,
+              targetUrl: testCase.recordingSession.targetUrl,
+              mode: RunMode.AUTO,
+              activeStepOrder: version.steps[0].order,
+              stepResults: { create: version.steps.map((step) => ({ testStepId: step.id, order: step.order })) },
+              attempts: { create: { attemptNumber: 1 } },
+              variableBindings: { create: version.variables.map((variable) => ({ name: variable.name, source: VariableSource.STATIC, valueEncrypted: variable.staticValueEncrypted!, testVariableId: variable.id })) }
+            },
+            include: { attempts: true }
+          });
+          await tx.releaseRunItem.create({ data: { releaseRunId: releaseRun.id, testCaseId: testCase.id, testCaseVersionId: version.id, productId: testCase.productId, runId: run.id } });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "RELEASE_RUN_ITEM_QUEUED", entityType: "Run", entityId: run.id, details: { releaseRunId: releaseRun.id, testCaseVersion: version.version } } });
+          enqueued.push({ runId: run.id, attemptId: run.attempts[0].id });
+        }
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "RELEASE_RUN_STARTED", entityType: "ReleaseRun", entityId: releaseRun.id, details: { itemCount: release.tests.length } } });
+        return { releaseRun, enqueued };
+      });
+      for (const item of created.enqueued) {
+        try {
+          const jobId = await enqueueAutoRun(item);
+          await prisma.runAttempt.update({ where: { id: item.attemptId }, data: { jobId } });
+        } catch (error) {
+          const completedAt = new Date();
+          await prisma.$transaction([
+            prisma.run.update({ where: { id: item.runId }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.FAILED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, evidenceStatus: "PARTIAL", activeStepOrder: null, completedAt } }),
+            prisma.runAttempt.updateMany({ where: { runId: item.runId }, data: { status: RunAttemptStatus.COMPLETED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, completedAt } })
+          ]);
+          await markReleaseRunItemQueueFailure(item.runId);
+          console.error("Sentinel could not enqueue a Release Run item", error);
+        }
+      }
+      await refreshReleaseRun(created.releaseRun.id);
+      return json({ releaseRunId: created.releaseRun.id }, 201);
     }
     if (request.method === "POST" && path[0] === "test-cases" && path[1] && path[2] === "runs") {
       const testCase = await prisma.testCase.findUnique({
@@ -385,6 +661,7 @@ async function route(request: Request, context: Context) {
           prisma.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_QUEUE_FAILED", entityType: "Run", entityId: created.id } })
         ]);
         await updateReservedDataSet(created.id, RunOutcome.FAILED);
+        await markReleaseRunItemQueueFailure(created.id);
         console.error("Sentinel could not enqueue Auto Run", error);
         return json({ error: "Auto Run could not be queued. Redis is unavailable; try again." }, 503);
       }
@@ -510,6 +787,7 @@ async function route(request: Request, context: Context) {
           return updated;
         });
         await updateReservedDataSet(run.id, RunOutcome.INTERRUPTED);
+        await syncReleaseRunItemForRun(run.id, RunOutcome.INTERRUPTED);
         return json(cancelled);
       }
       const cancelling = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.CANCELLING, cancellingAt: completedAt } });
