@@ -286,12 +286,35 @@ The 2026-08-14 Test Data reuse-policy adjustment passed Docker lint and type-che
 ## Phase 5 — Test Case and release management
 
 **Depends on:** Phase 3  
-**Outcome:** Testers can organize, update, tag, and batch-run Test Cases.
+**Outcome:** Testers can organize Test Cases, save safe edits as immutable versions, and batch-run release-ready Auto Tests.
 
-- Add feature-area organization and Test Case version history.
-- Support partial updates without rewriting unrelated steps.
-- Create releases, tag Test Cases across products, and run release batches.
-- Produce consolidated release-readiness reports and preserve ad hoc execution.
+### Acceptance checklist
+
+- [ ] Product members can add and remove multiple product-local feature labels while editing a Test Case; Test Case inventory filters by label.
+- [ ] `/test-cases/[id]/edit` starts from the current immutable version and may safely update existing descriptions, expected outcomes, checkpoints, variable markers, non-secret values, and allowlisted target metadata without changing step order or kind.
+- [ ] Saving an edit creates Version 2 or later atomically, keeps the Test Case owner unchanged, preserves every prior version and its Runs, updates `currentVersion`, and writes an audit event.
+- [ ] Test Case Detail exposes current and earlier read-only versions plus the version’s Run history.
+- [ ] A product member can create a named Release and manage it only when they belong to every Product represented by its Test Cases; duplicate tags and empty batch starts fail clearly.
+- [ ] A Release Run snapshots the current immutable version of every tagged Test Case at start and retains the snapshot when the Release changes later.
+- [ ] Batch execution creates linked Auto Runs through the existing two-concurrency worker. Checkpointed Test Cases and variables without encrypted static defaults are persisted as excluded items with clear reasons.
+- [ ] Release readiness is `In progress` while work remains, `Ready` only when every item passes, and `Not ready` for a failed, interrupted, or excluded item.
+- [ ] Individual Guided and Auto Runs retain their current APIs and behavior.
+- [ ] Authorization protects labels, versions, Releases, Release Runs, and linked Run/evidence paths across Products.
+
+### Verification
+
+```text
+docker compose up --build -d
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/phase-5-release.spec.ts
+docker compose down
+```
+
+Manual verification: add two labels; save one safe step edit as Version 2; confirm Version 1 and its old Runs remain unchanged; create a cross-product Release as a member of both Products; start a batch; inspect its snapshot, linked Auto Runs, exclusions, and derived readiness; then sign in as a user missing one Product and confirm Release access is rejected.
+
+**Deferred:** schedules, notifications, JIRA, approval workflow, Guided batch execution, manual/pool Test Data batch binding, external targets, and automatic database cleanup remain out of scope.
 
 ## Phase 6 — Dashboard and notifications
 
