@@ -1083,3 +1083,83 @@ Docker validation passed: `docker compose exec sentinel npm run lint`, `docker c
 
 - Owner answers all ten questions and compares the answers with D-027, the migration, the API lifecycle helper, and the worker completion path.
 - Before production, define an approved external test-data provider or cleanup contract rather than assuming local lifecycle state reflects external target state.
+
+---
+
+## Feature: Phase 5 Test Case versioning and Release management
+
+- Date: 2026-08-15
+- Phase: 5
+- Status: Implementation and automated acceptance verified; owner understanding review pending.
+- Relevant files: `prisma/schema.prisma`, `prisma/migrations/20260815090000_add_test_case_versions_and_releases/migration.sql`, `app/api/[[...route]]/route.ts`, `lib/releases.ts`, `worker.ts`, `components/test-case-editor.tsx`, `components/release-views.tsx`, `components/sentinel-views.tsx`, `tests/release-api.test.ts`, and `tests/phase-5-release.spec.ts`.
+- Related decision: D-028 in `decisions-log.md`.
+
+### What this feature does
+
+Phase 5 lets a product member organize a Test Case with product-local feature labels, make a safe edit without rewriting history, and group Tests into a Release. Saving an edit produces Version 2 (or a later version) rather than changing Version 1. A Release Run snapshots the exact current version of every tagged Test Case, queues only Auto-eligible items, and derives one honest readiness result for the entire batch.
+
+### Intended end-to-end flow
+
+On the Test Case editor, the member starts with the current immutable version. They may adjust safe target metadata, non-secret text values, variable markers, checkpoints, descriptions, expected outcomes, and labels, but cannot reorder steps or change their kind. The API validates this input, clones the ordered steps into a new `TestCaseVersion`, updates `currentVersion`, replaces label associations, and writes an audit event. The older version and every Run pointing to it stay unchanged.
+
+When a member creates or changes a Release, Sentinel verifies membership in every represented Product before saving the Test Case tags. Starting a Release Run loads the Release inside a database transaction, obtains each Test Case's current version, and creates a persisted item for every tag. A checkpoint, or a variable that lacks an encrypted static default, becomes a visible excluded item. For every eligible item, the transaction creates an Auto Run, first Run Attempt, ordered Run Step Results, and encrypted static bindings, then records the Release Run item linked to that Run. After the transaction, the existing BullMQ queue receives each attempt. The worker changes linked items from queued to running and finally to passed, failed, or interrupted. `lib/releases.ts` recalculates readiness after each material change: outstanding work is In progress; every pass is Ready; any failure, interruption, or exclusion is Not ready.
+
+### Technologies, choices, and tradeoffs
+
+| Technology or approach | Why it is used | Tradeoff |
+|---|---|---|
+| Prisma version and Release relations | Keeps immutable history, authorization, batch snapshots, and audit writes in PostgreSQL transactions. | The schema has more join records than a mutable Test Case table, but historical meaning stays clear. |
+| Product-local labels and a join table | Allows the same label name to be meaningful only within its Product and supports multiple labels per Test Case. | There is no standalone label-cleanup screen yet; unused labels may remain. |
+| Existing BullMQ worker | Reuses Phase 3 retries, two-context concurrency, evidence, and credential boundaries for Release items. | Phase 5 does not add schedules or separate Release-specific workers. |
+| Derived readiness helper | One small shared rule projects Auto Run outcomes into Release state without duplicating the calculation in API and worker code. | Every terminal Run path must call the helper; tests are important to prevent a stale Release display. |
+
+### Important implementation and safety details
+
+- Test Case version saves preserve order and `StepKind`; target metadata accepts only a narrow set of Demo CRM fields and same-origin URLs.
+- Redacted password steps cannot become variables or expose a replacement value. New secret-like values are rejected before encryption or persistence.
+- Test Case ownership does not change when another authorized Product member creates a later version; the audit event records who edited it.
+- Releases are hidden from a user unless they belong to every Product currently represented in the Release. The same membership check protects Release details and changes.
+- A Release Run is reproducible: later edits to tags or Test Cases cannot alter its stored version IDs.
+- Exclusions are data, not a UI-only warning. They count toward `Not ready` and retain a clear reason.
+- Release batches never use the guided noVNC browser. Existing individual Guided and Auto Run routes keep their contracts.
+- The Docker API and worker now use separate dependency volumes. This prevents concurrent `prisma generate` executions from overwriting the same generated native client during startup.
+
+### Alternatives and limitations
+
+- Mutating the current Test Case rows was rejected because a previous Run would then appear to have used steps that did not exist when it ran.
+- A separate batch queue was rejected because it would duplicate retry, evidence, and concurrency behavior already implemented for Auto Runs.
+- Running all tagged Tests regardless of safety was rejected. Phase 5 deliberately excludes checkpoints and variables requiring manual or pooled data rather than guessing at a binding.
+- Release readiness is a test-execution signal, not a deployment approval. Notifications, schedules, JIRA, approvals, and release deployment integration remain future work.
+- Feature labels cannot yet be renamed or retired independently, and cross-product Release access uses the current membership set rather than a historical access snapshot.
+
+### Verification and priority-based diff review
+
+Docker applied `20260815090000_add_test_case_versions_and_releases`. `docker compose exec sentinel npm run lint`, `docker compose exec sentinel npm run typecheck`, and the full `docker compose exec sentinel npm test` suite passed. `docker compose exec sentinel npx playwright test` passed all 10 browser specs. The focused API test covers labels, immutable history, cross-product denial, explicit exclusions, a successful linked Auto Run batch, and derived readiness. The focused browser test covers editing Version 2, label filtering, Release creation, and a visible excluded Release item.
+
+| Priority | Files and areas | Why review them | Owner action |
+|---|---|---|---|
+| Highest | `prisma/schema.prisma`; `prisma/migrations/20260815090000_add_test_case_versions_and_releases/migration.sql`; `app/api/[[...route]]/route.ts`; `lib/releases.ts`; `worker.ts`; `docker-compose.yml` | They define immutable data, access boundaries, batch creation, Run-to-Release state projection, and safe generated-client startup. Focus on the version-save transaction, Release membership checks, exclusion calculation, `refreshReleaseRun`, and worker completion hooks. | Read now. |
+| Medium | `components/test-case-editor.tsx`; `components/release-views.tsx`; `components/sentinel-views.tsx`; `tests/release-api.test.ts`; `tests/phase-5-release.spec.ts` | They make safe edits and Release state understandable, and encode the product behavior users rely on. | Read next. |
+| Lower | Route wrapper pages, sidebar link, CSS, and Phase 5 documentation | They expose the feature and record its intended behavior, but do not define its core security or data consistency rules. | Skim after the behavior-critical code. |
+
+### Ten-question understanding check
+
+1. Why does Sentinel create a new `TestCaseVersion` instead of updating the saved steps in place?
+2. Which fields may the Phase 5 editor change, and which two step properties must it preserve?
+3. How do feature labels stay local to a Product while allowing more than one label on a Test Case?
+4. What exact membership rule controls whether someone may view or change a cross-product Release?
+5. At what moment are Test Case versions fixed for a Release Run, and why does that make a batch reproducible?
+6. Which Test Cases are excluded from a Release batch, and why is an exclusion counted as `Not ready` rather than silently ignored?
+7. What records are created for an eligible Release item before it is sent to BullMQ?
+8. How does `lib/releases.ts` keep Release readiness synchronized when the worker starts, passes, fails, or interrupts an Auto Run?
+9. Why were API/worker dependency volumes separated in Docker, and what failure did that prevent?
+10. If Phase 6 adds Release notifications or scheduling, which immutable-version, authorization, and readiness guarantees must remain unchanged?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- Owner answers all ten Phase 5 questions and compares the answers with D-028, the migration, the version-save route, `lib/releases.ts`, and `worker.ts`.
+- Before production, decide whether Release access should be historically snapshotted, how unused labels are retired, and what external deployment signal may change a Release's broader approval state.
