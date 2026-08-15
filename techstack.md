@@ -25,6 +25,7 @@
 | Evidence storage | Docker-local MinIO with AWS SDK v3 | MinIO RELEASE image; `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` compatible majors | Provides a private S3-compatible evidence boundary and short-lived signed URLs during Phase 2. |
 | Browser automation | Selenium for guided Runs; Playwright for Auto Runs | Selenium 4.x and Playwright Chromium pinned together | Headless Playwright contexts isolate two autonomous replays, while Selenium/noVNC retains the guided browser boundary. |
 | Variable encryption | Node.js `crypto` AES-256-GCM | Node 22 built-in API | Encrypts static defaults, local Test Data Set fields, and Run bindings without adding a key-management dependency to the Docker-local MVP. |
+| Release batches | Existing Prisma, Redis, and BullMQ stack | Existing pinned compatible versions | Phase 5 snapshots Test Case versions and enqueues eligible Auto Runs without adding a second scheduler or worker technology. |
 
 ## 3. Integrations
 
@@ -43,6 +44,7 @@
 - Auto Run Demo CRM credentials are worker-only environment configuration. They are never stored in PostgreSQL, MinIO metadata, browser logs, or API responses.
 - `VARIABLE_ENCRYPTION_KEY` is a required base64-encoded 32-byte local secret available only to the Sentinel API and worker. It encrypts Phase 4 variable values; missing or invalid configuration blocks variable setup and affected Runs rather than falling back to plaintext.
 - The worker uses a five-second default action/navigation timeout for the local Demo CRM; `AUTO_RUN_ACTION_TIMEOUT_MS` may tune that worker-only limit without changing saved Test Cases.
+- Phase 5 adds no new service or dependency: immutable Test Case versions, product-local feature labels, Releases, Release Runs, and derived readiness use PostgreSQL transactions plus the existing two-concurrency BullMQ worker. Release batch work does not use the guided browser or a scheduler.
 - Phase 1.5 uses local system typography, CSS custom properties, and custom React/CSS primitives; it does not add external fonts, icon packs, Tailwind, shadcn, or a component library.
 - CI should run formatting/lint checks, unit tests, type checks, and browser smoke tests.
 - Structured logs should include correlation IDs for a Test Case, Run, job, evidence event, and external integration request.
