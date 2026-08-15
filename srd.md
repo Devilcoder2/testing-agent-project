@@ -132,13 +132,13 @@ Default planning assumption: conservative suggestions to limit tester fatigue.
 
 ### F6. Test and release management
 
-- Organize Test Cases by product and feature area.
-- Run any Test Case individually at any time.
-- Update an existing Test Case by changing affected steps or outcomes rather than re-recording everything.
-- Create releases and tag Test Cases across products.
-- Trigger a Release Run for all tagged Test Cases.
-- Produce a consolidated pass/fail release-readiness report.
-- Keep release use optional; ad hoc execution must work independently.
+Phase 5 adds organization and controlled change management without mutating a saved Test Case baseline. Product members may assign multiple reusable feature labels to a Test Case; labels are local to that Product and have no separate administration screen. The Test Case editor starts from the current immutable version and may change existing safe target metadata, non-secret text values, variable markers, checkpoints, descriptions, and expected outcomes while preserving each step's order and kind. Saving creates the next immutable version, retains all earlier versions and their Run history, keeps Test Case ownership unchanged, and records the editor in the audit trail.
+
+Product members may create a named Release containing Test Cases from multiple Products only when they belong to every represented Product; the creator becomes the Release owner. A Release remains editable between batches, but a Release Run snapshots each included Test Case's current immutable version at the moment the batch starts. Duplicate Test Case tags and empty batch execution are rejected with a clear error.
+
+A Release Run creates linked Auto Runs through the existing two-concurrency worker. An item is eligible only when it has no checkpoint and either has no variables or every variable has an encrypted static default. Checkpointed Test Cases and manual- or pool-bound variables are retained as excluded items with an explicit reason; Sentinel never silently skips them. Each item retains the underlying Run's attempts, retry history, and privacy-safe evidence.
+
+Release readiness is derived, not manually set: it is **In progress** while queued or running work remains, **Ready** only when every tagged item passes, and **Not ready** when any item fails, is interrupted, or is excluded. Individual Guided and Auto Runs remain available independently of Releases.
 
 ### F7. Reporting, dashboard, and notifications
 
