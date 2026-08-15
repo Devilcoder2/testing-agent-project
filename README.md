@@ -32,7 +32,7 @@ The attached requirements document is the current product source of truth. Archi
 - Phase 1.5: frontend foundation and Phase 1 UX redesign acceptance-verified; owner learning review remains pending.
 - Phase 2: guided Runs and privacy-safe evidence capture are acceptance-verified; owner learning review remains pending.
 - Phase 3: autonomous replay is implementation and automated-acceptance verified; owner learning review remains pending.
-- Phase 5: Test Case versioning and Release management implementation is in progress.
+- Phase 5: Test Case versioning and Release management are implementation and automated-acceptance verified; owner learning review remains pending.
 - Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -114,6 +114,13 @@ Phase 4 checks cover encrypted variable persistence, static/pool/manual selectio
 
 Phase 5 adds product-local feature labels, a saved-Test-Case editor that creates immutable next versions, and cross-product Releases for users who belong to every included Product. Starting a Release batch snapshots the tagged Test Case versions and uses the existing Auto Run worker. Only no-checkpoint Tests with no variables or encrypted static variable defaults are executed; every other tagged Test is shown as excluded with a reason. Batch readiness is derived from all items, while individual Guided and Auto Run actions remain unchanged.
 
+To verify Phase 5, keep the stack running and execute:
+
+```text
+docker compose exec sentinel npx vitest run tests/release-api.test.ts
+docker compose exec sentinel npx playwright test tests/phase-5-release.spec.ts
+```
+
 ## Status
 
-Phases 1, 1.5, 2, 3, and 4 are implementation and acceptance-verified. Owner learning reviews remain pending in `learning-log.md`, so completed phases are not yet marked fully understood. Phase 5 is in implementation. External integrations, scheduling, external QA targets, notifications, and QA-network access remain later phases.
+Phases 1, 1.5, 2, 3, 4, and 5 are implementation and acceptance-verified. Owner learning reviews remain pending in `learning-log.md`, so completed phases are not yet marked fully understood. External integrations, scheduling, external QA targets, notifications, and QA-network access remain later phases.
