@@ -54,6 +54,7 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 | `/products` | Accessible Product list with a heading-level **New product** action, sized to match **New recording**, that opens a named Product-creation modal. Each Product can be renamed or used to open a pre-filtered Test Case inventory. |
 | `/test-cases` | Searchable and product-filterable Test Case inventory with a header count of visible versus accessible Test Cases. |
 | `/test-cases/[id]` | Saved Test Case metadata, current-version badge, and read-only Step Timeline. |
+| `/test-cases/[id]/edit` | Focused saved-Test-Case editor for safe changes, product-local feature labels, checkpoint controls, and immutable next-version save feedback. |
 | `/recordings/new` | Legacy entry URL that safely returns to Dashboard; creation is initiated from the persistent **New recording** action. |
 | `/recordings/[id]` | Focused, chrome-free Recording Workspace for the active draft. |
 | `/runs` | Product-authorized Run inventory with outcome and Product filters. |
@@ -67,11 +68,12 @@ The following are documented design targets only. Phase 1.5 must not create plac
 |---|---|
 | `/runs` and `/runs/[id]` | Phase 3 adds Auto Run queue/running/paused states, attempt history, checkpoint screenshot review, Continue/Cancel controls, selector-failure reasons, and duration comparison beside the existing guided Run detail. Phase 4 adds a pre-run variable-binding dialog and masked binding source summary; later work adds database context and release grouping. |
 | `/test-data` | Phase 4 product-scoped Test Data Sets. The list shows name, field names, reuse policy, lifecycle, and audit context without raw values; a creation/replacement dialog defaults to reusable data and offers an intentional single-use policy for values that must not be reused after a passed Run. |
-| `/releases` | Release health, grouped Test Cases, batch status, and readiness reporting. |
+| `/releases` | Phase 5 Release inventory and creation. Each row shows a name, Product scope, tagged Test Case count, latest batch state, and derived readiness without implying a result is manually editable. |
+| `/releases/[id]` | Phase 5 Release Detail: tagged Test Cases, version-snapshot batch history, explicit ineligible-item reasons, linked Auto Run status, and consolidated readiness. Editing tags is visually separate from starting a batch so a completed batch remains understandable. |
 | `/review` | Change proposals, negative-test suggestions, checkpoint decisions, and owner approvals. |
 | `/settings` | Product access, integration health, notification configuration, and safe connection state. |
 
-The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 4 navigation exposes Dashboard, Products, Test Cases, Test Data, and Runs; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Future navigation adds Releases, Review, and Settings when the relevant product capabilities exist.
+The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 5 navigation exposes Dashboard, Products, Test Cases, Test Data, Runs, and Releases; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Review and Settings remain future navigation.
 
 ## 5. Page experience decisions
 
