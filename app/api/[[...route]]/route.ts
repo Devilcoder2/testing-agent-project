@@ -878,6 +878,8 @@ async function route(request: Request, context: Context) {
     if (code === "VARIABLE_SECRET_REJECTED") return json({ error: "Passwords, tokens, cookies, authorization values, and API-key values cannot be stored as Phase 4 variables." }, 400);
     if (code === "VARIABLE_STEP_UNSUPPORTED") return json({ error: "Only non-secret text-entry steps can become variables." }, 400);
     if (code === "VARIABLE_VALUE_CONFLICT") return json({ error: "Steps using the same variable name must have the same recorded value." }, 409);
+    if (code === "RELEASE_EMPTY") return json({ error: "A Release needs at least one tagged Test Case before it can run." }, 409);
+    if (code === "RELEASE_TEST_CASE_INVALID") return json({ error: "A tagged Test Case no longer has a runnable current version." }, 409);
     if (code === "VARIABLE_DATA_SET_UNAVAILABLE") return json({ error: "The selected Test Data Set is no longer safe and available. Choose another data set." }, 409);
     if (code.startsWith("VARIABLE_BINDING_REQUIRED:")) return json({ error: `Choose a value source for ${code.slice("VARIABLE_BINDING_REQUIRED:".length)} before starting this Run.` }, 409);
     if (code.startsWith("VARIABLE_VALUE_REQUIRED:")) return json({ error: `Enter a value for ${code.slice("VARIABLE_VALUE_REQUIRED:".length)} before starting this Run.` }, 400);
