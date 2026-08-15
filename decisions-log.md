@@ -229,3 +229,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** The previous policy consumed every passed data set, which prevented standard test fixtures from being reused even though reusable data is the main purpose of the Test Data feature. Some target-mutating values still need one-time protection.
 - **Impact:** The local lifecycle continues to prevent concurrent reuse but does not clean up records in the Demo CRM or any future external target. Values remain encrypted and unreadable after creation. Testers choose single-use where target state makes sequential reuse unsafe.
 - **Status:** Implemented and automated-acceptance verified on 2026-08-14; owner learning review pending.
+
+## D-028 — Phase 5 immutable versions and safe Release batches
+
+- **Date:** 2026-08-15
+- **Decision:** Feature labels are reusable and product-local. A saved Test Case editor creates a new immutable version instead of changing the current version in place. Releases may span Products only for members of every included Product. Each batch snapshots current version IDs at start and submits only Auto-eligible items through the existing two-concurrency worker.
+- **Reason:** Testers need practical organization and controlled maintenance, while old Runs and evidence must continue to describe exactly the historical Test Case that produced them. Reusing the proven Auto Run queue avoids a competing batch-execution system.
+- **Impact:** Checkpoints and variables without encrypted static defaults are visible Release exclusions rather than hidden skips. Release readiness is derived from persisted item outcomes: only all-pass is Ready; failures, interruptions, and exclusions are Not ready. Guided Runs, schedules, manual/pool batch bindings, notifications, JIRA, and external targets stay outside Phase 5.
+- **Status:** Confirmed by project owner; implementation in progress.
