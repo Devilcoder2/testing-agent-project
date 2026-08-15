@@ -6,6 +6,7 @@ import { prisma } from "./lib/prisma";
 import { AUTO_RUN_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData } from "./lib/queue";
 import { canRetryAutoRun, initialReplayState, ReplayError, replayStep, type ReplayStep } from "./lib/replay";
 import { decryptVariableValue } from "./lib/variables";
+import { markReleaseRunItemRunning, syncReleaseRunItemForRun } from "./lib/releases";
 
 const CHECKPOINT_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -137,6 +138,7 @@ async function completeRun(runId: string, attemptId: string, outcome: RunOutcome
     await prisma.testDataSet.updateMany({ where: { reservedByRunId: runId, status: TestDataStatus.RESERVED }, data: { status: TestDataStatus.SAFE, reservedByRunId: null } });
   }
   await prisma.auditEvent.create({ data: { actorId: run.initiatedById, action: outcome === RunOutcome.PASSED ? "AUTO_RUN_PASSED" : outcome === RunOutcome.FAILED ? "AUTO_RUN_FAILED" : "AUTO_RUN_INTERRUPTED", entityType: "Run", entityId: run.id, details: reason ? { reason } : undefined } });
+  await syncReleaseRunItemForRun(run.id, outcome);
 }
 
 async function retryRun(runId: string, attemptId: string, activeDurationMs: number, reason: RunFailureReason) {
@@ -170,6 +172,7 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
     prisma.runAttempt.update({ where: { id: attemptId }, data: { status: RunAttemptStatus.RUNNING, startedAt: now() } }),
     prisma.auditEvent.create({ data: { actorId: run.initiatedById, action: "AUTO_RUN_STARTED", entityType: "Run", entityId: runId, details: { attemptNumber: attempt.attemptNumber } } })
   ]);
+  await markReleaseRunItemRunning(runId);
 
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let collector: EvidenceCollector | undefined;
