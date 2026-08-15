@@ -290,16 +290,16 @@ The 2026-08-14 Test Data reuse-policy adjustment passed Docker lint and type-che
 
 ### Acceptance checklist
 
-- [ ] Product members can add and remove multiple product-local feature labels while editing a Test Case; Test Case inventory filters by label.
-- [ ] `/test-cases/[id]/edit` starts from the current immutable version and may safely update existing descriptions, expected outcomes, checkpoints, variable markers, non-secret values, and allowlisted target metadata without changing step order or kind.
-- [ ] Saving an edit creates Version 2 or later atomically, keeps the Test Case owner unchanged, preserves every prior version and its Runs, updates `currentVersion`, and writes an audit event.
-- [ ] Test Case Detail exposes current and earlier read-only versions plus the version’s Run history.
-- [ ] A product member can create a named Release and manage it only when they belong to every Product represented by its Test Cases; duplicate tags and empty batch starts fail clearly.
-- [ ] A Release Run snapshots the current immutable version of every tagged Test Case at start and retains the snapshot when the Release changes later.
-- [ ] Batch execution creates linked Auto Runs through the existing two-concurrency worker. Checkpointed Test Cases and variables without encrypted static defaults are persisted as excluded items with clear reasons.
-- [ ] Release readiness is `In progress` while work remains, `Ready` only when every item passes, and `Not ready` for a failed, interrupted, or excluded item.
-- [ ] Individual Guided and Auto Runs retain their current APIs and behavior.
-- [ ] Authorization protects labels, versions, Releases, Release Runs, and linked Run/evidence paths across Products.
+- [x] Product members can add and remove multiple product-local feature labels while editing a Test Case; Test Case inventory filters by label.
+- [x] `/test-cases/[id]/edit` starts from the current immutable version and may safely update existing descriptions, expected outcomes, checkpoints, variable markers, non-secret values, and allowlisted target metadata without changing step order or kind.
+- [x] Saving an edit creates Version 2 or later atomically, keeps the Test Case owner unchanged, preserves every prior version and its Runs, updates `currentVersion`, and writes an audit event.
+- [x] Test Case Detail exposes current and earlier read-only versions plus the version’s Run history.
+- [x] A product member can create a named Release and manage it only when they belong to every Product represented by its Test Cases; duplicate tags and empty batch starts fail clearly.
+- [x] A Release Run snapshots the current immutable version of every tagged Test Case at start and retains the snapshot when the Release changes later.
+- [x] Batch execution creates linked Auto Runs through the existing two-concurrency worker. Checkpointed Test Cases and variables without encrypted static defaults are persisted as excluded items with clear reasons.
+- [x] Release readiness is `In progress` while work remains, `Ready` only when every item passes, and `Not ready` for a failed, interrupted, or excluded item.
+- [x] Individual Guided and Auto Runs retain their current APIs and behavior.
+- [x] Authorization protects labels, versions, Releases, Release Runs, and linked Run/evidence paths across Products.
 
 ### Verification
 
@@ -313,6 +313,8 @@ docker compose down
 ```
 
 Manual verification: add two labels; save one safe step edit as Version 2; confirm Version 1 and its old Runs remain unchanged; create a cross-product Release as a member of both Products; start a batch; inspect its snapshot, linked Auto Runs, exclusions, and derived readiness; then sign in as a user missing one Product and confirm Release access is rejected.
+
+**Implementation verification (2026-08-15):** Docker applied `20260815090000_add_test_case_versions_and_releases`; lint and type-check passed; the full Vitest suite passed including `tests/release-api.test.ts`; and all ten Playwright specs passed including `tests/phase-5-release.spec.ts`. The targeted API test verifies immutable Version 2 creation, label persistence, cross-product membership denial, explicit checkpoint exclusions, a successful linked Auto Run item, and derived `READY`/`NOT_READY` states. The browser flow verifies labels, inventory filtering, Release creation, and visible batch exclusion feedback.
 
 **Deferred:** schedules, notifications, JIRA, approval workflow, Guided batch execution, manual/pool Test Data batch binding, external targets, and automatic database cleanup remain out of scope.
 
