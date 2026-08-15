@@ -83,7 +83,7 @@ services:
       - "3001:3000"
     volumes:
       - .:/app
-      - sentinel-node-modules:/app/node_modules
+      - sentinel-node-modules-api:/app/node_modules
 
   worker:
     build: .
@@ -114,10 +114,11 @@ services:
     command: sh -c "npm run db:generate && npm run worker"
     volumes:
       - .:/app
-      - sentinel-node-modules:/app/node_modules
+      - sentinel-node-modules-worker:/app/node_modules
 
 volumes:
   sentinel-postgres:
-  sentinel-node-modules:
+  sentinel-node-modules-api:
+  sentinel-node-modules-worker:
   sentinel-minio:
   sentinel-redis:
