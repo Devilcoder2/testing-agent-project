@@ -237,3 +237,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Testers need practical organization and controlled maintenance, while old Runs and evidence must continue to describe exactly the historical Test Case that produced them. Reusing the proven Auto Run queue avoids a competing batch-execution system.
 - **Impact:** Checkpoints and variables without encrypted static defaults are visible Release exclusions rather than hidden skips. Release readiness is derived from persisted item outcomes: only all-pass is Ready; failures, interruptions, and exclusions are Not ready. Guided Runs, schedules, manual/pool batch bindings, notifications, JIRA, and external targets stay outside Phase 5.
 - **Status:** Implemented and automated-acceptance verified on 2026-08-15; owner learning review pending.
+
+## D-029 — Recorded browser actions are read-only in the Test Case editor
+
+- **Date:** 2026-08-19
+- **Decision:** The saved-Test-Case editor may change labels, descriptions, expected outcomes, checkpoints, and non-secret text-entry variable marker names, but not recorded target metadata or literal/redacted input values. Marking a captured non-secret text step as a variable stores its default only in encrypted variable storage; removing a marker is not offered because the original plaintext is deliberately not retained.
+- **Reason:** Target metadata and captured input values define the replayed browser action. Free-form edits could create a version that appears valid but clicks the wrong element or uses unreviewed test data. A purpose-based editor keeps annotations and execution settings maintainable without allowing an accidental action rewrite.
+- **Impact:** To change a selector, URL, or literal browser input, testers create a new recording. Static defaults continue to be replaced in the dedicated Variables section, and existing historical versions remain unchanged.
+- **Status:** Confirmed by owner feedback; implementation in progress.
