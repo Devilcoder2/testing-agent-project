@@ -72,6 +72,12 @@ describe("Phase 4 variable API", () => {
     expect(run.variableBindings[0]?.valueEncrypted).not.toContain("customer.pool@example.test");
     const concurrentStart = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST", { bindings: { customer_email: { source: "POOL", dataSetId: dataSet.id } } });
     expect(concurrentStart.status).toBe(409);
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const current = await prisma.run.findUniqueOrThrow({ where: { id: queued.run.id } });
+      if (current.status === "PAUSED") break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    expect((await prisma.run.findUniqueOrThrow({ where: { id: queued.run.id } })).status).toBe("PAUSED");
     const cancel = await request(ava, `runs/${queued.run.id}/cancel`, "POST");
     expect([200, 202]).toContain(cancel.status);
     for (let attempt = 0; attempt < 20; attempt += 1) {
