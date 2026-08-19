@@ -181,18 +181,21 @@ export async function deliverNotification(notificationId: string) {
     });
     const summary = renderSafeNotificationEmail(notification);
     await transport.sendMail({ from: process.env.EMAIL_FROM ?? "Sentinel <noreply@sentinel.local>", to: notification.recipient.email, subject: summary.subject, text: summary.text });
-    await prisma.$transaction([
-      prisma.notification.update({ where: { id: notification.id }, data: { deliveryStatus: NotificationDeliveryStatus.SENT, deliveryAttempts: attempt, deliveryError: null, sentAt: new Date() } }),
-      prisma.auditEvent.create({ data: { actorId: notification.recipientId, action: "NOTIFICATION_SENT", entityType: "Notification", entityId: notification.id, details: { type: notification.type, attempt } } })
-    ]);
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.notification.updateMany({
+        where: { id: notification.id, deliveryStatus: NotificationDeliveryStatus.PENDING },
+        data: { deliveryStatus: NotificationDeliveryStatus.SENT, deliveryAttempts: attempt, deliveryError: null, sentAt: new Date() }
+      });
+      if (updated.count) await tx.auditEvent.create({ data: { actorId: notification.recipientId, action: "NOTIFICATION_SENT", entityType: "Notification", entityId: notification.id, details: { type: notification.type, attempt } } });
+    });
   } catch (error) {
     const transient = isTransientDeliveryError(error);
     const finalFailure = !transient || attempt >= 2;
-    await prisma.notification.update({
-      where: { id: notification.id },
+    const updated = await prisma.notification.updateMany({
+      where: { id: notification.id, deliveryStatus: NotificationDeliveryStatus.PENDING },
       data: { deliveryAttempts: attempt, deliveryStatus: finalFailure ? NotificationDeliveryStatus.FAILED : NotificationDeliveryStatus.PENDING, deliveryError: "SMTP delivery could not be completed safely." }
     });
-    if (finalFailure) {
+    if (finalFailure && updated.count) {
       await prisma.auditEvent.create({ data: { actorId: notification.recipientId, action: "NOTIFICATION_DELIVERY_FAILED", entityType: "Notification", entityId: notification.id, details: { type: notification.type, attempt } } });
       return;
     }
