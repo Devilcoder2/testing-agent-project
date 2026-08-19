@@ -112,7 +112,7 @@ Phase 4 checks cover encrypted variable persistence, static/pool/manual selectio
 
 ## Phase 5 scope
 
-Phase 5 adds product-local feature labels, a saved-Test-Case editor that creates immutable next versions, and cross-product Releases for users who belong to every included Product. Starting a Release batch snapshots the tagged Test Case versions and uses the existing Auto Run worker. Only no-checkpoint Tests with no variables or encrypted static variable defaults are executed; every other tagged Test is shown as excluded with a reason. Batch readiness is derived from all items, while individual Guided and Auto Run actions remain unchanged.
+Phase 5 adds product-local feature labels, a saved-Test-Case editor that creates immutable next versions, and cross-product Releases for users who belong to every included Product. The editor may change labels, descriptions, expected outcomes, checkpoints, and non-secret text-entry variable markers. Recorded browser targets and literal/redacted input values remain read-only because they define the replayed action; record a new journey to change them. Starting a Release batch snapshots the tagged Test Case versions and uses the existing Auto Run worker. Only no-checkpoint Tests with no variables or encrypted static variable defaults are executed; every other tagged Test is shown as excluded with a reason. Batch readiness is derived from all items, while individual Guided and Auto Run actions remain unchanged.
 
 To verify Phase 5, keep the stack running and execute:
 
