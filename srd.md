@@ -142,7 +142,27 @@ Release readiness is derived, not manually set: it is **In progress** while queu
 
 ### F7. Reporting, dashboard, and notifications
 
-The dashboard shows, per product, Test Cases, last Run, current status, and recent failure frequency. It also exposes Run Detail, flakiness trends, and coverage growth. At minimum, email notifications are required for failures, pending expectation proposals, and checkpoint pauses. Slack is an optional integration if available.
+Phase 6 provides a product-authorized health dashboard from existing Test Case, Run, Release, and evidence records. It has an all-accessible-Products overview and a Product drill-down selector. Every calculation uses a fixed rolling 30-day UTC window:
+
+- total saved Test Cases;
+- completed Runs;
+- pass rate as `Passed / (Passed + Failed)`, excluding interrupted Runs;
+- failed Run count;
+- flaky current Test Case versions, defined as at least one Passed and one Failed Run in the window;
+- coverage growth, comparing Test Cases saved in the current 30-day window with the preceding 30-day window; and
+- the latest completed Run status and timestamp for each Product.
+
+The selected Product view shows daily Passed/Failed trend buckets, coverage change, and links to flaky Test Cases. It also highlights unread failure and checkpoint notifications requiring the current user’s attention. UTC is the Phase 6 reporting time zone; per-user time zones are deferred.
+
+Phase 6 adds a durable, per-recipient in-app Notification with its type, delivery state, Product/Run/Release references, timestamps, delivery attempt count, and a safe delivery-error summary. Current Product membership is checked whenever a notification, its linked Run, or its linked Release is viewed. Notifications are created only for new Phase 6 events; historic Runs are not backfilled. The recipient policy is:
+
+- a failed Run notifies its Test Case owner and Run initiator, de-duplicated when they are the same user;
+- an Auto Run checkpoint notifies that Test Case owner and Run initiator, also de-duplicated; and
+- Release completion sends one consolidated summary to the Release owner and batch initiator, while individual Test Case owners still receive their own relevant failed-Run notices.
+
+Sentinel sends a local email for each notification through Mailpit in Phase 6. Email includes only Product, Test Case or Release name, outcome or checkpoint state, timestamp, an approved safe failure reason, and an authorized Sentinel link. It never includes evidence contents, screenshots, raw logs, variables, credentials, tokens, cookies, or other secrets. Notification records are persisted before their delivery job is queued. Transient delivery failure retries once; the second failure is recorded as failed with an audit event. Delivery failure never changes a Run outcome, Release readiness, or evidence status.
+
+Pending-approval notifications are deferred until Phase 9 creates actual approval proposals. Slack, notification preferences, digests, deletions, real email-provider credentials, and historical notification backfill are also deferred.
 
 ### F8. JIRA integration
 
