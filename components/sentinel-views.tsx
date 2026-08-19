@@ -112,18 +112,71 @@ function TestCaseList({ testCases, emptyAction }: { testCases: TestCaseSummary[]
   return <div className="test-list">{testCases.map((testCase) => <article className="test-list__item" key={testCase.id}><div><p className="test-list__title">{testCase.name}</p><p className="test-list__meta">{testCase.product.name} · {testCase.owner.displayName} · Version {testCase.currentVersion}{testCase.featureLabels?.length ? ` · ${testCase.featureLabels.map((item) => item.featureLabel.name).join(", ")}` : ""}</p></div><Link className="button button--secondary" href={`/test-cases/${testCase.id}`}>Open <span aria-hidden="true">→</span></Link></article>)}</div>;
 }
 
-export function DashboardView() {
-  const { products, testCases, loading, error } = useDashboardData();
-  const testsPerProduct = products.length ? (testCases.length / products.length).toFixed(1) : "0";
-  const distribution = products.map((product) => ({ ...product, testCount: testCases.filter((testCase) => testCase.product.id === product.id).length })).sort((left, right) => right.testCount - left.testCount || left.name.localeCompare(right.name));
-  const visibleDistribution = distribution.slice(0, 5);
-  const largestCount = Math.max(1, ...visibleDistribution.map((product) => product.testCount));
+type DashboardMetric = {
+  totalSavedTestCases: number;
+  completedRuns: number;
+  passRate: number | null;
+  failedRuns: number;
+  flakyTestCases: Array<{ id: string; name: string }>;
+  coverage: { current: number; previous: number; change: number };
+  latestCompletedRun: { id: string; outcome: string; completedAt: string; testCase: { id: string; name: string } } | null;
+};
+type DashboardData = {
+  products: Product[];
+  overview: Array<DashboardMetric & { product: Product }>;
+  selected: (DashboardMetric & { product: Product; trend: Array<{ date: string; passed: number; failed: number }> }) | null;
+  needsAttention: Array<{ id: string; type: string; createdAt: string; product: { name: string } | null; run: { id: string; testCase: { name: string } } | null }>;
+};
 
+function dashboardDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
+}
+
+export function DashboardView() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [productId, setProductId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    request(`dashboard${productId ? `?productId=${productId}` : ""}`).then((result) => {
+      if (!active) return;
+      const next = result as DashboardData;
+      setData(next);
+      if (!productId && next.selected) setProductId(next.selected.product.id);
+    }).catch((loadError) => {
+      if (active) setError(errorMessage(loadError, "Could not load health data."));
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [productId]);
+
+  const selected = data?.selected ?? null;
+  const trendMaximum = Math.max(1, ...(selected?.trend.map((day) => day.passed + day.failed) ?? []));
   return <div className="dashboard-grid">
-    <PageHeader eyebrow="Workspace overview" title="Dashboard" detail="A concise view of the Products and reusable Test Cases available to you." />
+    <PageHeader eyebrow="Quality health · rolling 30-day UTC window" title="Dashboard" detail="Recent Test health across the Products you can currently access." actions={<Field label="Product drill-down"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)} disabled={loading || !data?.products.length}><option value="">All accessible Products</option>{data?.products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field>} />
     {error && <Feedback tone="danger">{error}</Feedback>}
-    <section className="metrics" aria-label="Workspace summary"><Card className="metric-card"><p className="metric-card__label">Accessible Products</p><p className="metric-card__value">{products.length}</p><p className="metric-card__detail">Products you can record against</p></Card><Card className="metric-card"><p className="metric-card__label">Saved Test Cases</p><p className="metric-card__value">{testCases.length}</p><p className="metric-card__detail">Reusable browser journeys</p></Card><Card className="metric-card"><p className="metric-card__label">Coverage density</p><p className="metric-card__value">{testsPerProduct}</p><p className="metric-card__detail">Saved Tests per accessible Product</p></Card></section>
-    <section className="dashboard-visuals" aria-label="Test Case distribution"><Card className="distribution-card"><div className="panel-card__head"><div><p className="eyebrow">Coverage distribution</p><h2>Test Cases by Product</h2><p>Each bar uses the saved Test Cases you can currently access.</p></div></div>{loading ? <StatusBadge tone="info">Loading workspace data</StatusBadge> : distribution.length === 0 ? <EmptyState title="No accessible Products" detail="Create a Product from the Products page to begin organizing Test Cases." /> : <div className="distribution-list">{visibleDistribution.map((product) => <div className="distribution-row" key={product.id}><span className="distribution-row__label" title={product.name}>{product.name}</span><div className="distribution-track" aria-label={`${product.name}: ${product.testCount} saved Test Cases`} role="img"><span style={{ width: `${(product.testCount / largestCount) * 100}%` }} /></div><span className="distribution-row__count">{product.testCount}</span></div>)}{distribution.length > visibleDistribution.length && <p className="distribution-card__note">Showing the five highest-coverage Products. View the full list in Products.</p>}</div>}</Card></section>
+    {loading && !data ? <StatusBadge tone="info">Loading health data</StatusBadge> : !selected ? <EmptyState title="No accessible Products" detail="Create a Product, then save a Test Case to begin building health signals." /> : <>
+      <section className="metrics metrics--health" aria-label="Selected Product health metrics">
+        <Card className="metric-card"><p className="metric-card__label">Saved Test Cases</p><p className="metric-card__value">{selected.totalSavedTestCases}</p><p className="metric-card__detail">Current Product baseline</p></Card>
+        <Card className="metric-card"><p className="metric-card__label">Completed Runs</p><p className="metric-card__value">{selected.completedRuns}</p><p className="metric-card__detail">Finished in this window</p></Card>
+        <Card className="metric-card"><p className="metric-card__label">Pass rate</p><p className="metric-card__value">{selected.passRate === null ? "—" : `${Math.round(selected.passRate * 100)}%`}</p><p className="metric-card__detail">Interrupted Runs excluded</p></Card>
+        <Card className="metric-card"><p className="metric-card__label">Failed Runs</p><p className="metric-card__value">{selected.failedRuns}</p><p className="metric-card__detail">Needs investigation</p></Card>
+        <Card className="metric-card"><p className="metric-card__label">Flaky Tests</p><p className="metric-card__value">{selected.flakyTestCases.length}</p><p className="metric-card__detail">Both Passed and Failed</p></Card>
+        <Card className="metric-card"><p className="metric-card__label">Coverage change</p><p className="metric-card__value">{selected.coverage.change > 0 ? "+" : ""}{selected.coverage.change}</p><p className="metric-card__detail">{selected.coverage.current} saved vs {selected.coverage.previous} prior</p></Card>
+      </section>
+      <section className="dashboard-health-layout">
+        <Card className="panel-card health-trend-card"><div className="panel-card__head"><div><p className="eyebrow">Run trend</p><h2>{selected.product.name}</h2><p>Daily completed outcomes; empty days are shown intentionally.</p></div><StatusBadge tone="info">UTC</StatusBadge></div><div className="health-trend" role="img" aria-label="Daily passed and failed Run trend for the last 30 days">{selected.trend.map((day) => <div className="health-trend__day" key={day.date} title={`${day.date}: ${day.passed} passed, ${day.failed} failed`}><span className="health-trend__bar health-trend__bar--passed" style={{ height: `${(day.passed / trendMaximum) * 100}%` }} /><span className="health-trend__bar health-trend__bar--failed" style={{ height: `${(day.failed / trendMaximum) * 100}%` }} /></div>)}</div><div className="health-trend__legend"><span><i className="health-trend__key health-trend__key--passed" />Passed</span><span><i className="health-trend__key health-trend__key--failed" />Failed</span></div></Card>
+        <Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Latest activity</p><h2>Current signal</h2></div></div>{selected.latestCompletedRun ? <div className="health-latest"><StatusBadge tone={selected.latestCompletedRun.outcome === "PASSED" ? "success" : selected.latestCompletedRun.outcome === "FAILED" ? "danger" : "warning"}>{selected.latestCompletedRun.outcome.toLowerCase()}</StatusBadge><Link href={`/runs/${selected.latestCompletedRun.id}`}>{selected.latestCompletedRun.testCase.name}</Link><p>{dashboardDate(selected.latestCompletedRun.completedAt)}</p></div> : <EmptyState title="No completed Runs" detail="Complete a guided or Auto Run to establish a health signal." />}</Card>
+      </section>
+      <section className="dashboard-health-layout">
+        <Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Stability</p><h2>Flaky current Tests</h2></div><StatusBadge tone={selected.flakyTestCases.length ? "warning" : "success"}>{selected.flakyTestCases.length ? "Review" : "Stable"}</StatusBadge></div>{selected.flakyTestCases.length ? <div className="health-link-list">{selected.flakyTestCases.map((testCase) => <Link key={testCase.id} href={`/test-cases/${testCase.id}`}>{testCase.name}<span aria-hidden="true">→</span></Link>)}</div> : <p className="health-empty-copy">No current Test Case version has both Passed and Failed Runs in this window.</p>}</Card>
+        <Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Needs attention</p><h2>Unread action items</h2></div><Link className="button button--secondary" href="/notifications">Open inbox</Link></div>{data?.needsAttention.length ? <div className="health-link-list">{data.needsAttention.map((notification) => <Link key={notification.id} href={notification.run ? `/runs/${notification.run.id}` : "/notifications"}><span>{notification.type === "AUTO_RUN_CHECKPOINT" ? "Checkpoint review" : "Run failed"} · {notification.run?.testCase.name ?? notification.product?.name}</span><small>{dashboardDate(notification.createdAt)}</small></Link>)}</div> : <p className="health-empty-copy">No unread failure or checkpoint items need your attention.</p>}</Card>
+      </section>
+      <Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">All accessible Products</p><h2>Health overview</h2></div><StatusBadge tone="info">{data?.overview.length ?? 0} Products</StatusBadge></div><div className="health-overview">{data?.overview.map((item) => <button type="button" key={item.product.id} className={`health-overview__row ${item.product.id === selected.product.id ? "health-overview__row--selected" : ""}`} onClick={() => setProductId(item.product.id)}><strong>{item.product.name}</strong><span>{item.totalSavedTestCases} Tests</span><span>{item.passRate === null ? "No pass rate" : `${Math.round(item.passRate * 100)}% pass`}</span><StatusBadge tone={item.latestCompletedRun?.outcome === "FAILED" ? "danger" : item.latestCompletedRun?.outcome === "PASSED" ? "success" : "neutral"}>{item.latestCompletedRun?.outcome?.toLowerCase() ?? "No Runs"}</StatusBadge></button>)}</div></Card>
+    </>}
   </div>;
 }
 
