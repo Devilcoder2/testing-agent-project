@@ -49,6 +49,11 @@ services:
     ports:
       - "127.0.0.1:9000:9000"
 
+  mailpit:
+    image: axllent/mailpit:v1.30.4
+    ports:
+      - "127.0.0.1:8025:8025"
+
   sentinel:
     build: .
     depends_on:
@@ -62,6 +67,8 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/sentinel?schema=public
       SESSION_SECRET: sentinel-phase-1-development-secret
@@ -76,6 +83,10 @@ services:
       MINIO_BUCKET: sentinel-evidence
       MINIO_REGION: us-east-1
       REDIS_URL: redis://redis:6379
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      EMAIL_FROM: Sentinel <noreply@sentinel.local>
+      SENTINEL_APP_URL: http://localhost:3001
       GUIDED_RUN_DEMO_PASSWORD: ${GUIDED_RUN_DEMO_PASSWORD:?Set GUIDED_RUN_DEMO_PASSWORD in an untracked .env file}
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
     command: sh -c "npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
@@ -98,6 +109,8 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/sentinel?schema=public
       DEMO_TARGET_URL: http://demo-target
@@ -108,6 +121,10 @@ services:
       MINIO_BUCKET: sentinel-evidence
       MINIO_REGION: us-east-1
       REDIS_URL: redis://redis:6379
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      EMAIL_FROM: Sentinel <noreply@sentinel.local>
+      SENTINEL_APP_URL: http://localhost:3001
       AUTO_RUN_DEMO_EMAIL: qa.tester@example.test
       AUTO_RUN_DEMO_PASSWORD: TestPassword!
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
