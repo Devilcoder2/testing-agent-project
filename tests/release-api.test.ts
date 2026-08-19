@@ -47,6 +47,40 @@ afterEach(async () => {
 });
 
 describe("Phase 5 versioning and Release API", () => {
+  it("locks recorded browser actions while allowing a captured text entry to become a variable", async () => {
+    const ava = await login("ava.tester@example.test");
+    const suffix = Date.now();
+    const product = await (await request(ava, "products", "POST", { name: `Locked action ${suffix}` })).json() as { id: string };
+    productIds.push(product.id);
+    const owner = await prisma.user.findUniqueOrThrow({ where: { email: "ava.tester@example.test" } });
+    const recording = await prisma.recordingSession.create({ data: { productId: product.id, ownerId: owner.id, testName: `Locked action ${suffix}`, targetUrl: "http://demo-target", tokenHash: `locked-${suffix}`, status: RecordingStatus.SAVED } });
+    const testCase = await prisma.testCase.create({
+      data: {
+        productId: product.id,
+        ownerId: owner.id,
+        recordingSessionId: recording.id,
+        name: `Locked action ${suffix}`,
+        versions: { create: { version: 1, steps: { create: [
+          { order: 1, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: "http://demo-target" } },
+          { order: 2, kind: StepKind.TEXT_ENTRY, timestamp: new Date(), target: { name: "email", type: "email" }, value: "customer@example.test" }
+        ] } } }
+      }
+    });
+
+    const detail = await (await request(ava, `test-cases/${testCase.id}`)).json() as { versions: Array<{ version: number; steps: Array<{ id: string; target: object; value: string | null; description: string | null; expectedOutcome: string | null; variableName: string | null; isCheckpoint: boolean }> }> };
+    const steps = detail.versions.find((version) => version.version === 1)!.steps;
+    const targetChange = await request(ava, `test-cases/${testCase.id}/versions`, "POST", { featureLabels: [], steps: steps.map((step, index) => index === 0 ? { ...step, target: {} } : step) });
+    expect(targetChange.status).toBe(400);
+    expect((await targetChange.json()).error).toContain("Recorded target metadata cannot be changed");
+
+    const valueChange = await request(ava, `test-cases/${testCase.id}/versions`, "POST", { featureLabels: [], steps: steps.map((step, index) => index === 1 ? { ...step, value: "different@example.test" } : step) });
+    expect(valueChange.status).toBe(400);
+    expect((await valueChange.json()).error).toContain("Recorded input values cannot be changed");
+
+    const variable = await request(ava, `test-cases/${testCase.id}/versions`, "POST", { featureLabels: [], steps: steps.map((step, index) => index === 1 ? { ...step, variableName: "customer_email" } : step) });
+    expect(variable.status).toBe(201);
+  });
+
   it("allows a labels-only version save when the Test Case contains a redacted password step", async () => {
     const ava = await login("ava.tester@example.test");
     const suffix = Date.now();
