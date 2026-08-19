@@ -291,7 +291,7 @@ The 2026-08-14 Test Data reuse-policy adjustment passed Docker lint and type-che
 ### Acceptance checklist
 
 - [x] Product members can add and remove multiple product-local feature labels while editing a Test Case; Test Case inventory filters by label.
-- [x] `/test-cases/[id]/edit` starts from the current immutable version and may safely update existing descriptions, expected outcomes, checkpoints, variable markers, non-secret values, and allowlisted target metadata without changing step order or kind.
+- [x] `/test-cases/[id]/edit` starts from the current immutable version and may update labels, descriptions, expected outcomes, checkpoints, and non-secret text-entry variable markers without changing the recorded target metadata, literal/redacted values, step order, or kind. A changed browser action requires a new recording.
 - [x] Saving an edit creates Version 2 or later atomically, keeps the Test Case owner unchanged, preserves every prior version and its Runs, updates `currentVersion`, and writes an audit event.
 - [x] Test Case Detail exposes current and earlier read-only versions plus the version’s Run history.
 - [x] A product member can create a named Release and manage it only when they belong to every Product represented by its Test Cases; duplicate tags and empty batch starts fail clearly.
