@@ -26,25 +26,27 @@
 | Browser automation | Selenium for guided Runs; Playwright for Auto Runs | Selenium 4.x and Playwright Chromium pinned together | Headless Playwright contexts isolate two autonomous replays, while Selenium/noVNC retains the guided browser boundary. |
 | Variable encryption | Node.js `crypto` AES-256-GCM | Node 22 built-in API | Encrypts static defaults, local Test Data Set fields, and Run bindings without adding a key-management dependency to the Docker-local MVP. |
 | Release batches | Existing Prisma, Redis, and BullMQ stack | Existing pinned compatible versions | Phase 5 snapshots Test Case versions and enqueues eligible Auto Runs without adding a second scheduler or worker technology. |
+| Local email inspection | Mailpit SMTP sink | Pinned Docker image | Phase 6 proves durable notification delivery locally without real provider credentials or sending email outside Docker. |
 
 ## 3. Integrations
 
 - **Authentication:** Organization-approved OIDC/SAML provider when confirmed; a development-only local identity adapter may be used before the provider is available. Shared login must resolve to a named actor.
 - **JIRA:** REST API through a server-side adapter; credentials stay server-side and issue creation uses idempotency and duplicate checks.
-- **Notifications:** Email provider through an adapter; Slack remains optional.
+- **Notifications:** A Nodemailer SMTP adapter sends Phase 6 local messages to Mailpit. It persists notification delivery state before queueing through BullMQ, retries one transient SMTP failure, and never makes delivery outcome part of Run or Release truth. Slack remains deferred.
 - **QA PostgreSQL:** Separate connection and read-only role from Sentinel’s application database. Use allowlisted parameterized queries, timeouts, row limits, and audit logs.
 
 ## 4. Development and operations
 
 - Git and GitHub `origin` on `main`.
 - `.env.example` for configuration names only; never commit secrets.
-- Docker Compose provides local PostgreSQL, private MinIO, Redis, Sentinel, and a two-concurrency Phase 3 worker.
+- Docker Compose provides local PostgreSQL, private MinIO, Redis, Mailpit, Sentinel, and a two-concurrency browser worker with a separate notification queue.
 - Docker Desktop is required for Phases 1–2: Compose runs PostgreSQL, MinIO, Sentinel, the isolated demo target, and the browser-in-browser session.
 - The local Selenium node uses a 30-minute idle session limit for guided Runs because noVNC input does not reset Selenium’s WebDriver activity timer.
 - Auto Run Demo CRM credentials are worker-only environment configuration. They are never stored in PostgreSQL, MinIO metadata, browser logs, or API responses.
 - `VARIABLE_ENCRYPTION_KEY` is a required base64-encoded 32-byte local secret available only to the Sentinel API and worker. It encrypts Phase 4 variable values; missing or invalid configuration blocks variable setup and affected Runs rather than falling back to plaintext.
 - The worker uses a five-second default action/navigation timeout for the local Demo CRM; `AUTO_RUN_ACTION_TIMEOUT_MS` may tune that worker-only limit without changing saved Test Cases.
 - Phase 5 adds no new service or dependency: immutable Test Case versions, product-local feature labels, Releases, Release Runs, and derived readiness use PostgreSQL transactions plus the existing two-concurrency BullMQ worker. Release batch work does not use the guided browser or a scheduler.
+- Phase 6 requires `SMTP_HOST`, `SMTP_PORT`, `EMAIL_FROM`, and `SENTINEL_APP_URL`. Docker defaults route SMTP internally to Mailpit and expose its inspection UI only at `http://localhost:8025`; no production email credentials belong in this repository.
 - Phase 1.5 uses local system typography, CSS custom properties, and custom React/CSS primitives; it does not add external fonts, icon packs, Tailwind, shadcn, or a component library.
 - CI should run formatting/lint checks, unit tests, type checks, and browser smoke tests.
 - Structured logs should include correlation IDs for a Test Case, Run, job, evidence event, and external integration request.
@@ -59,6 +61,7 @@
 - Verify the QA database role cannot write by an automated permission check.
 - Apply authorization before serving evidence URLs; use short-lived signed object URLs if supported.
 - Phase 2 stores no browser video. Screenshot objects receive SHA-256 checksums, while network, console, and storage metadata is redacted before persistence.
+- Phase 6 notification emails and in-app summaries may contain only approved Product/Test or Release names, state, timestamp, safe reason, and protected Sentinel link. They must never serialize evidence, screenshots, variables, raw logs, credentials, cookies, tokens, or encryption material.
 
 ## 6. Compatibility checks before coding
 
@@ -76,6 +79,6 @@ Phase 1 must confirm:
 - Redis/BullMQ versus an equivalent managed queue.
 - Production object-storage provider and automatic evidence-retention period; Phase 2 retains local MinIO data until Docker volumes are deliberately removed.
 - Identity provider and named identity mapping for shared login.
-- JIRA project configuration, email provider, and optional Slack provider.
+- JIRA project configuration, production email provider, notification preferences/digests, and optional Slack provider.
 - Observability platform and production alert thresholds.
 - Production key management, rotation, and an external reusable-test-data adapter. Phase 4 deliberately uses a local PostgreSQL pool and local lifecycle checks only; reusable and single-use policies control only Sentinel's local reservation state, not cleanup in the target application.
