@@ -344,7 +344,9 @@ async function route(request: Request, context: Context) {
           const isCheckpoint = Object.prototype.hasOwnProperty.call(edit, "isCheckpoint") ? edit.isCheckpoint : source.isCheckpoint;
           if (typeof isCheckpoint !== "boolean") throw new Error("STEP_CHECKPOINT_INVALID");
           if (source.isRedacted) {
-            if (edit.variableName || edit.value) throw new Error("VARIABLE_STEP_UNSUPPORTED");
+            // The editor sends the unchanged redaction marker with every save. Permit only
+            // that exact marker; any different value or variable assignment is still blocked.
+            if (edit.variableName || (Object.prototype.hasOwnProperty.call(edit, "value") && edit.value !== source.value)) throw new Error("VARIABLE_STEP_UNSUPPORTED");
             stepData.push({ order: source.order, kind: source.kind, timestamp: source.timestamp, target, value: source.value, isRedacted: true, description, expectedOutcome, variableName: null, isCheckpoint });
             continue;
           }
