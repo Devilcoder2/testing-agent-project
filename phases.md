@@ -321,11 +321,41 @@ Manual verification: add two labels; save one safe step edit as Version 2; confi
 ## Phase 6 — Dashboard and notifications
 
 **Depends on:** Phase 2 and Phase 5  
-**Outcome:** Users can see health, trends, and pending human actions.
+**Status:** Planned.
+**Outcome:** A product-authorized user can understand the recent health of their Tests and Releases, find instability, and reliably receive only safe, actionable failure/checkpoint/Release notices.
 
-- Add product dashboard, last-run status, failure frequency, and coverage trends.
-- Add email notifications for failures, checkpoints, and pending approvals.
-- Add optional Slack adapter only after email and notification audit behavior work.
+### In scope
+
+- Replace the coverage-only dashboard source with `GET /api/dashboard`, optionally filtered by Product.
+- Show an all-accessible-Products overview and Product drill-down using a fixed rolling 30-day UTC window: saved Test Cases, completed Runs, pass rate (`Passed / (Passed + Failed)`, excluding interrupted), failed count, flaky current versions, coverage change against the preceding 30 days, and latest completed Run per Product.
+- Show a selected Product's daily Passed/Failed trend, coverage change, linked flaky Tests, and unread failure/checkpoint items needing attention. Use custom CSS rather than a chart library.
+- Persist a per-recipient Notification with type, delivery state, Product/Run/Release references, creation/sent/read timestamps, attempts, and a safe error summary.
+- Add an authorized `/notifications` inbox with unread/all filtering, individual and bulk read actions, delivery state, and protected Run or Release links.
+- Notify the Test Case owner and Run initiator of failed Runs; notify those same users for Auto Run checkpoints; notify the Release owner and batch initiator once each when a Release Run completes. De-duplicate recipients and retain individual failed-Test owner notices.
+- Add Docker-local Mailpit. Persist before queueing email delivery through the existing worker's dedicated BullMQ notification queue. Retry transient SMTP failure once, then mark final delivery failure and audit it.
+- Send email summaries containing only safe Product/Test or Release/state/timestamp/reason/link information. Never email evidence, screenshots, raw logs, variables, credentials, tokens, cookies, or browser data.
+
+### Explicit exclusions
+
+- Historic notification backfill, notification preferences, digests, deletion, Slack, real email-provider credentials, pending-approval notices before Phase 9, user-specific time zones, and changes to Run outcomes, evidence status, or Release readiness caused by delivery failure.
+
+### Acceptance checklist
+
+- [ ] An authorized user can view an all-accessible-Products overview and safely drill into one Product.
+- [ ] Dashboard metrics use exact rolling 30-day UTC boundaries and the documented pass-rate, flaky-version, coverage-growth, and latest-Run definitions.
+- [ ] A user cannot retrieve dashboard data, flaky links, notifications, Runs, or Releases outside current Product membership.
+- [ ] Failed Run and Auto Run checkpoint events create de-duplicated per-recipient notifications only for new Phase 6 events.
+- [ ] Completed Release Runs create one consolidated summary per Release owner/batch initiator, without suppressing relevant individual failed-Test owner notices.
+- [ ] Inbox unread/all filtering and individual/bulk read state persist and audit correctly.
+- [ ] Mailpit receives only safe summary email with a protected Sentinel link.
+- [ ] One transient delivery failure retries once; a second failure becomes an audited failed delivery without changing factual Test or Release state.
+
+### Verification
+
+- Unit tests cover UTC window boundaries, pass rate, flakiness, coverage growth, recipient de-duplication, safe email rendering, and retry classification.
+- Integration tests cover Product authorization, persisted notification delivery, Mailpit, final failure, Release summary aggregation, read state, and notification failure independence.
+- Browser tests cover dashboard overview/drill-down and empty states, flaky links, attention items, inbox filters/read actions, failure/checkpoint notifications, and Mailpit-safe links.
+- Manual verification creates Passed, Failed, Interrupted, and checkpointed Runs; inspects dashboard values and Mailpit at `http://localhost:8025`; confirms safe email content; and confirms one Release summary instead of one email per failed batch item.
 
 ## Phase 7 — Edge-case and negative-test suggestions
 
