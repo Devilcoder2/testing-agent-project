@@ -169,21 +169,6 @@ function featureLabelNames(value: unknown) {
   return names;
 }
 
-function safeTargetMetadata(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("STEP_TARGET_INVALID");
-  const target = value as Record<string, unknown>;
-  const supportedKeys = new Set(["url", "title", "tag", "testId", "name", "label", "role", "text", "type", "placeholder"]);
-  if (Object.keys(target).some((key) => !supportedKeys.has(key) || typeof target[key] !== "string" || (target[key] as string).length > 512)) throw new Error("STEP_TARGET_INVALID");
-  if (typeof target.url === "string") {
-    try {
-      if (new URL(target.url).origin !== new URL(process.env.DEMO_TARGET_URL ?? "http://demo-target").origin) throw new Error("STEP_TARGET_INVALID");
-    } catch {
-      throw new Error("STEP_TARGET_INVALID");
-    }
-  }
-  return target as Prisma.InputJsonValue;
-}
-
 function optionalSafeText(value: unknown, code: string) {
   if (value === null || value === undefined) return null;
   if (typeof value !== "string" || value.length > 4_000) throw new Error(code);
@@ -332,62 +317,59 @@ async function route(request: Request, context: Context) {
       }
       if (current.steps.some((step) => !submitted.has(step.id))) return json({ error: "Every saved step must remain present when creating a new version." }, 400);
       const previousVariables = new Map(current.variables.map((variable) => [variable.name, variable]));
-      const nextVariables = new Map<string, string>();
-      const suppliedVariableValues = new Map<string, string>();
+      const nextVariables = new Map<string, string | null>();
+      const capturedVariableValues = new Map<string, string>();
       const stepData: Array<{ order: number; kind: StepKind; timestamp: Date; target: Prisma.InputJsonValue; value: string | null; isRedacted: boolean; description: string | null; expectedOutcome: string | null; variableName: string | null; isCheckpoint: boolean }> = [];
       try {
         for (const source of current.steps) {
           const edit = submitted.get(source.id)!;
-          const target = Object.prototype.hasOwnProperty.call(edit, "target") ? safeTargetMetadata(edit.target) : source.target as Prisma.InputJsonValue;
+          if (Object.prototype.hasOwnProperty.call(edit, "target") && JSON.stringify(edit.target) !== JSON.stringify(source.target)) throw new Error("STEP_TARGET_IMMUTABLE");
+          const target = source.target as Prisma.InputJsonValue;
           const description = Object.prototype.hasOwnProperty.call(edit, "description") ? optionalSafeText(edit.description, "STEP_DESCRIPTION_INVALID") : source.description;
           const expectedOutcome = Object.prototype.hasOwnProperty.call(edit, "expectedOutcome") ? optionalSafeText(edit.expectedOutcome, "STEP_EXPECTED_OUTCOME_INVALID") : source.expectedOutcome;
           const isCheckpoint = Object.prototype.hasOwnProperty.call(edit, "isCheckpoint") ? edit.isCheckpoint : source.isCheckpoint;
           if (typeof isCheckpoint !== "boolean") throw new Error("STEP_CHECKPOINT_INVALID");
+          const inputValue = Object.prototype.hasOwnProperty.call(edit, "value") ? edit.value : undefined;
+          if (inputValue !== undefined && inputValue !== source.value) throw new Error("STEP_VALUE_IMMUTABLE");
           if (source.isRedacted) {
             // The editor sends the unchanged redaction marker with every save. Permit only
             // that exact marker; any different value or variable assignment is still blocked.
-            if (edit.variableName || (Object.prototype.hasOwnProperty.call(edit, "value") && edit.value !== source.value)) throw new Error("VARIABLE_STEP_UNSUPPORTED");
+            if (edit.variableName) throw new Error("VARIABLE_STEP_UNSUPPORTED");
             stepData.push({ order: source.order, kind: source.kind, timestamp: source.timestamp, target, value: source.value, isRedacted: true, description, expectedOutcome, variableName: null, isCheckpoint });
             continue;
           }
           const variableInput = Object.prototype.hasOwnProperty.call(edit, "variableName") ? edit.variableName : source.variableName;
           const variableName = variableInput === null || variableInput === "" ? null : canonicalVariableName(variableInput);
-          const inputValue = Object.prototype.hasOwnProperty.call(edit, "value") ? edit.value : undefined;
+          if (source.variableName && !variableName) throw new Error("VARIABLE_MARKER_REMOVAL_UNSUPPORTED");
           if (variableName) {
             if (source.kind !== StepKind.TEXT_ENTRY) throw new Error("VARIABLE_STEP_UNSUPPORTED");
-            const suppliedValue = typeof inputValue === "string" && inputValue && inputValue !== variablePlaceholder(variableName) ? inputValue : null;
-            if (suppliedValue && isSecretLikeVariable(variableName, suppliedValue)) throw new Error("VARIABLE_SECRET_REJECTED");
-            const existing = source.variableName === variableName ? previousVariables.get(variableName)?.staticValueEncrypted : null;
-            const encrypted = suppliedValue ? encryptVariableValue(suppliedValue) : existing;
-            if (!encrypted) throw new Error("VARIABLE_STATIC_VALUE_REQUIRED");
+            const capturedValue = source.variableName ? null : source.value;
+            if (capturedValue && isSecretLikeVariable(variableName, capturedValue)) throw new Error("VARIABLE_SECRET_REJECTED");
+            const priorCapturedValue = capturedValue ? capturedVariableValues.get(variableName) : undefined;
+            if (priorCapturedValue && capturedValue && priorCapturedValue !== capturedValue) throw new Error("VARIABLE_VALUE_CONFLICT");
+            if (capturedValue) capturedVariableValues.set(variableName, capturedValue);
+            const encrypted = source.variableName ? previousVariables.get(source.variableName)?.staticValueEncrypted ?? null : capturedValue ? encryptVariableValue(capturedValue) : null;
             const prior = nextVariables.get(variableName);
-            const priorValue = suppliedVariableValues.get(variableName);
-            if (priorValue && suppliedValue && priorValue !== suppliedValue) throw new Error("VARIABLE_VALUE_CONFLICT");
-            if (suppliedValue) suppliedVariableValues.set(variableName, suppliedValue);
             nextVariables.set(variableName, prior ?? encrypted);
             stepData.push({ order: source.order, kind: source.kind, timestamp: source.timestamp, target, value: variablePlaceholder(variableName), isRedacted: false, description, expectedOutcome, variableName, isCheckpoint });
             continue;
           }
-          const value = inputValue === undefined ? source.value : optionalSafeText(inputValue, "STEP_VALUE_INVALID");
-          if (source.variableName && (!value || value === variablePlaceholder(source.variableName))) throw new Error("STEP_VALUE_REQUIRED");
-          if (typeof value === "string" && isSecretLikeVariable("value", value)) throw new Error("VARIABLE_SECRET_REJECTED");
-          stepData.push({ order: source.order, kind: source.kind, timestamp: source.timestamp, target, value, isRedacted: false, description, expectedOutcome, variableName: null, isCheckpoint });
+          stepData.push({ order: source.order, kind: source.kind, timestamp: source.timestamp, target, value: source.value, isRedacted: false, description, expectedOutcome, variableName: null, isCheckpoint });
         }
       } catch (error) {
         const code = error instanceof Error ? error.message : "STEP_UPDATE_INVALID";
         const messages: Record<string, string> = {
           FEATURE_LABELS_INVALID: "Feature labels must be unique names of up to 64 characters.",
-          STEP_TARGET_INVALID: "Step target metadata must use the supported Demo CRM fields and URLs.",
+          STEP_TARGET_IMMUTABLE: "Recorded target metadata cannot be changed here. Create a new recording to change a browser action.",
+          STEP_VALUE_IMMUTABLE: "Recorded input values cannot be changed here. Use the Variables section for a variable default, or create a new recording.",
           STEP_DESCRIPTION_INVALID: "Step descriptions must be short text.",
           STEP_EXPECTED_OUTCOME_INVALID: "Expected outcomes must be short text.",
           STEP_CHECKPOINT_INVALID: "Checkpoint must be true or false.",
           VARIABLE_STEP_UNSUPPORTED: "Only non-secret text-entry steps can be marked as variables.",
           VARIABLE_NAME_INVALID: "Variable names must use lower-case letters, numbers, and underscores.",
           VARIABLE_SECRET_REJECTED: "Passwords, tokens, and other secret-like values cannot be saved.",
-          VARIABLE_STATIC_VALUE_REQUIRED: "A newly marked variable needs a safe static default value.",
           VARIABLE_VALUE_CONFLICT: "Matching variable names must use one shared value.",
-          STEP_VALUE_REQUIRED: "Removing a variable marker requires a replacement non-secret value.",
-          STEP_VALUE_INVALID: "Step values must be short text."
+          VARIABLE_MARKER_REMOVAL_UNSUPPORTED: "A variable marker cannot be removed because its original value is not retained. Create a new recording instead."
         };
         return json({ error: messages[code] ?? "The saved Test Case edit is invalid." }, 400);
       }
