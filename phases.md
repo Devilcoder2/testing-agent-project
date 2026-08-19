@@ -376,3 +376,19 @@ Manual verification: add two labels; save one safe step edit as Version 2; confi
 - Run an adversarial review against `problem-brief.md`, `srd.md`, and `architecture.md`.
 - Resolve ownership reassignment, retention, target metrics, and provider configuration.
 - Complete setup documentation, learning reviews, and a single-file commit/push audit.
+
+## Post-current-phase discovery backlog — not scheduled
+
+These owner-proposed ideas must be discussed and approved only after the current Phase 6–11 roadmap is complete. They are reminders, not requirements for any existing phase and do not authorize implementation now.
+
+### UI revamp
+
+Revisit the complete product experience after the current features are available. The goal is a modern, clearer, less cognitively demanding interface rather than incremental cosmetic changes to the current UI. Future discovery must review navigation, information hierarchy, workflows, visual language, accessibility, and the needs of every delivered feature before defining a dedicated redesign phase.
+
+### Organization roles and administration
+
+Add an administration and authorization model with three intended organization-level roles: **admin** with full application access, **manager** with substantial but deliberately limited access, and **tester** with a narrower working-access set. The exact permission matrix, role assignment workflow, audit requirements, and authentication model remain undecided. For an individual-project workspace, its individual tester is intended to act as the administrator. No role behavior is approved or implemented yet.
+
+### Conversational agent integration
+
+Explore a WhatsApp and/or Telegram agent that lets an authorized tester list Releases or Test Cases, choose tests, request an Auto Run, and receive the outcome without opening Sentinel on a laptop. Future discovery must decide the messaging provider, identity linking, organization/role authorization, command confirmation, run eligibility, result/evidence sharing, secret handling, audit trail, and failure/retry behavior. This must reuse Sentinel’s authorization and safe Auto Run boundaries; it must not give a chat message unrestricted access to the platform.
