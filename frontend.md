@@ -59,6 +59,7 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 | `/recordings/[id]` | Focused, chrome-free Recording Workspace for the active draft. |
 | `/runs` | Product-authorized Run inventory with outcome and Product filters. |
 | `/runs/[id]` | Focused guided Run workspace while active, then a Run Detail timeline with evidence panels when completed. |
+| `/notifications` | Phase 6 product-authorized inbox with unread/all filtering, delivery state, protected Run or Release links, and individual or bulk read actions. |
 
 ### Future route specifications
 
@@ -73,7 +74,7 @@ The following are documented design targets only. Phase 1.5 must not create plac
 | `/review` | Change proposals, negative-test suggestions, checkpoint decisions, and owner approvals. |
 | `/settings` | Product access, integration health, notification configuration, and safe connection state. |
 
-The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 5 navigation exposes Dashboard, Products, Test Cases, Test Data, Runs, and Releases; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Review and Settings remain future navigation.
+The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 6 navigation exposes Dashboard, Products, Test Cases, Test Data, Runs, Releases, and Notifications; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Review and Settings remain future navigation.
 
 ## 5. Page experience decisions
 
@@ -83,7 +84,11 @@ Use a branded full-height entry screen with a concise development-access card, c
 
 ### Dashboard, Products, and Test Case inventory
 
-Use the shared App Shell and keep responsibilities separate: Dashboard is a clean operational overview with real Product/Test Case metrics and a distribution chart capped at the five highest-coverage Products; Products owns creation and name management through a heading-level modal action, with rename validation matching creation validation and a direct **View Test Cases** link that applies the Product filter; Test Cases owns searchable inventory, leaves clear separation between its search field and results, and shows its visible/total count beside the heading. The top-bar **New recording** action opens a compact, labelled creation dialog over the current page rather than a standalone creation screen. Empty states explain the next useful action. Do not invent activity, pass-rate, Run, or coverage data before Phase 2 and later data models exist.
+Use the shared App Shell and keep responsibilities separate. Phase 6 Dashboard is a clean operational overview, not an inventory: a Product selector changes the authorized 30-day UTC health view; compact metric cards show saved Tests, completed Runs, pass rate, failures, flakiness, and coverage growth; a custom CSS daily result trend and latest-Run list communicate state without a chart dependency; and a clear **Needs attention** region links only the current user's unread failure/checkpoint items. Empty metrics explain that there is no recent activity rather than implying a zero-quality result. Products owns creation and name management through a heading-level modal action, with rename validation matching creation validation and a direct **View Test Cases** link that applies the Product filter; Test Cases owns searchable inventory, leaves clear separation between its search field and results, and shows its visible/total count beside the heading. The top-bar **New recording** action opens a compact, labelled creation dialog over the current page rather than a standalone creation screen.
+
+### Notifications inbox
+
+Use the shared App Shell with a concise chronological inbox. A segmented **Unread / All** filter, a visible unread count, clear delivery-state badge, and disabled bulk-read action when no unread items exist make the state understandable without relying on colour. Every row states the safe event summary, its timestamp, and a protected contextual link; it never renders evidence previews, raw failure logs, variable values, or email body content. Marking one item or all items read updates the list with an announced status message. A no-notifications state should be calm and specific rather than suggest a missing integration.
 
 ### Saved Test Case detail
 
@@ -119,7 +124,7 @@ Implement reusable App Shell, Sidebar, Top Bar, Page Header, Card, Button, Icon 
 
 ### Out of scope
 
-- New API endpoints, data models, browser recording semantics, replay, Run execution, evidence capture, notifications, JIRA, releases, approvals, or placeholder future screens.
+- New API endpoints, data models, browser recording semantics, replay, Run execution, evidence capture, JIRA, approvals, or placeholder future screens beyond the documented Phase 6 dashboard and Notifications inbox.
 - External fonts, icon libraries, design-system dependencies, and visual assets.
 
 ### Acceptance criteria
