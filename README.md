@@ -32,7 +32,9 @@ The attached requirements document is the current product source of truth. Archi
 - Phase 1.5: frontend foundation and Phase 1 UX redesign acceptance-verified; owner learning review remains pending.
 - Phase 2: guided Runs and privacy-safe evidence capture are acceptance-verified; owner learning review remains pending.
 - Phase 3: autonomous replay is implementation and automated-acceptance verified; owner learning review remains pending.
+- Phase 4: encrypted variables and the local Test Data lifecycle are implementation and automated-acceptance verified; owner learning review remains pending.
 - Phase 5: Test Case versioning and Release management are implementation and automated-acceptance verified; owner learning review remains pending.
+- Phase 6: health dashboard and durable local notifications are planned.
 - Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -50,6 +52,8 @@ docker compose up --build -d
 docker compose logs -f sentinel
 docker compose down
 ```
+
+Phase 6 also starts Mailpit, the local email sink. Open [http://localhost:8025](http://localhost:8025) to inspect safe Sentinel notification email without sending anything outside Docker. Configure only local values in an untracked environment file: `SMTP_HOST=mailpit`, `SMTP_PORT=1025`, `EMAIL_FROM=Sentinel <noreply@sentinel.local>`, and `SENTINEL_APP_URL=http://localhost:3001`.
 
 Use `ava.tester@example.test` with password `sentinel-dev`. Create a recording for the built-in Demo CRM, launch the browser panel, then complete the demo target’s sign-in and customer-creation journey. Chromium runs in kiosk app mode and is policy-locked to the Demo CRM; the host exposes only the noVNC viewer on port 7900, not Selenium WebDriver.
 
@@ -121,6 +125,19 @@ docker compose exec sentinel npx vitest run tests/release-api.test.ts
 docker compose exec sentinel npx playwright test tests/phase-5-release.spec.ts
 ```
 
+## Phase 6 scope
+
+Phase 6 replaces the coverage-only Dashboard with a current-membership, rolling 30-day UTC health view. It shows saved Tests, completed Runs, pass rate, failed Run count, flaky current versions, coverage change, daily Product trend, and latest completed Run state. It also adds a Notifications inbox for new failed-Run, Auto Run checkpoint, and completed Release summary events. Mailpit email is a safe summary and protected Sentinel link only; it never includes evidence, screenshots, raw logs, variables, credentials, cookies, or tokens. Delivery retries once for a transient failure and cannot change Test/Release truth.
+
+To verify it after the stack is running:
+
+```text
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/phase-6-dashboard-notifications.spec.ts
+```
+
 ## Status
 
-Phases 1, 1.5, 2, 3, 4, and 5 are implementation and acceptance-verified. Owner learning reviews remain pending in `learning-log.md`, so completed phases are not yet marked fully understood. External integrations, scheduling, external QA targets, notifications, and QA-network access remain later phases.
+Phases 1, 1.5, 2, 3, 4, and 5 are implementation and acceptance-verified. Owner learning reviews remain pending in `learning-log.md`, so completed phases are not yet marked fully understood. Phase 6 is in implementation. External production integrations, scheduling, external QA targets, Slack, approval notices, and QA-network access remain later phases.
