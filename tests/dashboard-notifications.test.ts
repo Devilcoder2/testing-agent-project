@@ -57,6 +57,7 @@ describe("Phase 6 safe notification delivery", () => {
 
   it("retries only known transient SMTP failures", () => {
     expect(isTransientDeliveryError({ code: "ECONNRESET" })).toBe(true);
+    expect(isTransientDeliveryError({ code: "ESOCKET" })).toBe(true);
     expect(isTransientDeliveryError({ code: "EINVAL" })).toBe(false);
     expect(isTransientDeliveryError(new Error("mailbox rejected"))).toBe(false);
   });
