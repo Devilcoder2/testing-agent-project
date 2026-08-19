@@ -4,7 +4,9 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
 import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordingBrowser, launchRunBrowser, replayGuidedRunStep } from "@/lib/browser";
+import { dashboardForUser } from "@/lib/dashboard";
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
+import { notifyRunFailure } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { enqueueAutoRun } from "@/lib/queue";
 import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, variablePlaceholder } from "@/lib/variables";
@@ -64,6 +66,52 @@ async function assertReleaseMember(userId: string, releaseId: string) {
   if (!release) return null;
   for (const item of release.tests) await assertProductMember(userId, item.testCase.productId);
   return release;
+}
+
+async function assertNotificationAccess(userId: string, notification: { productId: string | null; runId: string | null; releaseRunId: string | null }) {
+  let productId = notification.productId;
+  if (!productId && notification.runId) {
+    const run = await prisma.run.findUnique({ where: { id: notification.runId }, select: { productId: true } });
+    productId = run?.productId ?? null;
+  }
+  if (productId) {
+    await assertProductMember(userId, productId);
+    return;
+  }
+  if (notification.releaseRunId) {
+    const releaseRun = await prisma.releaseRun.findUnique({ where: { id: notification.releaseRunId }, select: { releaseId: true } });
+    if (!releaseRun || !(await assertReleaseMember(userId, releaseRun.releaseId))) throw new Error("FORBIDDEN");
+    return;
+  }
+  throw new Error("FORBIDDEN");
+}
+
+function publicNotification(notification: {
+  id: string;
+  type: string;
+  deliveryStatus: string;
+  deliveryAttempts: number;
+  deliveryError: string | null;
+  createdAt: Date;
+  sentAt: Date | null;
+  readAt: Date | null;
+  product: { name: string } | null;
+  run: { id: string; outcome: string | null; testCase: { name: string } } | null;
+  releaseRun: { release: { id: string; name: string }; readiness: string } | null;
+}) {
+  return {
+    id: notification.id,
+    type: notification.type,
+    deliveryStatus: notification.deliveryStatus,
+    deliveryAttempts: notification.deliveryAttempts,
+    deliveryError: notification.deliveryError,
+    createdAt: notification.createdAt,
+    sentAt: notification.sentAt,
+    readAt: notification.readAt,
+    productName: notification.product?.name ?? null,
+    run: notification.run ? { id: notification.run.id, name: notification.run.testCase.name, outcome: notification.run.outcome } : null,
+    release: notification.releaseRun ? { id: notification.releaseRun.release.id, name: notification.releaseRun.release.name, readiness: notification.releaseRun.readiness } : null
+  };
 }
 
 type RunBindingInput = { source?: unknown; dataSetId?: unknown; value?: unknown };
@@ -214,6 +262,65 @@ async function route(request: Request, context: Context) {
 
   try {
     const user = await requireUser();
+    if (request.method === "GET" && path.join("/") === "dashboard") {
+      const productId = new URL(request.url).searchParams.get("productId") ?? undefined;
+      return json(await dashboardForUser(user.id, productId));
+    }
+    if (request.method === "GET" && path.join("/") === "notifications") {
+      const unreadOnly = new URL(request.url).searchParams.get("filter") === "unread";
+      const notifications = await prisma.notification.findMany({
+        where: { recipientId: user.id, ...(unreadOnly ? { readAt: null } : {}) },
+        include: {
+          product: { select: { name: true } },
+          run: { select: { id: true, productId: true, outcome: true, testCase: { select: { name: true } } } },
+          releaseRun: { select: { releaseId: true, readiness: true, release: { select: { id: true, name: true } } } }
+        },
+        orderBy: { createdAt: "desc" }
+      });
+      const permitted = [];
+      for (const notification of notifications) {
+        try {
+          await assertNotificationAccess(user.id, notification);
+          permitted.push(publicNotification(notification));
+        } catch {
+          // Notifications remain invisible when current Product access has been removed.
+        }
+      }
+      return json(permitted);
+    }
+    if (request.method === "PATCH" && path[0] === "notifications" && path[1] && path[2] === "read") {
+      const notification = await prisma.notification.findFirst({ where: { id: path[1], recipientId: user.id } });
+      if (!notification) return json({ error: "Notification not found." }, 404);
+      await assertNotificationAccess(user.id, notification);
+      if (!notification.readAt) {
+        const readAt = new Date();
+        await prisma.$transaction([
+          prisma.notification.update({ where: { id: notification.id }, data: { readAt } }),
+          prisma.auditEvent.create({ data: { actorId: user.id, action: "NOTIFICATION_READ", entityType: "Notification", entityId: notification.id } })
+        ]);
+      }
+      return json({ id: notification.id, read: true });
+    }
+    if (request.method === "POST" && path.join("/") === "notifications/read-all") {
+      const unread = await prisma.notification.findMany({ where: { recipientId: user.id, readAt: null } });
+      const permittedIds: string[] = [];
+      for (const notification of unread) {
+        try {
+          await assertNotificationAccess(user.id, notification);
+          permittedIds.push(notification.id);
+        } catch {
+          // Do not disclose notifications whose underlying Product membership was removed.
+        }
+      }
+      if (permittedIds.length) {
+        const readAt = new Date();
+        await prisma.$transaction([
+          prisma.notification.updateMany({ where: { id: { in: permittedIds }, readAt: null }, data: { readAt } }),
+          ...permittedIds.map((id) => prisma.auditEvent.create({ data: { actorId: user.id, action: "NOTIFICATION_READ", entityType: "Notification", entityId: id, details: { bulk: true } } }))
+        ]);
+      }
+      return json({ count: permittedIds.length });
+    }
     if (request.method === "GET" && path.join("/") === "products") {
       return json(await prisma.product.findMany({ where: { memberships: { some: { userId: user.id } } }, orderBy: { name: "asc" } }));
     }
@@ -559,6 +666,7 @@ async function route(request: Request, context: Context) {
             prisma.runAttempt.updateMany({ where: { runId: item.runId }, data: { status: RunAttemptStatus.COMPLETED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, completedAt } })
           ]);
           await markReleaseRunItemQueueFailure(item.runId);
+          await notifyRunFailure(item.runId);
           console.error("Sentinel could not enqueue a Release Run item", error);
         }
       }
@@ -646,6 +754,7 @@ async function route(request: Request, context: Context) {
         ]);
         await updateReservedDataSet(created.id, RunOutcome.FAILED);
         await markReleaseRunItemQueueFailure(created.id);
+        await notifyRunFailure(created.id);
         console.error("Sentinel could not enqueue Auto Run", error);
         return json({ error: "Auto Run could not be queued. Redis is unavailable; try again." }, 503);
       }
@@ -717,6 +826,7 @@ async function route(request: Request, context: Context) {
         const completed = await prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.FAILED, activeStepOrder: null, completedAt } });
         await updateReservedDataSet(run.id, RunOutcome.FAILED);
         await prisma.auditEvent.create({ data: { actorId: user.id, action: "RUN_FAILED", entityType: "Run", entityId: run.id, details: { stepOrder: stepResult.order } } });
+        await notifyRunFailure(run.id);
         await closeRunBrowser(run.id);
         return json(completed);
       }
