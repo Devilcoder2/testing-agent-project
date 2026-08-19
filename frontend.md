@@ -54,7 +54,7 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 | `/products` | Accessible Product list with a heading-level **New product** action, sized to match **New recording**, that opens a named Product-creation modal. Each Product can be renamed or used to open a pre-filtered Test Case inventory. |
 | `/test-cases` | Searchable and product-filterable Test Case inventory with a header count of visible versus accessible Test Cases. |
 | `/test-cases/[id]` | Saved Test Case metadata, current-version badge, and read-only Step Timeline. |
-| `/test-cases/[id]/edit` | Focused saved-Test-Case editor for safe changes, product-local feature labels, checkpoint controls, and immutable next-version save feedback. |
+| `/test-cases/[id]/edit` | Focused saved-Test-Case editor for labels, descriptions, expected outcomes, non-secret variable markers, checkpoint controls, and immutable next-version save feedback. Recorded target metadata and captured values are visibly read-only; a changed action starts with a new recording. |
 | `/recordings/new` | Legacy entry URL that safely returns to Dashboard; creation is initiated from the persistent **New recording** action. |
 | `/recordings/[id]` | Focused, chrome-free Recording Workspace for the active draft. |
 | `/runs` | Product-authorized Run inventory with outcome and Product filters. |
