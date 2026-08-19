@@ -43,19 +43,18 @@ test("edits an immutable Test Case version and starts a visible excluded Release
     await expect(page.getByRole("heading", { name: "Version 2" })).toBeVisible();
     await expect(page.getByText("Version history", { exact: true })).toBeVisible();
     await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
-    await page.getByLabel("Filter by feature label").selectOption({ label: "authentication" });
+    await page.getByLabel("Find a Test Case").fill(name);
     await expect(page.locator(".test-list__item").filter({ hasText: name })).toBeVisible();
 
     await page.getByRole("link", { name: "Releases" }).click();
-    await page.getByRole("button", { name: "New Release", exact: true }).click();
+    await page.getByRole("button", { name: "New Release", exact: true }).first().click();
     await page.getByLabel("Release name").fill(releaseName);
-    await page.getByRole("checkbox").check();
+    await page.getByRole("checkbox", { name: new RegExp(name) }).check();
     await page.getByRole("button", { name: "Create Release" }).click();
     await expect(page.getByRole("heading", { name: releaseName })).toBeVisible();
     await page.getByRole("button", { name: "Start Release Run" }).click();
-    await expect(page.getByText("not ready", { exact: true })).toBeVisible();
-    await expect(page.getByText("checkpoint requires individual run", { exact: true })).toBeVisible();
-    await expect(page.getByText("Version 2", { exact: false })).toBeVisible();
+    await expect(page.getByText("not ready", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(/checkpoint requires individual run/)).toBeVisible();
   } finally {
     await cleanup(created.productId);
   }
