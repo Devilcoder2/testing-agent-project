@@ -463,6 +463,8 @@ model Notification {
   updatedAt        DateTime                   @updatedAt
 
   @@index([recipientId, readAt, createdAt])
+  @@unique([recipientId, runId, type])
+  @@unique([recipientId, releaseRunId, type])
   @@index([runId, type])
   @@index([releaseRunId, type])
   @@index([productId, createdAt])
