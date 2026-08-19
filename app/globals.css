@@ -83,6 +83,8 @@ h3 { margin-bottom: var(--space-1); font-size: var(--text-base); }
 .input::placeholder { color: var(--color-text-subtle); }
 .input:hover { border-color: var(--color-focus); }
 .input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 0.2rem var(--color-primary-soft); outline: 0; }
+.input--read-only, .input--read-only:hover { border-color: var(--color-border); color: var(--color-text-muted); background: var(--color-surface-raised); cursor: default; }
+.input--read-only:focus { border-color: var(--color-border); box-shadow: none; }
 .select-wrap { position: relative; display: block; }
 .select { appearance: none; padding-right: var(--space-8); }
 .select-wrap::after { position: absolute; top: 50%; right: var(--space-3); color: var(--color-text-muted); font-size: var(--text-lg); line-height: 1; pointer-events: none; transform: translateY(-55%); content: "⌄"; }
