@@ -245,3 +245,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Target metadata and captured input values define the replayed browser action. Free-form edits could create a version that appears valid but clicks the wrong element or uses unreviewed test data. A purpose-based editor keeps annotations and execution settings maintainable without allowing an accidental action rewrite.
 - **Impact:** To change a selector, URL, or literal browser input, testers create a new recording. Static defaults continue to be replaced in the dedicated Variables section, and existing historical versions remain unchanged.
 - **Status:** Implemented and verified on 2026-08-19 with lint, type-check, focused API regression tests, and a live read-only browser-field check; owner learning review pending.
+
+## D-030 — Phase 6 local health reporting and durable notification delivery
+
+- **Date:** 2026-08-20
+- **Decision:** Derive Dashboard health from existing currently authorized Test Case, Run, Release, and evidence records in a fixed rolling 30-day UTC window. Use a durable per-recipient Notification record and a dedicated BullMQ notification queue in the existing worker. Deliver local Phase 6 email through Mailpit, retry a transient SMTP failure exactly once, and keep delivery state independent of factual Run outcomes, Release readiness, and evidence capture.
+- **Reason:** The product needs trustworthy, inspectable operational health and actionable notices before adopting a real provider or a second operational service. Persisting before queueing prevents a delivery failure from losing the in-app notification and makes the audit trail visible.
+- **Impact:** Only failures, Auto Run checkpoints, and Release completion create new notifications. Recipients are de-duplicated owners/initiators, Release completion is one summary per Release owner/batch initiator, and Product authorization is re-checked on inbox links. Email contains only safe labels, state, time, safe reason, and a Sentinel link. Historic backfill, Slack, digests, user preferences, real provider credentials, approval notices, and user time zones remain deferred.
+- **Status:** Confirmed by the approved Phase 6 plan; implementation in progress.
