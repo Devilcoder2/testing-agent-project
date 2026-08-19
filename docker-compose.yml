@@ -89,7 +89,7 @@ services:
       SENTINEL_APP_URL: http://localhost:3001
       GUIDED_RUN_DEMO_PASSWORD: ${GUIDED_RUN_DEMO_PASSWORD:?Set GUIDED_RUN_DEMO_PASSWORD in an untracked .env file}
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
-    command: sh -c "npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
+    command: sh -c "npm ci --ignore-scripts && npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
     ports:
       - "3001:3000"
     volumes:
@@ -128,7 +128,7 @@ services:
       AUTO_RUN_DEMO_EMAIL: qa.tester@example.test
       AUTO_RUN_DEMO_PASSWORD: TestPassword!
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
-    command: sh -c "npm run db:generate && npm run worker"
+    command: sh -c "npm ci --ignore-scripts && npm run db:generate && npm run worker"
     volumes:
       - .:/app
       - sentinel-node-modules-worker:/app/node_modules
