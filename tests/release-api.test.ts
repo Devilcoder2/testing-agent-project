@@ -47,6 +47,34 @@ afterEach(async () => {
 });
 
 describe("Phase 5 versioning and Release API", () => {
+  it("allows a labels-only version save when the Test Case contains a redacted password step", async () => {
+    const ava = await login("ava.tester@example.test");
+    const suffix = Date.now();
+    const product = await (await request(ava, "products", "POST", { name: `Redacted version save ${suffix}` })).json() as { id: string };
+    productIds.push(product.id);
+    const owner = await prisma.user.findUniqueOrThrow({ where: { email: "ava.tester@example.test" } });
+    const recording = await prisma.recordingSession.create({ data: { productId: product.id, ownerId: owner.id, testName: `Redacted version ${suffix}`, targetUrl: "http://demo-target", tokenHash: `redacted-${suffix}`, status: RecordingStatus.SAVED } });
+    const testCase = await prisma.testCase.create({
+      data: {
+        productId: product.id,
+        ownerId: owner.id,
+        recordingSessionId: recording.id,
+        name: `Redacted version ${suffix}`,
+        versions: { create: { version: 1, steps: { create: [
+          { order: 1, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: "http://demo-target" } },
+          { order: 2, kind: StepKind.TEXT_ENTRY, timestamp: new Date(), target: { name: "password", type: "password" }, value: "[REDACTED]", isRedacted: true }
+        ] } } }
+      }
+    });
+
+    const detail = await (await request(ava, `test-cases/${testCase.id}`)).json() as { versions: Array<{ version: number; steps: Array<{ id: string; target: object; value: string | null; description: string | null; expectedOutcome: string | null; variableName: string | null; isCheckpoint: boolean }> }> };
+    const current = detail.versions.find((version) => version.version === 1)!;
+    const response = await request(ava, `test-cases/${testCase.id}/versions`, "POST", { featureLabels: ["auth"], steps: current.steps });
+
+    expect(response.status).toBe(201);
+    expect((await response.json()).version.version).toBe(2);
+  });
+
   it("creates immutable versions with labels and snapshots excluded Release items safely", async () => {
     const ava = await login("ava.tester@example.test");
     const ben = await login("ben.tester@example.test");
