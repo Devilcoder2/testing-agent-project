@@ -35,19 +35,19 @@ flowchart LR
 
 ### Web application
 
-Provides authentication, dashboard, product and Test Case management, Recording Workspace, Run Detail, release views, approvals, and manual actions. Its route-based App Shell uses the tokenized Sentinel frontend system documented in [`frontend.md`](frontend.md): a persistent sidebar, accessible semantic controls, and a desktop-first focused Recording Workspace. It never directly owns browser automation or external integration credentials.
+Provides authentication, a product-authorized health dashboard, product and Test Case management, Recording Workspace, Run Detail, Releases, notification inbox, approvals, and manual actions. Its route-based App Shell uses the tokenized Sentinel frontend system documented in [`frontend.md`](frontend.md): a persistent sidebar, accessible semantic controls, and a desktop-first focused Recording Workspace. It never directly owns browser automation or external integration credentials.
 
 ### Application API
 
-Validates user permissions, persists domain state, starts jobs, exposes Run and evidence metadata, records audit events, and coordinates approval and integration workflows. API operations are the authorization boundary for all writes.
+Validates user permissions, persists domain state, starts jobs, derives dashboard health metrics using a rolling UTC window, exposes Run/evidence/notification metadata, records audit events, and coordinates approval and integration workflows. API operations are the authorization boundary for all writes.
 
 ### Sentinel PostgreSQL
 
-Stores users, product membership, Test Cases, versioned steps, variables, releases, Runs, step results, proposals, approvals, integration references, and audit records. Large evidence files are stored outside the relational database.
+Stores users, product membership, Test Cases, versioned steps, variables, releases, Runs, step results, Notifications, proposals, approvals, integration references, and audit records. Large evidence files are stored outside the relational database.
 
 ### Run queue and browser workers
 
-Phase 2 retains one explicitly user-started guided Run directly in the existing noVNC browser. Phase 3 adds Redis/BullMQ and one worker service: the API atomically persists an Auto Run and attempt before enqueueing its ID, while the worker owns a headless Playwright context for that attempt. Worker concurrency is fixed at two in local Docker. Jobs, attempts, and database state make enqueue/retry idempotent; the worker never shares the guided Selenium/noVNC browser.
+Phase 2 retains one explicitly user-started guided Run directly in the existing noVNC browser. Phase 3 adds Redis/BullMQ and one worker service: the API atomically persists an Auto Run and attempt before enqueueing its ID, while the worker owns a headless Playwright context for that attempt. Phase 6 uses a separate BullMQ notification queue in that same worker service: the API persists each Notification before queueing its delivery, and the worker retries only one transient SMTP delivery failure. Worker concurrency is fixed at two for browser jobs in local Docker. Jobs, attempts, and database state make enqueue/retry idempotent; the worker never shares the guided Selenium/noVNC browser.
 
 ### Browser recording and replay
 
@@ -69,7 +69,7 @@ Provides explicitly configured, parameterized diagnostic queries against QA Post
 
 ### Integration adapters
 
-JIRA, email, and optional Slack calls are isolated behind adapters. Each adapter translates Sentinel events into provider requests, stores external IDs, handles retry and rate limits, and exposes failure state without making the core domain depend on provider-specific fields.
+JIRA, email, and optional Slack calls are isolated behind adapters. Phase 6 provides a local SMTP email adapter pointed at the Docker-local Mailpit service. It renders only a pre-approved safe summary and a Sentinel URL, then records sent or final-failure state without exposing evidence, raw logs, variables, or credentials. Each adapter translates Sentinel events into provider requests, stores external IDs, handles retry and rate limits, and exposes failure state without making the core domain depend on provider-specific fields. Slack stays deferred until the email path and audit behavior are proven.
 
 ## 4. Core data relationships
 
@@ -93,6 +93,10 @@ erDiagram
     RELEASE ||--o{ RELEASE_RUN : batches
     RELEASE_RUN ||--o{ RELEASE_RUN_ITEM : snapshots
     RUN ||--o| RELEASE_RUN_ITEM : executes
+    USER ||--o{ NOTIFICATION : receives
+    PRODUCT ||--o{ NOTIFICATION : scopes
+    RUN ||--o{ NOTIFICATION : concerns
+    RELEASE_RUN ||--o{ NOTIFICATION : summarizes
     TEST_CASE ||--o{ CHANGE_PROPOSAL : receives
     USER ||--o{ CHANGE_PROPOSAL : approves
 ```
@@ -106,6 +110,7 @@ Important invariants:
 - A Release Run snapshots versions at batch start, so later Release tag edits cannot change an already-started batch.
 - Release readiness is derived from every persisted item; a checkpoint, missing static variable default, or other ineligible item is visible as excluded rather than skipped.
 - Evidence belongs to one Run and is access-controlled through the Run’s Test Case and product.
+- A Notification belongs to one recipient and references the Product, Run, or Release Run that caused it; opening the notification or its link rechecks the recipient’s current authorization.
 - An approval is tied to the owner identity at the time of the decision and is auditable.
 
 ## 5. Security boundaries
@@ -126,6 +131,7 @@ Important invariants:
 - Retries create a new Run attempt record or a clearly linked retry, never silently overwrite the original.
 - JIRA creation uses an idempotency key derived from the tracked failure; duplicate detection is checked before create.
 - Notification delivery is asynchronous and retryable; notification failure must not change the Run result.
+- Dashboard statistics are read-model calculations over only currently authorized Products and fixed UTC 30-day boundaries; they never mutate Run or Test Case history.
 - Database insight is best-effort diagnostic context. A query timeout or denied query is visible as incomplete context, not a test pass.
 
 ## 7. Why this is appropriately simple for the MVP
