@@ -13,7 +13,7 @@ describe("Phase 4 variable boundary", () => {
     expect(encrypted).not.toContain("customer@example.test");
     expect(decryptVariableValue(encrypted)).toBe("customer@example.test");
     const [version, iv, tag, ciphertext] = encrypted.split(".");
-    const tampered = `${version}.${iv}.${tag.slice(0, -1)}${tag.endsWith("A") ? "B" : "A"}.${ciphertext}`;
+    const tampered = `${version}.${iv}.${tag.startsWith("A") ? "B" : "A"}${tag.slice(1)}.${ciphertext}`;
     expect(() => decryptVariableValue(tampered)).toThrow("VARIABLE_CIPHERTEXT_INVALID");
   });
 
