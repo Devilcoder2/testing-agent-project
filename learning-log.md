@@ -1163,3 +1163,71 @@ Docker applied `20260815090000_add_test_case_versions_and_releases`. `docker com
 
 - Owner answers all ten Phase 5 questions and compares the answers with D-028, the migration, the version-save route, `lib/releases.ts`, and `worker.ts`.
 - Before production, decide whether Release access should be historically snapshotted, how unused labels are retired, and what external deployment signal may change a Release's broader approval state.
+
+## Feature: Phase 5 adjustment — locked recorded browser actions
+
+**Date:** 2026-08-19
+**Status:** Implemented and verified; owner learning answers pending.
+
+### What this feature does
+
+The saved-Test-Case editor is now a controlled maintenance screen, not a way to rewrite a captured browser journey. A tester may edit labels, descriptions, expected outcomes, checkpoints, and a non-secret text-entry variable marker. The browser target (the information Sentinel uses to locate an element), literal captured input, password redaction, step type, and step order stay read-only. To change what the browser actually does, the tester records a new journey.
+
+This solves a practical reliability problem: changing JSON target metadata by hand can make an Auto Run click a different element even though the edited Test Case appears reasonable. It also makes the old term “Safe text value” unnecessary. The screen now calls it **Recorded input** and explains whether it is a fixed captured value, a variable-backed action, or a redacted password.
+
+### End-to-end flow
+
+1. Sentinel loads the current immutable Test Case version into `components/test-case-editor.tsx`.
+2. The page shows recorded target and input fields as read-only context, while the allowed annotation and checkpoint controls remain editable.
+3. On save, the client sends only the editable information for each step; it does not send target or value replacements.
+4. `app/api/[[...route]]/route.ts` independently protects the boundary. If a request supplies a changed target or value, it returns a clear validation error instead of creating a version.
+5. When a tester newly marks a non-secret text-entry step as a variable, the server encrypts the already-captured value as its default and saves a placeholder in the new version. Existing variable defaults remain encrypted. Removing a marker is deliberately unavailable because Sentinel no longer keeps its original plaintext value.
+6. A valid edit creates the next immutable version and preserves all previous versions and their linked Runs.
+
+### Technologies, choices, and tradeoffs
+
+- **React read-only controls** in `components/test-case-editor.tsx` communicate the boundary before a save attempt. `app/globals.css` gives these fields a subdued token-based appearance without introducing new literal colours.
+- **Server-side validation** in the Next.js route is the real protection. A browser user can alter client-side code or send an API request directly, so a read-only HTML field alone would not be enough.
+- **JSON comparison** detects a submitted target that is different from the stored target. It favors a strict, conservative rule over accepting a possibly changed selector representation.
+- **Phase 4 encryption utilities** in `lib/variables.ts` still encrypt a captured non-secret input when it becomes a variable. The raw value is not carried forward in a variable-marked saved step.
+
+The simpler alternative was to keep the JSON editor and only validate its shape. It was rejected because a syntactically valid target can still point at the wrong browser element. Allowing edited literal input was also rejected: it quietly changes the behavior of a saved test and is confusing alongside the dedicated encrypted Variables section.
+
+### Limitations and safe future changes
+
+- A tester cannot correct a bad selector, URL, or captured literal from this page; they must create a new recording. A future controlled “re-record one step” workflow could address that without exposing arbitrary JSON.
+- A variable marker cannot be removed here, because reconstructing a literal would require retaining or re-entering sensitive-prone data. A future dedicated conversion flow would need explicit confirmation and the same secret checks.
+- The server comparison is intentionally strict. Any future selector-normalization rule must be tested carefully so it does not turn into a way to change replay behavior invisibly.
+
+Relevant files: `components/test-case-editor.tsx`, `app/api/[[...route]]/route.ts`, `app/globals.css`, `tests/release-api.test.ts`, `srd.md`, and decision D-029 in `decisions-log.md`.
+
+### Verification and priority-based diff review
+
+`npm run lint` and `npm run typecheck` passed. `docker compose exec sentinel npx vitest run tests/release-api.test.ts` passed 3 tests: a changed target is rejected, a changed literal input is rejected, and converting a captured text step to a variable succeeds. A live Playwright CLI check attempted to fill **Recorded browser target** and received “element is not editable.”
+
+| Priority | Files and areas | Why review them | Owner action |
+|---|---|---|---|
+| Highest | `app/api/[[...route]]/route.ts` | The version-save transaction now decides which Test Case fields are immutable and protects against crafted API requests. Review the `STEP_TARGET_IMMUTABLE`, `STEP_VALUE_IMMUTABLE`, and variable-marker paths. | Read now. |
+| Medium | `components/test-case-editor.tsx`; `tests/release-api.test.ts` | The editor must communicate the boundary accurately, and the test captures the rejection/allowed-marker contract. | Read next. |
+| Lower | `app/globals.css`; `srd.md`; `phases.md`; `frontend.md`; `README.md`; `decisions-log.md` | These make the visual state and product decision understandable but do not enforce it. | Skim. |
+
+### Ten-question understanding check
+
+1. Why is target metadata treated as a browser action rather than ordinary editable Test Case text?
+2. Why must the API reject a changed target or value even though the React field is read-only?
+3. Which fields can a tester still change in the saved-Test-Case editor, and why are those changes safe?
+4. What does **Recorded input** mean, and how is it different from a variable’s static default?
+5. What happens to the captured value when a non-secret text-entry step is newly marked as a variable?
+6. Why cannot this editor remove a variable marker after a Test Case has been saved?
+7. Which route and error code protect a changed target, and what should a client show to the tester?
+8. Why is allowing structurally valid JSON not sufficient protection for a selector or URL change?
+9. How do immutable Test Case versions and this restriction together protect the meaning of historical Runs?
+10. If a future feature allows changing one recorded action, what security and review safeguards should it provide?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- Owner answers all ten questions above and compares the answers with D-029, `components/test-case-editor.tsx`, the version-save route, and `tests/release-api.test.ts`.
