@@ -36,7 +36,7 @@ export function safeFailureReason(reason: RunFailureReason | null | undefined) {
 
 export function isTransientDeliveryError(error: unknown) {
   const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
-  return ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EHOSTUNREACH", "ENOTFOUND", "EPIPE"].includes(code);
+  return ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EHOSTUNREACH", "ENOTFOUND", "EPIPE", "ESOCKET"].includes(code);
 }
 
 async function enqueueCreatedNotifications(notifications: NotificationRecord[]) {
