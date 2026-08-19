@@ -1,4 +1,5 @@
 import { ReleaseReadiness, ReleaseRunItemStatus, ReleaseRunStatus, RunOutcome } from "@prisma/client";
+import { notifyReleaseCompletion } from "./notifications";
 import { prisma } from "./prisma";
 
 export function deriveReleaseReadiness(statuses: ReleaseRunItemStatus[]) {
@@ -11,14 +12,15 @@ export async function refreshReleaseRun(releaseRunId: string) {
   const items = await prisma.releaseRunItem.findMany({ where: { releaseRunId }, select: { status: true } });
   const readiness = deriveReleaseReadiness(items.map((item) => item.status));
   const completed = readiness !== ReleaseReadiness.IN_PROGRESS;
-  return prisma.releaseRun.update({
-    where: { id: releaseRunId },
-    data: {
-      readiness,
-      status: completed ? ReleaseRunStatus.COMPLETED : ReleaseRunStatus.RUNNING,
-      ...(completed ? { completedAt: new Date() } : {})
-    }
+  if (!completed) return prisma.releaseRun.update({ where: { id: releaseRunId }, data: { readiness, status: ReleaseRunStatus.RUNNING } });
+
+  const transitioned = await prisma.releaseRun.updateMany({
+    where: { id: releaseRunId, status: { not: ReleaseRunStatus.COMPLETED } },
+    data: { readiness, status: ReleaseRunStatus.COMPLETED, completedAt: new Date() }
   });
+  const releaseRun = await prisma.releaseRun.findUniqueOrThrow({ where: { id: releaseRunId } });
+  if (transitioned.count === 1) await notifyReleaseCompletion(releaseRunId);
+  return releaseRun;
 }
 
 export async function markReleaseRunItemRunning(runId: string) {
