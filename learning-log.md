@@ -1231,3 +1231,83 @@ Relevant files: `components/test-case-editor.tsx`, `app/api/[[...route]]/route.t
 #### Follow-up learning tasks
 
 - Owner answers all ten questions above and compares the answers with D-029, `components/test-case-editor.tsx`, the version-save route, and `tests/release-api.test.ts`.
+
+---
+
+## Feature: Phase 6 Health Dashboard and reliable notifications
+
+- Date: 2026-08-20
+- Phase: 6
+- Status: Implementation and automated acceptance verified; owner manual and understanding reviews pending.
+- Relevant files: `prisma/schema.prisma`, `prisma/migrations/20260820110000_add_notifications/migration.sql`, `prisma/migrations/20260820110500_deduplicate_notifications/migration.sql`, `lib/dashboard.ts`, `lib/notifications.ts`, `lib/queue.ts`, `worker.ts`, `app/api/[[...route]]/route.ts`, `components/sentinel-views.tsx`, `components/notification-views.tsx`, `docker-compose.yml`, `tests/dashboard-notifications.test.ts`, `tests/dashboard-notifications-api.test.ts`, and `tests/phase-6-dashboard-notifications.spec.ts`.
+- Related decision: D-030 in `decisions-log.md`.
+
+### What this feature does
+
+Phase 6 gives a product member a trustworthy 30-day health view and an in-app notification inbox. The Dashboard answers: how many saved Test Cases exist, how many Runs completed, whether they are passing, what is flaky, whether coverage grew, and what happened most recently. The inbox makes new failed Runs, Auto Run checkpoint pauses, and completed Release batches actionable. Mailpit receives only a short local email summary; evidence, screenshots, raw logs, variable values, cookies, and credentials stay inside Sentinel.
+
+### Intended end-to-end flow
+
+- A signed-in member requests `/api/dashboard`. Sentinel first finds the Products they currently belong to, then calculates the fixed UTC window and derives per-Product metrics from saved Test Cases and completed Runs. It uses the current Test Case version when deciding whether a Test is flaky, so an old failure cannot make a newer version look flaky by itself.
+- A failure, checkpoint, or completed Release calls a notification helper. The helper de-duplicates owner and initiator IDs, writes one `Notification` record and one audit event per recipient, then sends only the record ID to the BullMQ notification queue.
+- The worker reads that durable record, renders a safe text-only summary, and sends it through local SMTP to Mailpit. It marks the notification sent or, after one transient retry, failed. A delivery problem never rewrites the factual Run outcome, evidence state, or Release readiness.
+- The Notifications page filters unread or all notices, checks current Product membership before returning or marking a notice read, and offers links only to protected Sentinel Run or Release pages.
+
+### Technologies, choices, and tradeoffs
+
+| Technology or approach | Why it is used | Tradeoff |
+|---|---|---|
+| Prisma `Notification` records with unique recipient/event keys | Makes in-app notices durable, auditable, and idempotent before background delivery starts. | A local database retains notification history until the Docker data is deliberately removed; Phase 6 has no deletion or preference controls. |
+| A pure dashboard projection in `lib/dashboard.ts` | Keeps health definitions testable without putting metric logic in React or raw API handlers. | Metrics are calculated from local data at request time; a future high-volume product may need a read model. |
+| Existing Redis/BullMQ worker plus a separate notification queue | Prevents SMTP latency or retries from blocking the web request or Auto Run queue. | There is still one local worker process; production monitoring and a dead-letter policy are future work. |
+| Mailpit and Nodemailer | Lets the owner inspect genuine SMTP messages locally without real credentials or external delivery. | Mailpit is a development sink, not a production email provider. |
+| Safe email renderer and current-membership authorization | Preserves the evidence and variable privacy boundaries while ensuring an old link does not bypass current access. | The email is intentionally brief; a member must open Sentinel to inspect evidence. |
+
+### Important implementation and safety details
+
+- The window uses UTC calendar days: today plus the previous 29 days, ending at the next UTC midnight. Interrupted Runs contribute to completed count but not the pass-rate denominator or trend bars.
+- A current Test Case version is flaky only when that exact version has at least one Passed and one Failed Run in the window.
+- Notification events are created only when new Phase 6 runtime events occur. Existing historical Runs are not backfilled.
+- Unique `(recipient, run, type)` and `(recipient, releaseRun, type)` keys protect against duplicate helper calls. If the owner and initiator are the same person, only one notice is created.
+- SMTP errors are stored as a generic safe summary. Transient connection errors, including Nodemailer's `ESOCKET` wrapper, retry once; a second failure becomes `FAILED` with an audit event. The delivery code safely tolerates a notification being retired while a worker has already loaded it.
+- Evidence access remains a separate signed-link path with Product checks. Neither the Dashboard nor email serializes evidence metadata or contents.
+
+### Alternatives and limitations
+
+- A chart library was rejected because the product already has a custom CSS token system and the small daily trend can remain accessible as semantic HTML without a new dependency.
+- Synchronous email delivery was rejected because a local SMTP outage should not slow or change a Run result.
+- Slack, external email providers, preferences, digests, deletion, historical backfill, user-specific time zones, and Phase 9 approval notices are intentionally deferred.
+- The Dashboard is not a release-approval system. It surfaces current operational signals; Release readiness continues to come from its persisted batch items.
+
+### Verification and priority-based diff review
+
+Docker applied both notification migrations. `docker compose exec sentinel npm run lint` and `docker compose exec sentinel npm run typecheck` passed. All 11 Vitest files passed in serial groups (33 tests), including the Phase 6 metric, authorization, Mailpit, checkpoint, Release-summary, and retry/final-failure checks. All 11 Playwright checks passed in serial groups, including `tests/phase-6-dashboard-notifications.spec.ts`.
+
+| Priority | Files and areas | Why review them | Owner action |
+|---|---|---|---|
+| Highest | `prisma/schema.prisma`; both notification migrations; `lib/notifications.ts`; `lib/queue.ts`; `worker.ts`; `app/api/[[...route]]/route.ts`; `docker-compose.yml` | These files define durable event identity, background delivery, SMTP retry, Product authorization, audit writes, and local infrastructure. Focus on the notification unique keys, `createNotifications`, `deliverNotification`, the notification worker, and `assertNotificationAccess`. | Read now. |
+| Medium | `lib/dashboard.ts`; `lib/releases.ts`; `components/sentinel-views.tsx`; `components/notification-views.tsx`; Phase 6 tests | They define the metric formulas, one-time Release summary trigger, and what a user can see or mark read. | Read next. |
+| Lower | `app/notifications/page.tsx`; navigation and CSS changes; README and planning documents | They expose the already-defined behavior and document local verification. | Skim after the data and delivery boundary. |
+
+### Ten-question understanding check
+
+1. Why is the Dashboard window defined in UTC calendar boundaries, and which Run outcomes are deliberately excluded from the pass-rate denominator?
+2. What makes a Test Case version flaky, and why does Sentinel use the current version rather than all historical Runs of the Test Case?
+3. Why must Sentinel persist a notification before adding its ID to BullMQ?
+4. Which people receive a failed-Run notification, a checkpoint notification, and a completed Release summary, and how does de-duplication work when roles overlap?
+5. What is the difference between a Run outcome, evidence status, and notification delivery status, and why must an SMTP failure never change the first two?
+6. Which information is intentionally omitted from email, and how does the user safely reach the underlying Run or Release instead?
+7. How does the inbox re-check authorization for a notification whose Product membership may have changed since it was created?
+8. Why does a transient SMTP problem retry once, while a second or non-transient failure becomes an audited failed delivery?
+9. Why is Nodemailer's `ESOCKET` treated as retryable in this local setup, and which file contains that classification?
+10. If Sentinel later adds Slack or a real email provider, which persistence, de-duplication, authorization, and safe-content guarantees must remain unchanged?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- Owner answers all ten questions and compares the answers with D-030, the Notification model/migrations, `lib/dashboard.ts`, `lib/notifications.ts`, `worker.ts`, and the Phase 6 tests.
+- Owner manually creates passed, failed, interrupted, and checkpointed Runs; compares the Dashboard with underlying Run data; then inspects Mailpit at `http://localhost:8025` for the safe email summaries and protected links.
+- Before production, select an email provider, define retention/preferences/monitoring, and decide whether dashboard projections require a scalable read model.
