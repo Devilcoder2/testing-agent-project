@@ -123,6 +123,18 @@ enum ReleaseRunItemReason {
   AUTO_RUN_QUEUE_FAILED
 }
 
+enum NotificationType {
+  RUN_FAILED
+  AUTO_RUN_CHECKPOINT
+  RELEASE_RUN_COMPLETED
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 model User {
   id            String              @id @default(cuid())
   email         String              @unique
@@ -135,6 +147,7 @@ model User {
   runs          Run[]               @relation("RunInitiator")
   ownedReleases Release[]           @relation("ReleaseOwner")
   releaseRuns   ReleaseRun[]        @relation("ReleaseRunInitiator")
+  notifications Notification[]      @relation("NotificationRecipient")
   auditEvents   AuditEvent[]        @relation("AuditActor")
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
@@ -152,6 +165,7 @@ model Product {
   runs            Run[]
   releaseRunItems ReleaseRunItem[]
   testDataSets    TestDataSet[]
+  notifications   Notification[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -340,6 +354,7 @@ model ReleaseRun {
   release       Release          @relation(fields: [releaseId], references: [id], onDelete: Cascade)
   initiatedBy   User             @relation("ReleaseRunInitiator", fields: [initiatedById], references: [id])
   items         ReleaseRunItem[]
+  notifications Notification[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -419,12 +434,38 @@ model Run {
   variableBindings   RunVariableBinding[]
   reservedDataSets   TestDataSet[]        @relation("ReservedDataSet")
   releaseRunItem     ReleaseRunItem?      @relation("ReleaseRunItemRun")
+  notifications      Notification[]
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
   @@index([productId, createdAt])
   @@index([testCaseId, createdAt])
   @@index([mode, status, createdAt])
+}
+
+model Notification {
+  id               String                     @id @default(cuid())
+  recipientId      String
+  productId        String?
+  runId            String?
+  releaseRunId     String?
+  type             NotificationType
+  deliveryStatus   NotificationDeliveryStatus @default(PENDING)
+  deliveryAttempts Int                        @default(0)
+  deliveryError    String?
+  sentAt           DateTime?
+  readAt           DateTime?
+  recipient        User                       @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  product          Product?                   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  run              Run?                       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  releaseRun       ReleaseRun?                @relation(fields: [releaseRunId], references: [id], onDelete: Cascade)
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  @@index([recipientId, readAt, createdAt])
+  @@index([runId, type])
+  @@index([releaseRunId, type])
+  @@index([productId, createdAt])
 }
 
 model RunVariableBinding {
