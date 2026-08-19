@@ -321,7 +321,7 @@ Manual verification: add two labels; save one safe step edit as Version 2; confi
 ## Phase 6 — Dashboard and notifications
 
 **Depends on:** Phase 2 and Phase 5  
-**Status:** Planned.
+**Status:** Implementation and automated acceptance verified; owner manual review and learning review pending.
 **Outcome:** A product-authorized user can understand the recent health of their Tests and Releases, find instability, and reliably receive only safe, actionable failure/checkpoint/Release notices.
 
 ### In scope
@@ -341,14 +341,14 @@ Manual verification: add two labels; save one safe step edit as Version 2; confi
 
 ### Acceptance checklist
 
-- [ ] An authorized user can view an all-accessible-Products overview and safely drill into one Product.
-- [ ] Dashboard metrics use exact rolling 30-day UTC boundaries and the documented pass-rate, flaky-version, coverage-growth, and latest-Run definitions.
-- [ ] A user cannot retrieve dashboard data, flaky links, notifications, Runs, or Releases outside current Product membership.
-- [ ] Failed Run and Auto Run checkpoint events create de-duplicated per-recipient notifications only for new Phase 6 events.
-- [ ] Completed Release Runs create one consolidated summary per Release owner/batch initiator, without suppressing relevant individual failed-Test owner notices.
-- [ ] Inbox unread/all filtering and individual/bulk read state persist and audit correctly.
-- [ ] Mailpit receives only safe summary email with a protected Sentinel link.
-- [ ] One transient delivery failure retries once; a second failure becomes an audited failed delivery without changing factual Test or Release state.
+- [x] An authorized user can view an all-accessible-Products overview and safely drill into one Product.
+- [x] Dashboard metrics use exact rolling 30-day UTC boundaries and the documented pass-rate, flaky-version, coverage-growth, and latest-Run definitions.
+- [x] A user cannot retrieve dashboard data, flaky links, notifications, Runs, or Releases outside current Product membership.
+- [x] Failed Run and Auto Run checkpoint events create de-duplicated per-recipient notifications only for new Phase 6 events.
+- [x] Completed Release Runs create one consolidated summary per Release owner/batch initiator, without suppressing relevant individual failed-Test owner notices.
+- [x] Inbox unread/all filtering and individual/bulk read state persist and audit correctly.
+- [x] Mailpit receives only safe summary email with a protected Sentinel link.
+- [x] One transient delivery failure retries once; a second failure becomes an audited failed delivery without changing factual Test or Release state.
 
 ### Verification
 
@@ -356,6 +356,8 @@ Manual verification: add two labels; save one safe step edit as Version 2; confi
 - Integration tests cover Product authorization, persisted notification delivery, Mailpit, final failure, Release summary aggregation, read state, and notification failure independence.
 - Browser tests cover dashboard overview/drill-down and empty states, flaky links, attention items, inbox filters/read actions, failure/checkpoint notifications, and Mailpit-safe links.
 - Manual verification creates Passed, Failed, Interrupted, and checkpointed Runs; inspects dashboard values and Mailpit at `http://localhost:8025`; confirms safe email content; and confirms one Release summary instead of one email per failed batch item.
+
+**Implementation verification (2026-08-20):** Docker applied `20260820110000_add_notifications` and `20260820110500_deduplicate_notifications`; lint and type-check passed. All 11 Vitest files passed in serial verification groups (33 tests), including Phase 6 dashboard/notification unit and integration coverage. All 11 Playwright browser checks passed in serial groups, including `tests/phase-6-dashboard-notifications.spec.ts`. The automated checks cover 30-day UTC health definitions, membership denial, safe Mailpit delivery, unread/read state, checkpoint and Release-summary recipient de-duplication, retry/final delivery failure behavior, and the Phase 1–5 regressions. Owner manual inspection of dashboard values and Mailpit content, plus the Phase 6 learning review, remain pending.
 
 ## Phase 7 — Edge-case and negative-test suggestions
 
