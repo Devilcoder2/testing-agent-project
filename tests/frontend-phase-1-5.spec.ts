@@ -18,7 +18,7 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   });
   await signIn(page);
   expect(consoleErrors.filter((message) => message.includes("hydrated"))).toEqual([]);
-  await expect(page.getByRole("heading", { name: "Test Cases by Product" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Health overview" })).toBeVisible();
   await expect(page.getByText("Test inventory", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Product context", { exact: true })).toHaveCount(0);
 
