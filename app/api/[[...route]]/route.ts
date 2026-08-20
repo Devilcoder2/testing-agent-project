@@ -1159,7 +1159,12 @@ async function route(request: Request, context: Context) {
       if (proposal.ownerId !== user.id || proposal.status !== ChangeProposalStatus.SUBMITTED) return json({ error: "Only the original Test Case owner can decide this submitted proposal." }, 403);
       const note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) || null : null;
       if (proposal.testCase.currentVersion !== proposal.testCase.versions.find((version) => version.id === proposal.sourceVersionId)?.version) {
-        return json(await prisma.changeProposal.update({ where: { id: proposal.id }, data: { status: ChangeProposalStatus.STALE, decidedAt: new Date(), decisionNote: "The Test Case baseline changed before review." } }), 409);
+        const stale = await prisma.$transaction(async (tx) => {
+          const result = await tx.changeProposal.update({ where: { id: proposal.id }, data: { status: ChangeProposalStatus.STALE, decidedAt: new Date(), decisionNote: "The Test Case baseline changed before review." } });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "CHANGE_PROPOSAL_STALE", entityType: "ChangeProposal", entityId: proposal.id } });
+          return result;
+        });
+        return json(stale, 409);
       }
       if (path[2] === "reject") {
         const rejected = await prisma.$transaction(async (tx) => {
