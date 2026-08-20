@@ -64,6 +64,13 @@ async function assertProductMember(userId: string, productId: string) {
   if (!membership) throw new Error("FORBIDDEN");
 }
 
+async function assertProductCreator(userId: string, productId: string) {
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) return null;
+  if (product.createdById !== userId) throw new Error("FORBIDDEN");
+  return product;
+}
+
 async function assertReleaseMember(userId: string, releaseId: string) {
   const release = await prisma.release.findUnique({ where: { id: releaseId }, include: { tests: { include: { testCase: { select: { productId: true } } } } } });
   if (!release) return null;
@@ -419,6 +426,26 @@ async function route(request: Request, context: Context) {
         return json({ removed: true });
       }
     }
+    if (request.method === "GET" && path[0] === "products" && path[1] && path[2] === "members") {
+      const product = await prisma.product.findUnique({ where: { id: path[1] }, include: { memberships: { include: { user: { select: { id: true, displayName: true, email: true } } }, orderBy: { user: { displayName: "asc" } } } } });
+      if (!product) return json({ error: "Product not found." }, 404);
+      await assertProductMember(user.id, product.id);
+      return json({ canTransfer: product.createdById === user.id, members: product.memberships.map((membership) => membership.user) });
+    }
+    if (request.method === "PATCH" && path[0] === "products" && path[1] && path[2] === "owner") {
+      const product = await assertProductCreator(user.id, path[1]);
+      if (!product) return json({ error: "Product not found." }, 404);
+      const nextOwnerId = typeof body.ownerId === "string" ? body.ownerId : "";
+      if (!nextOwnerId) return json({ error: "Choose an existing Product member." }, 400);
+      await assertProductMember(nextOwnerId, product.id);
+      if (nextOwnerId === product.createdById) return json({ id: product.id, createdById: product.createdById });
+      const updated = await prisma.$transaction(async (tx) => {
+        const changed = await tx.product.update({ where: { id: product.id }, data: { createdById: nextOwnerId } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "PRODUCT_OWNERSHIP_TRANSFERRED", entityType: "Product", entityId: product.id, details: { previousOwnerId: product.createdById, nextOwnerId } } });
+        return changed;
+      });
+      return json(updated);
+    }
     if (request.method === "PATCH" && path[0] === "products" && path[1]) {
       const product = await prisma.product.findUnique({ where: { id: path[1] } });
       if (!product) return json({ error: "Product not found." }, 404);
@@ -458,6 +485,22 @@ async function route(request: Request, context: Context) {
       if (!testCase) return json({ error: "Test Case not found." }, 404);
       await assertProductMember(user.id, testCase.productId);
       return json({ ...testCase, versions: testCase.versions.map((version) => ({ ...version, variables: version.variables.map(publicVariable) })) });
+    }
+    if (request.method === "PATCH" && path[0] === "test-cases" && path[1] && path[2] === "owner") {
+      const testCase = await prisma.testCase.findUnique({ where: { id: path[1] } });
+      if (!testCase) return json({ error: "Test Case not found." }, 404);
+      await assertProductCreator(user.id, testCase.productId);
+      const nextOwnerId = typeof body.ownerId === "string" ? body.ownerId : "";
+      if (!nextOwnerId) return json({ error: "Choose an existing Product member." }, 400);
+      await assertProductMember(nextOwnerId, testCase.productId);
+      if (nextOwnerId === testCase.ownerId) return json({ id: testCase.id, ownerId: testCase.ownerId, reassignedSubmittedProposals: 0 });
+      const result = await prisma.$transaction(async (tx) => {
+        const reassigned = await tx.changeProposal.updateMany({ where: { testCaseId: testCase.id, status: ChangeProposalStatus.SUBMITTED }, data: { ownerId: nextOwnerId } });
+        const updated = await tx.testCase.update({ where: { id: testCase.id }, data: { ownerId: nextOwnerId } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_CASE_OWNERSHIP_TRANSFERRED", entityType: "TestCase", entityId: testCase.id, details: { previousOwnerId: testCase.ownerId, nextOwnerId, reassignedSubmittedProposals: reassigned.count } } });
+        return { updated, reassignedSubmittedProposals: reassigned.count };
+      });
+      return json({ id: result.updated.id, ownerId: result.updated.ownerId, reassignedSubmittedProposals: result.reassignedSubmittedProposals });
     }
     if (request.method === "POST" && path[0] === "test-cases" && path[1] && path[2] === "suggestions") {
       const testCase = await prisma.testCase.findUnique({
@@ -843,6 +886,22 @@ async function route(request: Request, context: Context) {
         }
       });
       return json(release);
+    }
+    if (request.method === "PATCH" && path[0] === "releases" && path[1] && path[2] === "owner") {
+      const release = await prisma.release.findUnique({ where: { id: path[1] }, include: { tests: { include: { testCase: { select: { productId: true } } } } } });
+      if (!release) return json({ error: "Release not found." }, 404);
+      const productIds = [...new Set(release.tests.map((item) => item.testCase.productId))];
+      for (const productId of productIds) await assertProductCreator(user.id, productId);
+      const nextOwnerId = typeof body.ownerId === "string" ? body.ownerId : "";
+      if (!nextOwnerId) return json({ error: "Choose a member of every Product in this Release." }, 400);
+      for (const productId of productIds) await assertProductMember(nextOwnerId, productId);
+      if (nextOwnerId === release.ownerId) return json({ id: release.id, ownerId: release.ownerId });
+      const updated = await prisma.$transaction(async (tx) => {
+        const changed = await tx.release.update({ where: { id: release.id }, data: { ownerId: nextOwnerId } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "RELEASE_OWNERSHIP_TRANSFERRED", entityType: "Release", entityId: release.id, details: { previousOwnerId: release.ownerId, nextOwnerId } } });
+        return changed;
+      });
+      return json(updated);
     }
     if (request.method === "PATCH" && path[0] === "releases" && path[1] && path[2] === "tests") {
       const release = await assertReleaseMember(user.id, path[1]);
