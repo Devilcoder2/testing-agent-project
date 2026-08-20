@@ -362,7 +362,7 @@ Manual verification: add two labels; save one safe step edit as Version 2; confi
 ## Phase 7 — Edge-case and negative-test suggestions
 
 **Depends on:** Phase 3 and Phase 5  
-**Status:** Implementation in progress.
+**Status:** Implementation and automated acceptance verified; owner manual and learning reviews pending.
 **Outcome:** A product member can explicitly generate conservative, reviewable negative-Test drafts from a current saved Test Case version, then approve one into an independent Test Case without changing the source or starting a Run.
 
 ### In scope
@@ -383,14 +383,14 @@ Manual verification: add two labels; save one safe step edit as Version 2; confi
 
 ### Acceptance checklist
 
-- [ ] An authorized product member can manually generate only the documented deterministic missing-required, invalid-email, and boundary suggestions from the current source version.
-- [ ] Ineligible password, redacted, variable-backed, unsupported, and metadata-free fields are skipped without leaking their values.
-- [ ] Regeneration creates no duplicate source-version/step/rule suggestion and preserves Dismissed history for manual reopen.
-- [ ] Product authorization protects generation, Review queue/detail, draft editing, approval, dismissal, reopening, and derived Test Case links.
-- [ ] A Draft can change only name, rationale, and safe value; secret-like proposed values are rejected.
-- [ ] Approval creates an independent approver-owned Test Case Version 1 in one transaction; source Test Case, its historical versions, and Runs stay unchanged.
-- [ ] A suggestion has no Run before approval, and approval does not auto-run it or change a baseline.
-- [ ] Unit, integration, browser, and Phase 1–6 regression checks pass; `learning-log.md` has exactly ten Phase 7 owner questions.
+- [x] An authorized product member can manually generate only the documented deterministic missing-required, invalid-email, and boundary suggestions from the current source version.
+- [x] Ineligible password, redacted, variable-backed, unsupported, and metadata-free fields are skipped without leaking their values.
+- [x] Regeneration creates no duplicate source-version/step/rule suggestion and preserves Dismissed history for manual reopen.
+- [x] Product authorization protects generation, Review queue/detail, draft editing, approval, dismissal, reopening, and derived Test Case links.
+- [x] A Draft can change only name, rationale, and safe value; secret-like proposed values are rejected.
+- [x] Approval creates an independent approver-owned Test Case Version 1 in one transaction; source Test Case, its historical versions, and Runs stay unchanged.
+- [x] A suggestion has no Run before approval, and approval does not auto-run it or change a baseline.
+- [x] Unit, integration, browser, and Phase 1–6 regression checks pass; `learning-log.md` has exactly ten Phase 7 owner questions.
 
 ### Verification
 
@@ -404,6 +404,8 @@ docker compose down
 ```
 
 Manual verification: record/save a fresh Demo CRM happy-path Test; select **Generate suggestions**; inspect the Review queue; edit and approve one safe draft; confirm the approver owns an independent Version 1 and neither Test has started a Run; dismiss and reopen another draft; then sign in as a user without the Product and confirm queue/action access is denied.
+
+**Implementation verification (2026-08-20):** Docker applied `20260820130000_add_test_suggestions`; lint and type-check passed. All 12 Vitest files (35 tests) passed in serial verification groups, including `tests/suggestions.test.ts` for deterministic rule generation, skip reasons, idempotency, safe edits, approval cloning, audit history, and authorization. All 10 Playwright specs (12 tests) passed in serial groups, including `tests/phase-7-suggestions.spec.ts` for Generate suggestions, Review, edit, approve, dismiss, and reopen flows. The rebuilt local Demo CRM includes first/last-name 2–50-character validation metadata. Owner manual acceptance and the Phase 7 learning review remain pending.
 
 ## Phase 8 — JIRA bug workflow
 
