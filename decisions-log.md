@@ -269,3 +269,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Human review prevents noisy or unsafe external tickets, Product mapping prevents cross-project mistakes, and protected links preserve Sentinel's evidence authorization instead of copying sensitive evidence into Jira.
 - **Impact:** Jira Cloud credentials stay in environment configuration, filing is durable and idempotent per Run through the worker queue, and one transient delivery failure retries once. Jira side effects never alter Run, evidence, Release, or notification truth. Attachments, automatic filing, arbitrary Jira fields, Slack, and Jira Server/Data Center remain deferred.
 - **Status:** Implemented on 2026-08-20. Lint, type-check, migration status, focused Jira adapter tests, and Phase 7 suggestion regression passed; real Jira Cloud and owner manual verification remain pending.
+
+## D-033 — Phase 9 manual, owner-approved baseline changes
+
+- **Date:** 2026-08-20
+- **Decision:** A known QA deployment is recorded manually as context on a completed failed Run. The proposal can change only descriptions and expected outcomes; it is reviewed only by the Test Case's original owner. Approval creates a new immutable version only when the source remains current. Rejection creates an editable Jira draft if the Product is mapped, never an automatic Jira filing.
+- **Reason:** Deployment/Git signals and automatic intent classification are not yet trustworthy enough to alter a replay baseline. Narrow annotation-only proposals make the operational difference visible while protecting browser action semantics and history.
+- **Impact:** Submitted and decided proposals use the existing safe notification path. Stale proposals stop rather than merge with newer Test Case work. GitHub correlation, automatic classification, action/selector changes, and automatic ticket filing remain deferred.
+- **Status:** Implemented and focused Docker API/database verified on 2026-08-20; owner manual and learning review pending.
