@@ -23,6 +23,7 @@
 | High | Evidence retention is a fixed technical 30-day rule, not a legal/privacy retention policy. | The owner chose a pilot storage boundary only. | Data classification, legal retention requirements, deletion verification, user-facing policy, and production lifecycle rules. |
 | Medium | Worker heartbeat proves recent process activity, not end-to-end capacity under real load. | The pilot target is 10 local users and two browser contexts. | Queue monitoring, alerting, load testing, dead-letter policy, and capacity targets. |
 | Medium | Optional Jira behavior is mock-tested locally; no real provider credential/runbook is verified. | The owner chose local-only defaults. | Sandbox Jira validation, rate-limit/error drills, least-privilege service account, and incident runbook. |
+| Medium | Ownership transfer is available only after another eligible Product membership already exists; the pilot has no membership-administration screen. | Phase 11 deliberately adds controlled transfer, not organization or role management. | Add organization roles, invitations, membership administration, and deprovisioning before treating ownership transfer as a self-service production workflow. |
 
 ## Pilot decision
 
