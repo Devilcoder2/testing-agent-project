@@ -1311,3 +1311,100 @@ Docker applied both notification migrations. `docker compose exec sentinel npm r
 - Owner answers all ten questions and compares the answers with D-030, the Notification model/migrations, `lib/dashboard.ts`, `lib/notifications.ts`, `worker.ts`, and the Phase 6 tests.
 - Owner manually creates passed, failed, interrupted, and checkpointed Runs; compares the Dashboard with underlying Run data; then inspects Mailpit at `http://localhost:8025` for the safe email summaries and protected links.
 - Before production, select an email provider, define retention/preferences/monitoring, and decide whether dashboard projections require a scalable read model.
+
+---
+
+## Feature: Phase 7 deterministic edge-case and negative-Test suggestions
+
+- Date: 2026-08-20
+- Phase: 7
+- Status: Implementation and automated acceptance verified; owner manual and understanding reviews pending.
+- Relevant files: `lib/suggestions.ts`, `lib/browser.ts`, `demo-target/index.html`, `prisma/schema.prisma`, `prisma/migrations/20260820130000_add_test_suggestions/migration.sql`, `app/api/[[...route]]/route.ts`, `components/review-views.tsx`, `components/sentinel-views.tsx`, `components/app-shell.tsx`, `app/review/page.tsx`, `tests/suggestions.test.ts`, and `tests/phase-7-suggestions.spec.ts`.
+- Related decision: D-031 in `decisions-log.md`.
+
+### What this feature does
+
+Phase 7 helps a tester turn one happy-path Test Case into a small, conservative set of negative-Test drafts. The tester explicitly presses **Generate suggestions** on a saved Test Case; Sentinel does not generate anything silently and does not use an AI model. It creates only cases that it can explain from captured browser field rules: leave a required field blank, enter a malformed email, or use one fewer/more character than a known length boundary.
+
+The drafts appear in the product-authorized **Review** queue. A tester may edit the draft name, rationale, and safe proposed value, dismiss it, reopen a dismissed draft, or approve it. Approval creates a new independent Test Case owned by the approving user. It never changes the original Test Case, starts a Guided/Auto Run, changes a baseline, sends a notification, or files a JIRA issue.
+
+### Intended end-to-end flow
+
+1. During recording, the browser recorder still waits for a settled `change` event, so it retains one meaningful text-entry step rather than one step per keystroke. It now also captures safe structural metadata for text controls: type, required flag, and explicit minimum/maximum lengths.
+2. The Demo CRM supplies a local validation fixture: first and last names must contain 2–50 characters. This lets Sentinel demonstrate both a one-character and a 51-character boundary draft.
+3. `POST /api/test-cases/:id/suggestions` loads the Test Case’s current immutable version, checks Product membership, passes its steps to `lib/suggestions.ts`, and records the deterministic candidates in PostgreSQL.
+4. The `TestSuggestion` unique key contains the source version, source step, and rule kind. PostgreSQL’s `createMany(..., skipDuplicates: true)` makes repeated generation safe: existing drafts stay in history instead of multiplying.
+5. `GET /api/suggestions` returns only suggestions from Products the signed-in user currently belongs to. Draft update, dismiss, reopen, and approve actions re-check the same membership boundary and write audit events.
+6. Approval reads the saved source version rather than the source Test Case’s latest version. In one transaction it creates a saved synthetic recording record (because every Test Case is linked to a Recording Session), clones labels and encrypted variable configuration, creates a new Test Case and immutable Version 1, changes only the proposed safe input and its expected outcome, then links the suggestion to that new Test Case.
+7. The Review page shows state, source Test Case/version/step, rule, safe proposal, rationale, expected outcome, and the approved-Test link. It deliberately contains no Run button.
+
+### Technologies, choices, and tradeoffs
+
+| Technology or approach | Why it is used | Tradeoff |
+|---|---|---|
+| Deterministic TypeScript rules in `lib/suggestions.ts` | Makes every suggestion reproducible, testable, and easy for a tester to understand without sending Test data to an external provider. | It recognizes only captured rules; it cannot reason about arbitrary application semantics. |
+| Captured HTML validation metadata | Lets the generator make boundary suggestions based on the actual recorded field rather than guessing from its label. | Existing Test Cases without this newer metadata are safely skipped until re-recorded. |
+| Prisma `TestSuggestion` model and unique compound key | Persists review state and prevents duplicate source-version/step/rule drafts across repeat generation. | Adds relationships and migration work to the database model. |
+| PostgreSQL transaction on approval | Keeps the derived Test Case, Version 1, recording fixture, suggestion link, and audits all-or-nothing. | The transaction is more detailed than a simple copy operation, especially because the existing schema requires a Recording Session for every Test Case. |
+| React Review queue and modal | Makes the small editable surface obvious while keeping execution controls absent. | The current queue is intentionally focused; future Phase 9 proposals need a separate decision model rather than expanding these drafts indiscriminately. |
+
+### Important implementation and safety details
+
+- `suggestionsForSteps` rejects non-text controls, redacted/password fields, variable-backed fields, secret-like names, and metadata-free fields. It returns human-readable skip reasons without returning the excluded value.
+- The rule engine creates at most: missing required, invalid email, too-short boundary, and too-long boundary drafts. Every candidate changes one input only and uses the same expected statement: validation appears and success confirmation/navigation does not occur.
+- A missing-required suggestion must keep an empty proposed value. Other draft values are capped at 256 characters and are checked for token, secret, authorization, cookie, password, and API-key patterns before saving or approval.
+- Product membership is enforced server-side. A user cannot generate, list by source Test Case, edit, approve, dismiss, reopen, or follow a derived Test Case outside their current Product membership.
+- The new Test Case is owned by the approving user, not necessarily the original Test owner. That relationship is retained by the `TestSuggestion` record, its source version/step fields, and audit events.
+- Sensitive variable values remain encrypted exactly as in Phase 4. The derived Test Case copies configuration ciphertext and placeholders; a rule cannot target variable-backed steps.
+- A failed first implementation attempted to catch a PostgreSQL unique-constraint error inside a transaction while looping over candidates. PostgreSQL marks that transaction aborted after the constraint error, so later operations fail. The final implementation uses `createMany` with `skipDuplicates`, which lets PostgreSQL handle duplicate rows without aborting the transaction.
+
+### Alternatives and limitations
+
+- An LLM-driven suggestion generator was rejected for Phase 7 because it would need a separate safe-data boundary and could create speculative, difficult-to-review tests. Deterministic rules are intentionally narrower.
+- Automatic generation during recording/save was rejected. A manual button makes the tester choose when negative-Test work is useful and avoids fatigue.
+- Editing selector metadata, step order, kind, passwords, or variables was rejected because those fields define the replayed browser action. A changed action needs a new recording.
+- Suggestions do not execute automatically. The accepted Test becomes an ordinary independent Test Case, and a tester explicitly decides whether to run it.
+- Only the local Demo CRM is in scope. External targets, more complex validations, multi-field rules, LLM inference, scheduling, notifications, JIRA, and baseline-change proposals remain later work.
+
+### Verification and priority-based diff review
+
+Docker applied `20260820130000_add_test_suggestions`. The following commands passed:
+
+```text
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/browser-lock.spec.ts tests/product-creation.spec.ts tests/phase-1-recording.spec.ts tests/frontend-phase-1-5.spec.ts tests/phase-2-runs.spec.ts
+docker compose exec sentinel npx playwright test tests/phase-3-auto-runs.spec.ts tests/phase-4-variables.spec.ts tests/phase-5-release.spec.ts tests/phase-6-dashboard-notifications.spec.ts tests/phase-7-suggestions.spec.ts
+```
+
+Serial verification covered all 12 Vitest files and 35 tests, plus all 10 Playwright specs and 12 browser tests. `tests/suggestions.test.ts` verifies generation, sensitive skips, idempotency, authorization, safe draft validation, dismissal/reopen, immutable source preservation, labels, approval ownership, Version 1, audit records, and no pre-approval Run. `tests/phase-7-suggestions.spec.ts` verifies the visible Generate, Review, edit, approve, dismiss, and reopen workflow.
+
+| Priority | Files and areas | Why review them | Owner action |
+|---|---|---|---|
+| Highest | `prisma/schema.prisma`; `prisma/migrations/20260820130000_add_test_suggestions/migration.sql`; `lib/suggestions.ts`; `app/api/[[...route]]/route.ts` | These define the rule boundary, source snapshot identity, Product authorization, idempotency, database constraints, approval transaction, audit events, and derived Test Case ownership. Review the compound unique key, `suggestionsForSteps`, `createMany(...skipDuplicates)`, and approval-cloning transaction. | Read now. |
+| Medium | `lib/browser.ts`; `demo-target/index.html`; `components/review-views.tsx`; `components/sentinel-views.tsx`; `tests/suggestions.test.ts`; `tests/phase-7-suggestions.spec.ts` | They provide the validation metadata, local fixture, user controls, and behavior checks. | Read next. |
+| Lower | `components/app-shell.tsx`; `app/review/page.tsx`; `app/globals.css`; Phase 7 documentation | They expose and explain the approved behavior but do not enforce database or security guarantees. | Skim. |
+
+### Ten-question understanding check
+
+1. Why does Phase 7 use deterministic rules instead of an LLM, and what source data is each rule allowed to inspect?
+2. Which four suggestion rule kinds can Sentinel create, and what makes a text-entry step eligible for each one?
+3. Why are password, redacted, variable-backed, unsupported, and metadata-free steps skipped rather than converted into drafts?
+4. What three source identifiers form the duplicate-prevention boundary, and why did the implementation use `createMany` with `skipDuplicates` instead of catching a uniqueness error in a transaction?
+5. Which draft fields may a reviewer edit, and why are target metadata, order, kind, password behavior, and variable behavior read-only?
+6. What exact expected outcome does every Phase 7 negative-Test draft use, and why is it deliberately not a precise assertion of the UI message?
+7. When a suggestion is approved, which records are created in the transaction, why is a saved Recording Session fixture needed, and who owns the new Test Case?
+8. How does approval preserve the source Test Case’s historical versions and Runs even if the source later receives a new version?
+9. Which Product authorization checks protect the Review lifecycle, and why must they happen on the server rather than only in the sidebar/UI?
+10. If Phase 9 later adds owner-approved baseline-change proposals, which Phase 7 guarantees—review state, source snapshot, auditability, no automatic execution, and sensitive-data handling—must remain separate or be preserved?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- Owner manually records and saves a fresh Demo CRM journey, generates its suggestions, edits/approves one, dismisses/reopens another, and checks that the source Test Case and its Run history do not change.
+- Owner answers all ten questions above and compares the answers with D-031, the `TestSuggestion` schema/migration, `lib/suggestions.ts`, the suggestion API routes, and both Phase 7 tests.
+- Before extending suggestions, define whether richer application-specific rule metadata, external-target validation, or an LLM can meet the same privacy, approval, idempotency, and no-auto-run guarantees.
