@@ -87,6 +87,19 @@ export function buildJiraDraft(run: DraftRun) {
   return { summary, description, priority: "Medium" as JiraPriority };
 }
 
+export async function buildJiraDraftWithDiagnostic(run: DraftRun) {
+  const draft = buildJiraDraft(run);
+  const diagnostic = await prisma.databaseDiagnostic.findFirst({ where: { runId: run.id, kind: "CUSTOMER_LOOKUP_BY_EMAIL", status: "COMPLETE" }, orderBy: { completedAt: "desc" } });
+  const metadata = diagnostic?.safeMetadata && typeof diagnostic.safeMetadata === "object" && !Array.isArray(diagnostic.safeMetadata) ? diagnostic.safeMetadata as Record<string, unknown> : null;
+  if (!metadata || (metadata.result !== "FOUND" && metadata.result !== "NOT_FOUND")) return draft;
+  const lines = ["", "QA database insight (safe summary):", `Customer lookup: ${metadata.result === "FOUND" ? "Found" : "Not found"}`];
+  if (metadata.result === "FOUND") {
+    if (typeof metadata.customerStatus === "string") lines.push(`Customer status: ${safeLine(metadata.customerStatus, 80)}`);
+    if (typeof metadata.updatedAt === "string") lines.push(`Customer last updated: ${safeLine(metadata.updatedAt, 80)}`);
+  }
+  return { ...draft, description: `${draft.description}\n${lines.join("\n")}` };
+}
+
 function adf(text: string) {
   return {
     type: "doc",
