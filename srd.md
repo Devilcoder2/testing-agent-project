@@ -192,6 +192,16 @@ For a completed failed Run, an authorized Product member may explicitly request 
 
 The single catalog query is parameterized, row-limited to one row, wrapped in a read-only transaction, and time-limited to 1.5 seconds. It returns only `FOUND`/`NOT_FOUND`, customer status, and creation/update timestamps. A missing lookup key, denied role, timeout, or unavailable fixture produces an explicit `incomplete` or `unavailable` safe state instead of guessing. Sentinel persists the safe result as `DATABASE` evidence, a database-diagnostic record, and an audit event. The result appears in Run Detail and can add only its safe summary to a later human-reviewed Jira draft; it never files Jira automatically. Database credentials must be technically incapable of insert, update, delete, schema change, or transaction write. There is no generic SQL editor, external-QA query, or database write feature in this phase.
 
+### F11. Controlled internal-pilot hardening
+
+Phase 11 is Docker-local only. Sentinel, Demo CRM, and noVNC bind to localhost, while named seeded users remain the temporary identity boundary. Network/production deployment is blocked until the separate organization roles and identity work is approved.
+
+The Product creator may transfer Product, Test Case, or Release ownership independently to an existing eligible member. A Test Case recipient must belong to its Product; a Release recipient must belong to every represented Product; and the requester must be the creator of every represented Product for a Release transfer. Product transfer moves Jira-configuration authority. Test Case transfer reroutes submitted Change Proposals to the new owner, while historical Runs, recordings, notifications, and audit history remain unchanged. Every transfer requires explicit confirmation and creates an audit event.
+
+Completed Run evidence, including screenshots, network, console, storage, capture errors, and completed database diagnostics, is retained for 30 days. A worker cleanup runs at startup and every 24 hours, deletes MinIO objects before their matching evidence records, skips active Runs, and retains a record when object deletion fails so a later cleanup can retry. Safe Run summaries, immutable Test Cases, Jira drafts, notifications, and audit records remain. The Dashboard provides an authenticated, read-only Pilot readiness panel for application database, queues, worker heartbeat, evidence storage, browser, Mailpit, QA read-only access, latest retention result, and optional Jira state. Readiness never exposes credentials, raw service errors, or connection strings.
+
+When optional Jira returns HTTP 429, Sentinel retries once after a valid `Retry-After` delay capped at 60 seconds. It records the same safe final-failure state if the retry fails; Jira delivery never changes Run, evidence, Release, or notification truth.
+
 ## 7. Cross-cutting requirements
 
 ### Security and privacy
