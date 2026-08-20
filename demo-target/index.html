@@ -77,7 +77,7 @@
               ${create ? `<form id="customer-form">
                 <label>First name<input name="firstName" required minlength="2" maxlength="50" /></label>
                 <label>Last name<input name="lastName" required minlength="2" maxlength="50" /></label>
-                <label>Email address<input name="email" type="email" required /></label>
+                <label>Email address<input name="email" type="email" data-testid="customer-email" required /></label>
                 <div class="message" id="customer-message"></div>
                 <button type="submit">Create customer</button>
               </form>` : '<p>Create a customer to verify the core sign-in, navigation, form, validation, and confirmation journey.</p>'}
@@ -93,6 +93,13 @@
             if (!data.get('firstName') || !data.get('lastName') || !data.get('email')) {
               console.warn('Demo CRM customer validation failed.');
               document.getElementById('customer-message').textContent = 'All customer fields are required.'; return;
+            }
+            try {
+              const persisted = await fetch('http://qa-fixture:8081/customers', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ firstName: data.get('firstName'), lastName: data.get('lastName'), email: data.get('email') }) });
+              if (!persisted.ok) throw new Error('fixture unavailable');
+            } catch {
+              console.error('Demo CRM customer fixture could not persist the customer.');
+              document.getElementById('customer-message').textContent = 'The local customer fixture is unavailable.'; return;
             }
             await reportActivity('customer-created');
             state.customers.push(Object.fromEntries(data));
