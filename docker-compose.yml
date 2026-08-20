@@ -54,7 +54,7 @@ services:
   demo-target:
     build: ./demo-target
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
 
   browser:
     build: ./browser
@@ -63,7 +63,7 @@ services:
       SE_VNC_NO_PASSWORD: "true"
       SE_NODE_SESSION_TIMEOUT: "1800"
     ports:
-      - "7900:7900"
+      - "127.0.0.1:7900:7900"
 
   minio:
     image: minio/minio:RELEASE.2025-07-23T15-54-02Z
@@ -122,11 +122,12 @@ services:
       JIRA_SERVICE_EMAIL: ${JIRA_SERVICE_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
       QA_DATABASE_URL: postgresql://qa_diagnostic:qa-diagnostic-read-only-development-only@qa-postgres:5432/qa_fixture
+      EVIDENCE_RETENTION_DAYS: "30"
       GUIDED_RUN_DEMO_PASSWORD: ${GUIDED_RUN_DEMO_PASSWORD:?Set GUIDED_RUN_DEMO_PASSWORD in an untracked .env file}
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
     command: sh -c "npm ci --ignore-scripts && npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     volumes:
       - .:/app
       - sentinel-node-modules-api:/app/node_modules
@@ -166,6 +167,7 @@ services:
       JIRA_SERVICE_EMAIL: ${JIRA_SERVICE_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
       QA_DATABASE_URL: postgresql://qa_diagnostic:qa-diagnostic-read-only-development-only@qa-postgres:5432/qa_fixture
+      EVIDENCE_RETENTION_DAYS: "30"
       AUTO_RUN_DEMO_EMAIL: qa.tester@example.test
       AUTO_RUN_DEMO_PASSWORD: TestPassword!
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
