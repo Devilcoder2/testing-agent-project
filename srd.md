@@ -188,7 +188,9 @@ Rejection preserves the failed Run and proposal decision history. If the Product
 
 ### F10. Read-only database insight
 
-When a Run fails, Sentinel may query relevant QA PostgreSQL data to explain record existence or state. Include the result in the Evidence Bundle and relevant JIRA issue. Database credentials must be read-only and technically incapable of insert, update, delete, schema change, or transaction write.
+For a completed failed Run, an authorized Product member may explicitly request the `customer_lookup_by_email` diagnostic. Sentinel derives the final non-secret customer-email entry from the immutable saved version and its encrypted Run binding only in memory; the email is never accepted from the UI, returned by the API, written to evidence, audit records, JIRA, or logs. The local Phase 10 fixture persists Demo CRM customer creation in a separate QA PostgreSQL database. Sentinel connects using a distinct role that has only `CONNECT`, schema `USAGE`, and `SELECT` on the allowlisted `qa_customers` table.
+
+The single catalog query is parameterized, row-limited to one row, wrapped in a read-only transaction, and time-limited to 1.5 seconds. It returns only `FOUND`/`NOT_FOUND`, customer status, and creation/update timestamps. A missing lookup key, denied role, timeout, or unavailable fixture produces an explicit `incomplete` or `unavailable` safe state instead of guessing. Sentinel persists the safe result as `DATABASE` evidence, a database-diagnostic record, and an audit event. The result appears in Run Detail and can add only its safe summary to a later human-reviewed Jira draft; it never files Jira automatically. Database credentials must be technically incapable of insert, update, delete, schema change, or transaction write. There is no generic SQL editor, external-QA query, or database write feature in this phase.
 
 ## 7. Cross-cutting requirements
 
