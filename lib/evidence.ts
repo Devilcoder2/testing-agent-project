@@ -173,3 +173,12 @@ export async function deleteEvidenceObject(objectKey: string) {
   await ensureBucket();
   await evidenceClient().send(new DeleteObjectCommand({ Bucket: evidenceBucket(), Key: objectKey }));
 }
+
+export async function evidenceStoreIsReachable() {
+  try {
+    await evidenceClient().send(new HeadBucketCommand({ Bucket: evidenceBucket() }));
+    return true;
+  } catch {
+    return false;
+  }
+}
