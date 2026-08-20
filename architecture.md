@@ -121,6 +121,9 @@ Important invariants:
 - A Test Suggestion belongs to one Product, source Test Case, immutable source version, source step, and deterministic rule. It never mutates that source or runs before an authorized product member approves it.
 - Approving a Test Suggestion atomically creates a separately owned Test Case and immutable Version 1; the proposal changes one safe text value only and keeps its source relationship for auditability.
 - An approval is tied to the owner identity at the time of the decision and is auditable.
+- A Change Proposal belongs to one failed Run, immutable source Test Case version, original owner, and creator. Its child rows identify source steps and proposed description/expected-outcome replacements only; they never carry changed replay actions or secret values.
+- Approving a Change Proposal checks that the Test Case still points to its source version, then atomically creates the next immutable version. A changed current version makes the proposal stale instead of merging or overwriting it.
+- Rejection may create a Phase 8 JiraFiling in `DRAFT` state when a Product mapping exists. It is not a queue side effect and requires the usual explicit filing review.
 
 ## 5. Security boundaries
 
@@ -140,6 +143,7 @@ Important invariants:
 - Retries create a new Run attempt record or a clearly linked retry, never silently overwrite the original.
 - JIRA creation uses an idempotency key derived from the tracked failure; duplicate detection is checked before create.
 - Notification delivery is asynchronous and retryable; notification failure must not change the Run result.
+- Change Proposal submission and owner decisions create the existing durable notifications after their database transaction. Delivery failure cannot alter proposal status, Test Case version history, or Jira draft state.
 - Dashboard statistics are read-model calculations over only currently authorized Products and fixed UTC 30-day boundaries; they never mutate Run or Test Case history.
 - Database insight is best-effort diagnostic context. A query timeout or denied query is visible as incomplete context, not a test pass.
 
