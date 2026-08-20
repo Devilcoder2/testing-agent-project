@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, VariableSource } from "@prisma/client";
+import { Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { enqueueAutoRun } from "@/lib/queue";
 import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, variablePlaceholder } from "@/lib/variables";
 import { markReleaseRunItemQueueFailure, refreshReleaseRun, syncReleaseRunItemForRun } from "@/lib/releases";
+import { proposedValueIsSafe, suggestionsForSteps, type SuggestionKind } from "@/lib/suggestions";
 
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
@@ -223,6 +224,57 @@ function optionalSafeText(value: unknown, code: string) {
   return value.trim() || null;
 }
 
+function suggestionText(value: unknown, code: string) {
+  if (typeof value !== "string") throw new Error(code);
+  const text = value.trim();
+  if (!text || text.length > 240) throw new Error(code);
+  return text;
+}
+
+function suggestionFieldName(target: unknown) {
+  if (!target || typeof target !== "object" || Array.isArray(target)) return "";
+  const name = (target as { name?: unknown }).name;
+  return typeof name === "string" ? name : "";
+}
+
+function publicSuggestion(suggestion: {
+  id: string;
+  kind: TestSuggestionKind;
+  status: TestSuggestionStatus;
+  title: string;
+  rationale: string;
+  expectedOutcome: string;
+  proposedValue: string;
+  createdAt: Date;
+  updatedAt: Date;
+  approvedAt: Date | null;
+  dismissedAt: Date | null;
+  product: { id: string; name: string };
+  sourceTestCase: { id: string; name: string };
+  sourceVersion: { id: string; version: number };
+  sourceStep: { id: string; order: number; kind: StepKind; target: Prisma.JsonValue };
+  approvedTestCase: { id: string; name: string } | null;
+}) {
+  return {
+    id: suggestion.id,
+    kind: suggestion.kind,
+    status: suggestion.status,
+    title: suggestion.title,
+    rationale: suggestion.rationale,
+    expectedOutcome: suggestion.expectedOutcome,
+    proposedValue: suggestion.proposedValue,
+    createdAt: suggestion.createdAt,
+    updatedAt: suggestion.updatedAt,
+    approvedAt: suggestion.approvedAt,
+    dismissedAt: suggestion.dismissedAt,
+    product: suggestion.product,
+    sourceTestCase: suggestion.sourceTestCase,
+    sourceVersion: suggestion.sourceVersion,
+    sourceStep: { id: suggestion.sourceStep.id, order: suggestion.sourceStep.order, kind: suggestion.sourceStep.kind, target: suggestion.sourceStep.target },
+    approvedTestCase: suggestion.approvedTestCase
+  };
+}
+
 async function route(request: Request, context: Context) {
   const path = (await context.params).route ?? [];
   const body = request.method === "GET" ? {} : await request.json().catch(() => ({}));
@@ -376,6 +428,188 @@ async function route(request: Request, context: Context) {
       if (!testCase) return json({ error: "Test Case not found." }, 404);
       await assertProductMember(user.id, testCase.productId);
       return json({ ...testCase, versions: testCase.versions.map((version) => ({ ...version, variables: version.variables.map(publicVariable) })) });
+    }
+    if (request.method === "POST" && path[0] === "test-cases" && path[1] && path[2] === "suggestions") {
+      const testCase = await prisma.testCase.findUnique({
+        where: { id: path[1] },
+        include: { versions: { include: { steps: { orderBy: { order: "asc" } } } } }
+      });
+      if (!testCase) return json({ error: "Test Case not found." }, 404);
+      await assertProductMember(user.id, testCase.productId);
+      const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
+      if (!version) return json({ error: "The current Test Case version is unavailable." }, 409);
+      const generated = suggestionsForSteps(version.steps);
+      let created = 0;
+      let existing = 0;
+      await prisma.$transaction(async (tx) => {
+        for (const candidate of generated.candidates) {
+          try {
+            await tx.testSuggestion.create({
+              data: {
+                productId: testCase.productId,
+                sourceTestCaseId: testCase.id,
+                sourceVersionId: version.id,
+                sourceStepId: candidate.sourceStepId,
+                kind: candidate.kind as TestSuggestionKind,
+                title: candidate.title,
+                rationale: candidate.rationale,
+                expectedOutcome: candidate.expectedOutcome,
+                proposedValue: candidate.proposedValue
+              }
+            });
+            created += 1;
+          } catch (error) {
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+              existing += 1;
+              continue;
+            }
+            throw error;
+          }
+        }
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_SUGGESTIONS_GENERATED", entityType: "TestCase", entityId: testCase.id, details: { sourceVersion: version.version, created, existing, skipped: generated.skipped.length } } });
+      });
+      return json({ created, existing, skipped: generated.skipped, sourceVersion: version.version }, 201);
+    }
+    if (request.method === "GET" && path.join("/") === "suggestions") {
+      const url = new URL(request.url);
+      const requestedProductId = url.searchParams.get("productId");
+      const requestedTestCaseId = url.searchParams.get("testCaseId");
+      const rawStatus = url.searchParams.get("status");
+      const status = rawStatus && Object.values(TestSuggestionStatus).includes(rawStatus as TestSuggestionStatus) ? rawStatus as TestSuggestionStatus : undefined;
+      if (requestedProductId) await assertProductMember(user.id, requestedProductId);
+      if (requestedTestCaseId) {
+        const source = await prisma.testCase.findUnique({ where: { id: requestedTestCaseId }, select: { productId: true } });
+        if (!source) return json({ error: "Test Case not found." }, 404);
+        await assertProductMember(user.id, source.productId);
+      }
+      const suggestions = await prisma.testSuggestion.findMany({
+        where: {
+          product: { memberships: { some: { userId: user.id } } },
+          ...(requestedProductId ? { productId: requestedProductId } : {}),
+          ...(requestedTestCaseId ? { sourceTestCaseId: requestedTestCaseId } : {}),
+          ...(status ? { status } : {})
+        },
+        include: {
+          product: { select: { id: true, name: true } },
+          sourceTestCase: { select: { id: true, name: true } },
+          sourceVersion: { select: { id: true, version: true } },
+          sourceStep: { select: { id: true, order: true, kind: true, target: true } },
+          approvedTestCase: { select: { id: true, name: true } }
+        },
+        orderBy: { createdAt: "desc" }
+      });
+      return json(suggestions.map(publicSuggestion));
+    }
+    if (request.method === "PATCH" && path[0] === "suggestions" && path[1]) {
+      const suggestion = await prisma.testSuggestion.findUnique({ where: { id: path[1] }, include: { sourceStep: true } });
+      if (!suggestion) return json({ error: "Suggestion not found." }, 404);
+      await assertProductMember(user.id, suggestion.productId);
+      if (suggestion.status !== TestSuggestionStatus.DRAFT) return json({ error: "Only Draft suggestions can be edited." }, 409);
+      try {
+        const title = body.title === undefined ? suggestion.title : suggestionText(body.title, "SUGGESTION_TITLE_INVALID");
+        const rationale = body.rationale === undefined ? suggestion.rationale : suggestionText(body.rationale, "SUGGESTION_RATIONALE_INVALID");
+        const proposedValue = body.proposedValue === undefined ? suggestion.proposedValue : body.proposedValue;
+        if (!proposedValueIsSafe(suggestion.kind as SuggestionKind, proposedValue)) throw new Error("SUGGESTION_VALUE_INVALID");
+        if (isSecretLikeVariable(suggestionFieldName(suggestion.sourceStep.target), proposedValue)) throw new Error("SUGGESTION_VALUE_SECRET");
+        const updated = await prisma.$transaction(async (tx) => {
+          const next = await tx.testSuggestion.update({ where: { id: suggestion.id }, data: { title, rationale, proposedValue } });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_SUGGESTION_UPDATED", entityType: "TestSuggestion", entityId: suggestion.id } });
+          return next;
+        });
+        return json(updated);
+      } catch (error) {
+        const code = error instanceof Error ? error.message : "SUGGESTION_VALUE_INVALID";
+        const messages: Record<string, string> = {
+          SUGGESTION_TITLE_INVALID: "Suggestion name must be non-empty text up to 240 characters.",
+          SUGGESTION_RATIONALE_INVALID: "Rationale must be non-empty text up to 240 characters.",
+          SUGGESTION_VALUE_INVALID: suggestion.kind === TestSuggestionKind.REQUIRED_MISSING ? "A missing-required suggestion must keep its proposed value blank." : "Enter a safe proposed value of up to 256 characters.",
+          SUGGESTION_VALUE_SECRET: "Passwords, tokens, and other secret-like values cannot be proposed."
+        };
+        return json({ error: messages[code] ?? "The suggestion draft is invalid." }, 400);
+      }
+    }
+    if (request.method === "POST" && path[0] === "suggestions" && path[1] && path[2] === "dismiss") {
+      const suggestion = await prisma.testSuggestion.findUnique({ where: { id: path[1] } });
+      if (!suggestion) return json({ error: "Suggestion not found." }, 404);
+      await assertProductMember(user.id, suggestion.productId);
+      if (suggestion.status !== TestSuggestionStatus.DRAFT) return json({ error: "Only Draft suggestions can be dismissed." }, 409);
+      const dismissedAt = new Date();
+      const updated = await prisma.$transaction(async (tx) => {
+        const next = await tx.testSuggestion.update({ where: { id: suggestion.id }, data: { status: TestSuggestionStatus.DISMISSED, dismissedById: user.id, dismissedAt } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_SUGGESTION_DISMISSED", entityType: "TestSuggestion", entityId: suggestion.id } });
+        return next;
+      });
+      return json(updated);
+    }
+    if (request.method === "POST" && path[0] === "suggestions" && path[1] && path[2] === "reopen") {
+      const suggestion = await prisma.testSuggestion.findUnique({ where: { id: path[1] } });
+      if (!suggestion) return json({ error: "Suggestion not found." }, 404);
+      await assertProductMember(user.id, suggestion.productId);
+      if (suggestion.status !== TestSuggestionStatus.DISMISSED) return json({ error: "Only dismissed suggestions can be reopened." }, 409);
+      const updated = await prisma.$transaction(async (tx) => {
+        const next = await tx.testSuggestion.update({ where: { id: suggestion.id }, data: { status: TestSuggestionStatus.DRAFT, dismissedById: null, dismissedAt: null } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_SUGGESTION_REOPENED", entityType: "TestSuggestion", entityId: suggestion.id } });
+        return next;
+      });
+      return json(updated);
+    }
+    if (request.method === "POST" && path[0] === "suggestions" && path[1] && path[2] === "approve") {
+      const suggestion = await prisma.testSuggestion.findUnique({
+        where: { id: path[1] },
+        include: {
+          sourceStep: true,
+          sourceVersion: { include: { steps: { orderBy: { order: "asc" } }, variables: true } },
+          sourceTestCase: { include: { recordingSession: true, featureLabels: true } }
+        }
+      });
+      if (!suggestion) return json({ error: "Suggestion not found." }, 404);
+      await assertProductMember(user.id, suggestion.productId);
+      if (suggestion.status !== TestSuggestionStatus.DRAFT) return json({ error: "Only Draft suggestions can be approved." }, 409);
+      if (!proposedValueIsSafe(suggestion.kind as SuggestionKind, suggestion.proposedValue) || isSecretLikeVariable(suggestionFieldName(suggestion.sourceStep.target), suggestion.proposedValue)) return json({ error: "This suggestion has no safe proposed value and cannot be approved." }, 409);
+      const approvedAt = new Date();
+      const created = await prisma.$transaction(async (tx) => {
+        const token = crypto.randomBytes(24).toString("base64url");
+        const derivedName = `${suggestion.sourceTestCase.name} — ${suggestion.title}`.slice(0, 240);
+        const stepData = suggestion.sourceVersion.steps.map((step) => ({
+          order: step.order,
+          kind: step.kind,
+          timestamp: step.timestamp,
+          target: step.target === null ? Prisma.JsonNull : step.target as Prisma.InputJsonValue,
+          value: step.id === suggestion.sourceStepId ? suggestion.proposedValue : step.value,
+          isRedacted: step.isRedacted,
+          description: step.description,
+          expectedOutcome: step.id === suggestion.sourceStepId ? suggestion.expectedOutcome : step.expectedOutcome,
+          variableName: step.variableName,
+          isCheckpoint: step.isCheckpoint
+        }));
+        const recording = await tx.recordingSession.create({
+          data: {
+            productId: suggestion.productId,
+            ownerId: user.id,
+            testName: derivedName,
+            targetUrl: suggestion.sourceTestCase.recordingSession.targetUrl,
+            tokenHash: hash(token),
+            status: RecordingStatus.SAVED,
+            steps: { create: stepData },
+            variables: { create: suggestion.sourceVersion.variables.map((variable) => ({ name: variable.name, encryptedValue: variable.staticValueEncrypted })) }
+          }
+        });
+        const testCase = await tx.testCase.create({
+          data: {
+            productId: suggestion.productId,
+            ownerId: user.id,
+            recordingSessionId: recording.id,
+            name: derivedName,
+            featureLabels: { create: suggestion.sourceTestCase.featureLabels.map((label) => ({ featureLabelId: label.featureLabelId })) },
+            versions: { create: { version: 1, steps: { create: stepData }, variables: { create: suggestion.sourceVersion.variables.map((variable) => ({ name: variable.name, staticValueEncrypted: variable.staticValueEncrypted })) } } }
+          }
+        });
+        await tx.testSuggestion.update({ where: { id: suggestion.id }, data: { status: TestSuggestionStatus.APPROVED, approvedTestCaseId: testCase.id, approvedById: user.id, approvedAt } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_SUGGESTION_APPROVED", entityType: "TestSuggestion", entityId: suggestion.id, details: { testCaseId: testCase.id, sourceVersion: suggestion.sourceVersion.version } } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_CASE_CREATED_FROM_SUGGESTION", entityType: "TestCase", entityId: testCase.id, details: { suggestionId: suggestion.id } } });
+        return testCase;
+      });
+      return json({ testCase: created }, 201);
     }
     if (request.method === "GET" && path[0] === "products" && path[1] && path[2] === "feature-labels") {
       await assertProductMember(user.id, path[1]);
