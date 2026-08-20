@@ -71,7 +71,7 @@ Provides explicitly configured, parameterized diagnostic queries against QA Post
 
 ### Integration adapters
 
-JIRA, email, and optional Slack calls are isolated behind adapters. Phase 6 provides a local SMTP email adapter pointed at the Docker-local Mailpit service. It renders only a pre-approved safe summary and a Sentinel URL, then records sent or final-failure state without exposing evidence, raw logs, variables, or credentials. Each adapter translates Sentinel events into provider requests, stores external IDs, handles retry and rate limits, and exposes failure state without making the core domain depend on provider-specific fields. Slack stays deferred until the email path and audit behavior are proven.
+Jira Cloud, email, and optional Slack calls are isolated behind adapters. Phase 8 adds one server-configured Jira Cloud connection and a Product-scoped project-key mapping that only the Product creator can change. A failed-Run filing is first persisted as a safe reviewer-editable draft, then a BullMQ job creates a fixed Bug or comments on the Test Case's linked open issue. A unique filing record per Run, an open-issue check, and adapter-level retry make external side effects idempotent. The adapter transfers only a safe summary, immutable reproduction steps, and a protected Sentinel Run Detail link; it never transfers evidence binaries, signed object URLs, raw operational evidence, variables, or credentials. Jira delivery state cannot alter factual Run/Release/evidence state. Phase 6 provides a local SMTP email adapter pointed at the Docker-local Mailpit service. Slack stays deferred until the email path and audit behavior are proven.
 
 ## 4. Core data relationships
 
