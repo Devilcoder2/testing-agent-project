@@ -13,6 +13,31 @@ services:
     volumes:
       - sentinel-postgres:/var/lib/postgresql/data
 
+  qa-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: qa_admin
+      POSTGRES_PASSWORD: qa-admin-development-only
+      POSTGRES_DB: qa_fixture
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qa_admin -d qa_fixture"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - ./qa-fixture/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+      - sentinel-qa-postgres:/var/lib/postgresql/data
+
+  qa-fixture:
+    build: .
+    depends_on:
+      qa-postgres:
+        condition: service_healthy
+    environment:
+      QA_FIXTURE_DATABASE_URL: postgresql://qa_fixture_writer:qa-fixture-writer-development-only@qa-postgres:5432/qa_fixture
+      QA_FIXTURE_PORT: "8081"
+    command: npx tsx qa-fixture/server.ts
+
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
@@ -69,6 +94,10 @@ services:
         condition: service_healthy
       mailpit:
         condition: service_started
+      qa-postgres:
+        condition: service_healthy
+      qa-fixture:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/sentinel?schema=public
       SESSION_SECRET: sentinel-phase-1-development-secret
@@ -90,6 +119,7 @@ services:
       JIRA_CLOUD_URL: ${JIRA_CLOUD_URL:-}
       JIRA_SERVICE_EMAIL: ${JIRA_SERVICE_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
+      QA_DATABASE_URL: postgresql://qa_diagnostic:qa-diagnostic-read-only-development-only@qa-postgres:5432/qa_fixture
       GUIDED_RUN_DEMO_PASSWORD: ${GUIDED_RUN_DEMO_PASSWORD:?Set GUIDED_RUN_DEMO_PASSWORD in an untracked .env file}
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
     command: sh -c "npm ci --ignore-scripts && npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
@@ -114,6 +144,8 @@ services:
         condition: service_healthy
       mailpit:
         condition: service_started
+      qa-postgres:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://sentinel:sentinel@postgres:5432/sentinel?schema=public
       DEMO_TARGET_URL: http://demo-target
@@ -131,6 +163,7 @@ services:
       JIRA_CLOUD_URL: ${JIRA_CLOUD_URL:-}
       JIRA_SERVICE_EMAIL: ${JIRA_SERVICE_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
+      QA_DATABASE_URL: postgresql://qa_diagnostic:qa-diagnostic-read-only-development-only@qa-postgres:5432/qa_fixture
       AUTO_RUN_DEMO_EMAIL: qa.tester@example.test
       AUTO_RUN_DEMO_PASSWORD: TestPassword!
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
@@ -145,3 +178,4 @@ volumes:
   sentinel-node-modules-worker:
   sentinel-minio:
   sentinel-redis:
+  sentinel-qa-postgres:
