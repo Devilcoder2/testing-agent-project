@@ -1408,3 +1408,46 @@ Serial verification covered all 12 Vitest files and 35 tests, plus all 10 Playwr
 - Owner manually records and saves a fresh Demo CRM journey, generates its suggestions, edits/approves one, dismisses/reopens another, and checks that the source Test Case and its Run history do not change.
 - Owner answers all ten questions above and compares the answers with D-031, the `TestSuggestion` schema/migration, `lib/suggestions.ts`, the suggestion API routes, and both Phase 7 tests.
 - Before extending suggestions, define whether richer application-specific rule metadata, external-target validation, or an LLM can meet the same privacy, approval, idempotency, and no-auto-run guarantees.
+
+## Phase 8 — Reviewed Jira Cloud Bug Workflow
+
+Phase 8 lets a current Product member turn a completed failed Run into a reviewed Jira Cloud Bug. The member explicitly creates a draft, may edit only its safe summary, reproduction description, and priority, then explicitly files it. Sentinel does not file automatically. It sends no evidence files or raw operational data to Jira; the report links back to the Product-authorized Sentinel Run Detail instead.
+
+The Product creator maps each Product to one Jira project key. Jira Cloud URL, service-account email, and API token are server/worker-only environment values. A filing is unique per Run, so refreshing or clicking twice cannot create two tickets. For a later failure of the same Test Case, Sentinel checks the tracked Jira issue: it comments on an open issue, or creates a new Bug only when Jira reports the old issue Done. The existing worker retries one transient failure and records final failure without changing the Run result.
+
+### Important implementation and safety details
+
+- `JiraProjectConfig`, `JiraIssue`, and `JiraFiling` are persisted in PostgreSQL. The filing's unique `runId` is the local idempotency boundary; a PostgreSQL advisory lock by Test Case serializes the external create-or-comment decision.
+- `lib/jira.ts` is the adapter boundary. It validates an HTTPS `*.atlassian.net` endpoint, uses Jira REST API v3 with server-only basic authentication, creates the fixed Bug type, checks status category, and converts only safe text to Jira's document format.
+- The generated reproduction list contains ordered action kinds, not captured field values, selectors, variables, screenshots, network/console/storage evidence, credentials, tokens, cookies, or signed evidence URLs.
+- `JIRA_FILING_QUEUE` uses BullMQ with two attempts. The worker records queued, filed, or failed state and safe error text. Jira delivery never modifies Run outcome, evidence status, Release readiness, or notification state.
+- Product membership is checked on every mapping, draft, edit, filing, status, and Run access operation. Only `Product.createdById` may write the mapping.
+
+### Tradeoffs and limitations
+
+- Jira Cloud is supported first; Jira Server/Data Center and arbitrary Jira custom fields are deferred.
+- The Product mapping is one Jira project key, while credentials are deployment-wide. This keeps local setup understandable but will need an organization-level credentials model when roles arrive.
+- Protected Sentinel links preserve current authorization. Jira users who are not Sentinel Product members cannot use the linked Run Detail to obtain evidence.
+- Phase 8 does not attach screenshots, file automatically, classify bugs with an LLM, send Slack notices, or handle Phase 9 change-approval routing.
+
+### Ten-question understanding check
+
+1. Why is Jira filing manual in Phase 8, and which Run states are eligible?
+2. Which Jira values are server-only environment configuration, and which non-secret value is stored per Product?
+3. Why is a Jira filing unique per Run, and how does the Test Case advisory lock prevent duplicate open Bugs across concurrent failed Runs?
+4. What exact content is allowed in Jira's generated reproduction description, and which evidence or secret categories are prohibited?
+5. Why does Sentinel use a protected Run Detail link rather than a MinIO signed screenshot URL or attachment?
+6. Which user can change a Product's Jira mapping, and which users may review/file a failed Run?
+7. How does Sentinel decide whether to create a Bug or add a comment to an existing Jira issue?
+8. What makes a Jira delivery retryable, how many attempts occur, and what state is stored after the final failure?
+9. Why must Jira delivery never alter Run outcome, evidence status, Release readiness, or notification truth?
+10. Which files should a maintainer inspect before changing Jira payload content, authentication, duplicate behavior, or queue retries?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- Configure an untracked Jira Cloud test connection, map a Product, file one failed Run, then fail the same Test Case again and confirm the open Jira Bug receives a comment rather than a duplicate.
+- Answer all ten questions using D-032, the Jira schema/migration, `lib/jira.ts`, `worker.ts`, API route, and Jira tests.
