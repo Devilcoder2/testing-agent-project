@@ -1,14 +1,15 @@
 import crypto from "node:crypto";
-import { Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
+import { JiraFilingStatus, Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
 import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordingBrowser, launchRunBrowser, replayGuidedRunStep } from "@/lib/browser";
 import { dashboardForUser } from "@/lib/dashboard";
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
+import { buildJiraDraft, isAllowedJiraPriority, jiraCloudIsConfigured, normalizeJiraProjectKey, publicJiraFiling, validateJiraProject } from "@/lib/jira";
 import { notifyRunFailure } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
-import { enqueueAutoRun } from "@/lib/queue";
+import { enqueueAutoRun, enqueueJiraFiling } from "@/lib/queue";
 import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, variablePlaceholder } from "@/lib/variables";
 import { markReleaseRunItemQueueFailure, refreshReleaseRun, syncReleaseRunItemForRun } from "@/lib/releases";
 import { proposedValueIsSafe, suggestionsForSteps, type SuggestionKind } from "@/lib/suggestions";
@@ -387,6 +388,31 @@ async function route(request: Request, context: Context) {
           return json({ error: "You already have a Product with this name." }, 409);
         }
         throw error;
+      }
+    }
+    if (path[0] === "products" && path[1] && path[2] === "jira") {
+      const product = await prisma.product.findUnique({ where: { id: path[1] }, include: { jiraConfig: true } });
+      if (!product) return json({ error: "Product not found." }, 404);
+      await assertProductMember(user.id, product.id);
+      if (request.method === "GET") {
+        return json({ projectKey: product.jiraConfig?.projectKey ?? null, validatedAt: product.jiraConfig?.validatedAt ?? null, canConfigure: product.createdById === user.id, available: jiraCloudIsConfigured() });
+      }
+      if (request.method === "PUT") {
+        if (product.createdById !== user.id) return json({ error: "Only the Product creator can configure Jira." }, 403);
+        const projectKey = typeof body.projectKey === "string" ? body.projectKey : "";
+        const normalized = normalizeJiraProjectKey(projectKey);
+        await validateJiraProject(normalized);
+        const config = await prisma.jiraProjectConfig.upsert({ where: { productId: product.id }, create: { productId: product.id, projectKey: normalized, validatedAt: new Date() }, update: { projectKey: normalized, validatedAt: new Date() } });
+        await prisma.auditEvent.create({ data: { actorId: user.id, action: "JIRA_PROJECT_CONFIGURED", entityType: "Product", entityId: product.id, details: { projectKey: normalized } } });
+        return json({ projectKey: config.projectKey, validatedAt: config.validatedAt, canConfigure: true, available: true });
+      }
+      if (request.method === "DELETE") {
+        if (product.createdById !== user.id) return json({ error: "Only the Product creator can remove Jira configuration." }, 403);
+        await prisma.$transaction([
+          prisma.jiraProjectConfig.deleteMany({ where: { productId: product.id } }),
+          prisma.auditEvent.create({ data: { actorId: user.id, action: "JIRA_PROJECT_REMOVED", entityType: "Product", entityId: product.id } })
+        ]);
+        return json({ removed: true });
       }
     }
     if (request.method === "PATCH" && path[0] === "products" && path[1]) {
@@ -986,6 +1012,74 @@ async function route(request: Request, context: Context) {
       }
       return json({ run: created }, 201);
     }
+    if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "jira-draft") {
+      if (!jiraCloudIsConfigured()) return json({ error: "Jira Cloud is not configured for this Sentinel deployment." }, 503);
+      const run = await prisma.run.findUnique({
+        where: { id: path[1] },
+        include: { product: true, testCase: true, testCaseVersion: { include: { steps: { select: { order: true, kind: true } } } } }
+      });
+      if (!run) return json({ error: "Run not found." }, 404);
+      await assertProductMember(user.id, run.productId);
+      if (run.status !== RunStatus.COMPLETED || run.outcome !== RunOutcome.FAILED) return json({ error: "Only a completed failed Run can be filed to Jira." }, 409);
+      const config = await prisma.jiraProjectConfig.findUnique({ where: { productId: run.productId } });
+      if (!config) return json({ error: "This Product does not have a Jira project mapping." }, 409);
+      const draft = buildJiraDraft(run);
+      let filing = await prisma.jiraFiling.findUnique({ where: { runId: run.id }, include: { jiraIssue: true } });
+      if (!filing) {
+        try {
+          filing = await prisma.$transaction(async (tx) => {
+            const created = await tx.jiraFiling.create({ data: { runId: run.id, productId: run.productId, requestedById: user.id, summary: draft.summary, description: draft.description, priority: draft.priority }, include: { jiraIssue: true } });
+            await tx.auditEvent.create({ data: { actorId: user.id, action: "JIRA_FILING_DRAFT_CREATED", entityType: "JiraFiling", entityId: created.id, details: { runId: run.id } } });
+            return created;
+          });
+        } catch (error) {
+          if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
+          filing = await prisma.jiraFiling.findUniqueOrThrow({ where: { runId: run.id }, include: { jiraIssue: true } });
+        }
+      }
+      return json(publicJiraFiling(filing));
+    }
+    if (request.method === "PATCH" && path[0] === "jira-filings" && path[1]) {
+      const filing = await prisma.jiraFiling.findUnique({ where: { id: path[1] }, include: { jiraIssue: true } });
+      if (!filing) return json({ error: "Jira filing not found." }, 404);
+      await assertProductMember(user.id, filing.productId);
+      if (filing.status !== JiraFilingStatus.DRAFT) return json({ error: "Only an unfiled Jira draft can be edited." }, 409);
+      const summary = typeof body.summary === "string" ? body.summary.trim() : "";
+      const description = typeof body.description === "string" ? body.description.trim() : "";
+      const priority = typeof body.priority === "string" ? body.priority : "";
+      if (!summary || summary.length > 240) return json({ error: "Jira summary is required and must be 240 characters or fewer." }, 400);
+      if (!description || description.length > 8_000) return json({ error: "Jira reproduction description is required and must be 8,000 characters or fewer." }, 400);
+      if (!isAllowedJiraPriority(priority)) return json({ error: "Choose a valid Jira priority." }, 400);
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.jiraFiling.update({ where: { id: filing.id }, data: { summary, description, priority }, include: { jiraIssue: true } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "JIRA_FILING_DRAFT_EDITED", entityType: "JiraFiling", entityId: filing.id } });
+        return result;
+      });
+      return json(publicJiraFiling(updated));
+    }
+    if (request.method === "POST" && path[0] === "jira-filings" && path[1] && path[2] === "file") {
+      if (!jiraCloudIsConfigured()) return json({ error: "Jira Cloud is not configured for this Sentinel deployment." }, 503);
+      const filing = await prisma.jiraFiling.findUnique({ where: { id: path[1] }, include: { jiraIssue: true } });
+      if (!filing) return json({ error: "Jira filing not found." }, 404);
+      await assertProductMember(user.id, filing.productId);
+      if (filing.status === JiraFilingStatus.FILED) return json(publicJiraFiling(filing));
+      if (filing.status === JiraFilingStatus.QUEUED) return json(publicJiraFiling(filing), 202);
+      const config = await prisma.jiraProjectConfig.findUnique({ where: { productId: filing.productId } });
+      if (!config) return json({ error: "This Product does not have a Jira project mapping." }, 409);
+      const queued = await prisma.$transaction(async (tx) => {
+        const result = await tx.jiraFiling.update({ where: { id: filing.id }, data: { status: JiraFilingStatus.QUEUED, queuedAt: new Date(), deliveryError: null }, include: { jiraIssue: true } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "JIRA_FILING_QUEUED", entityType: "JiraFiling", entityId: filing.id } });
+        return result;
+      });
+      try {
+        await enqueueJiraFiling({ filingId: filing.id });
+      } catch (error) {
+        await prisma.jiraFiling.update({ where: { id: filing.id }, data: { status: JiraFilingStatus.FAILED, deliveryError: "Jira filing could not be queued." } });
+        console.error("Sentinel could not queue Jira filing", error);
+        return json({ error: "Jira filing could not be queued. Redis is unavailable; try again." }, 503);
+      }
+      return json(publicJiraFiling(queued), 202);
+    }
     if (request.method === "GET" && path.join("/") === "runs") {
       const runs = await prisma.run.findMany({
         where: { product: { memberships: { some: { userId: user.id } } } },
@@ -993,6 +1087,12 @@ async function route(request: Request, context: Context) {
         orderBy: { createdAt: "desc" }
       });
       return json(runs);
+    }
+    if (request.method === "GET" && path[0] === "runs" && path[1] && path[2] === "jira-filings") {
+      const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { jiraFiling: { include: { jiraIssue: true } } } });
+      if (!run) return json({ error: "Run not found." }, 404);
+      await assertProductMember(user.id, run.productId);
+      return json(run.jiraFiling ? publicJiraFiling(run.jiraFiling) : null);
     }
     if (request.method === "GET" && path[0] === "runs" && path[1]) {
       const run = await prisma.run.findUnique({
@@ -1005,12 +1105,13 @@ async function route(request: Request, context: Context) {
           stepResults: { include: { testStep: true, evidence: { orderBy: { capturedAt: "asc" } } }, orderBy: { order: "asc" } },
           attempts: { orderBy: { attemptNumber: "asc" } },
           variableBindings: { select: { name: true, source: true, dataSetId: true } },
-          evidence: { orderBy: { capturedAt: "asc" } }
+          evidence: { orderBy: { capturedAt: "asc" } },
+          jiraFiling: { include: { jiraIssue: true } }
         }
       });
       if (!run) return json({ error: "Run not found." }, 404);
       await assertProductMember(user.id, run.productId);
-      return json({ ...run, viewerUrl: run.mode === RunMode.GUIDED && run.status === RunStatus.RUNNING ? process.env.BROWSER_VIEWER_URL : null });
+      return json({ ...run, jiraFiling: run.jiraFiling ? publicJiraFiling(run.jiraFiling) : null, viewerUrl: run.mode === RunMode.GUIDED && run.status === RunStatus.RUNNING ? process.env.BROWSER_VIEWER_URL : null });
     }
     if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "steps" && path[3] && path[4] === "complete") {
       const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { stepResults: { include: { testStep: true }, orderBy: { order: "asc" } }, variableBindings: true } });
