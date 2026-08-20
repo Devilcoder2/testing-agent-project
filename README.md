@@ -36,6 +36,7 @@ The attached requirements document is the current product source of truth. Archi
 - Phase 5: Test Case versioning and Release management are implementation and automated-acceptance verified; owner learning review remains pending.
 - Phase 6: health dashboard and durable local notifications are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
 - Phase 7: deterministic negative-Test suggestions are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
+- Phase 8: planned reviewed Jira Cloud Bug workflow; implementation has not started.
 - Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -142,6 +143,10 @@ docker compose exec sentinel npx playwright test tests/phase-6-dashboard-notific
 ## Phase 7 scope
 
 Phase 7 adds a central **Review** queue for conservative, deterministic negative-Test drafts. From a saved Test Case, an authorized product member manually selects **Generate suggestions**. Sentinel reads the current immutable version's captured validation metadata and may propose a blank required field, invalid email, or one-character-outside a known text boundary. Passwords, variable-backed and redacted values, unsupported fields, and missing metadata are skipped without exposing values. A draft may change only its title, rationale, and safe proposed value. Approving one creates an independent Version 1 Test Case owned by the approver; it does not mutate the source, start a Run, update a baseline, or notify anyone.
+
+## Phase 8 scope
+
+Phase 8 adds an optional Jira Cloud workflow for a completed failed Run. A Product creator maps their Product to one Jira project key; credentials remain server-only configuration. A current Product member explicitly reviews a generated Bug draft, may edit only its safe summary, reproduction text, and priority, and then files it. Jira receives a protected Sentinel Run Detail link rather than screenshots or raw evidence. Sentinel updates the Test Case's existing open Jira Bug for later failures, creates a replacement only after Jira reports the prior issue Done, and retries one transient delivery failure without changing any Run truth.
 
 To verify it after the stack is running:
 
