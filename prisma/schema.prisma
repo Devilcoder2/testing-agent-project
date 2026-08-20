@@ -127,6 +127,16 @@ enum NotificationType {
   RUN_FAILED
   AUTO_RUN_CHECKPOINT
   RELEASE_RUN_COMPLETED
+  CHANGE_PROPOSAL_REQUESTED
+  CHANGE_PROPOSAL_RESOLVED
+}
+
+enum ChangeProposalStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  STALE
 }
 
 enum NotificationDeliveryStatus {
@@ -176,6 +186,8 @@ model User {
   approvedSuggestions  TestSuggestion[]    @relation("SuggestionApprover")
   dismissedSuggestions TestSuggestion[]    @relation("SuggestionDismisser")
   jiraFilings          JiraFiling[]        @relation("JiraFilingRequester")
+  proposedChanges      ChangeProposal[]    @relation("ChangeProposalCreator")
+  approvalRequests     ChangeProposal[]    @relation("ChangeProposalOwner")
   auditEvents          AuditEvent[]        @relation("AuditActor")
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
@@ -198,6 +210,7 @@ model Product {
   jiraConfig      JiraProjectConfig?
   jiraIssues      JiraIssue[]
   jiraFilings     JiraFiling[]
+  changeProposals ChangeProposal[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -281,6 +294,7 @@ model TestCase {
   sourceSuggestions   TestSuggestion[]       @relation("SuggestionSourceTestCase")
   approvedSuggestions TestSuggestion[]       @relation("SuggestionApprovedTestCase")
   jiraIssues          JiraIssue[]
+  changeProposals     ChangeProposal[]
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
 }
@@ -295,6 +309,7 @@ model TestCaseVersion {
   runs            Run[]
   releaseRunItems ReleaseRunItem[]
   suggestions     TestSuggestion[]
+  changeProposals ChangeProposal[]
   createdAt       DateTime         @default(now())
 
   @@unique([testCaseId, version])
@@ -316,6 +331,7 @@ model TestStep {
   testCaseVersion   TestCaseVersion  @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
   runStepResults    RunStepResult[]
   suggestions       TestSuggestion[]
+  proposalChanges   ChangeProposalStep[]
 
   @@unique([testCaseVersionId, order])
 }
@@ -505,6 +521,7 @@ model Run {
   releaseRunItem     ReleaseRunItem?      @relation("ReleaseRunItemRun")
   notifications      Notification[]
   jiraFiling         JiraFiling?
+  changeProposal     ChangeProposal?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
@@ -529,15 +546,61 @@ model Notification {
   product          Product?                   @relation(fields: [productId], references: [id], onDelete: Cascade)
   run              Run?                       @relation(fields: [runId], references: [id], onDelete: Cascade)
   releaseRun       ReleaseRun?                @relation(fields: [releaseRunId], references: [id], onDelete: Cascade)
+  changeProposalId String?
+  changeProposal   ChangeProposal?            @relation(fields: [changeProposalId], references: [id], onDelete: Cascade)
   createdAt        DateTime                   @default(now())
   updatedAt        DateTime                   @updatedAt
 
   @@unique([recipientId, runId, type])
   @@unique([recipientId, releaseRunId, type])
+  @@unique([recipientId, changeProposalId, type])
   @@index([recipientId, readAt, createdAt])
   @@index([runId, type])
   @@index([releaseRunId, type])
   @@index([productId, createdAt])
+}
+
+model ChangeProposal {
+  id              String               @id @default(cuid())
+  runId           String               @unique
+  productId       String
+  testCaseId      String
+  sourceVersionId String
+  createdById     String
+  ownerId         String
+  status          ChangeProposalStatus @default(DRAFT)
+  context         String
+  decisionNote    String?
+  submittedAt     DateTime?
+  decidedAt       DateTime?
+  appliedVersion  Int?
+  product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  testCase        TestCase             @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  sourceVersion   TestCaseVersion      @relation(fields: [sourceVersionId], references: [id], onDelete: Cascade)
+  run             Run                  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  createdBy       User                 @relation("ChangeProposalCreator", fields: [createdById], references: [id])
+  owner           User                 @relation("ChangeProposalOwner", fields: [ownerId], references: [id])
+  changes         ChangeProposalStep[]
+  notifications   Notification[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([ownerId, status, createdAt])
+  @@index([productId, status, createdAt])
+}
+
+model ChangeProposalStep {
+  id                    String         @id @default(cuid())
+  changeProposalId      String
+  sourceStepId          String
+  order                 Int
+  proposedDescription   String?
+  proposedExpectedOutcome String?
+  proposal              ChangeProposal @relation(fields: [changeProposalId], references: [id], onDelete: Cascade)
+  sourceStep            TestStep       @relation(fields: [sourceStepId], references: [id], onDelete: Cascade)
+
+  @@unique([changeProposalId, sourceStepId])
+  @@index([sourceStepId])
 }
 
 model RunVariableBinding {
