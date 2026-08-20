@@ -159,6 +159,16 @@ docker compose exec sentinel npx playwright test tests/phase-7-suggestions.spec.
 
 For a manual check, record and save a fresh Demo CRM happy-path Test, select **Generate suggestions**, then open **Review**. Inspect skip explanations and draft rules; edit and approve one draft; confirm the new independent Test Case has Version 1 and no Run; dismiss/reopen another draft; and verify a user without that Product cannot access the queue or its linked Tests.
 
+## Phase 9 scope
+
+Phase 9 adds manual, change-aware maintenance for a completed failed Run after a known QA deployment. From failed Run Detail, enter deployment context and propose a revised description or expected outcome for one saved step. The proposal never changes recorded actions, selectors, values, variables, checkpoints, order, or the existing baseline. Open **Review** to compare source and proposed text. Only the original Test Case owner can approve or reject: approval creates the next immutable version; a newer baseline makes the proposal stale. Rejection creates an editable Jira draft only when the Product has a Jira mapping, and never files it automatically. Proposal notifications contain safe state summaries and protected Review links only.
+
+To verify the focused API/database behavior:
+
+```text
+docker compose exec sentinel npx vitest run tests/change-proposals.test.ts
+```
+
 ## Status
 
-Phases 1, 1.5, 2, 3, 4, 5, 6, and 7 are implementation and automated-acceptance verified. Owner learning reviews remain pending in `learning-log.md`, so completed phases are not yet marked fully understood. Phase 6 and Phase 7 owner manual inspection remain pending. External production integrations, scheduling, external QA targets, Slack, LLM suggestions, approval notices, and QA-network access remain later phases.
+Phases 1, 1.5, 2, 3, 4, 5, 6, and 7 are implementation and automated-acceptance verified. Phase 8 has focused automated verification; real Jira Cloud/manual verification remains pending. Phase 9 has focused Docker API/database verification; owner manual and learning review remain pending. Owner learning reviews remain pending in `learning-log.md`, so no phase is marked fully understood. External production integrations, scheduling, external QA targets, Slack, LLM suggestions, GitHub deployment correlation, automatic change classification, and QA-network access remain later phases.
