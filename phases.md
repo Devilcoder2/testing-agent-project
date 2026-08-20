@@ -362,11 +362,48 @@ Manual verification: add two labels; save one safe step edit as Version 2; confi
 ## Phase 7 — Edge-case and negative-test suggestions
 
 **Depends on:** Phase 3 and Phase 5  
-**Outcome:** High-confidence suggestions become reviewable draft Test Cases.
+**Status:** Implementation in progress.
+**Outcome:** A product member can explicitly generate conservative, reviewable negative-Test drafts from a current saved Test Case version, then approve one into an independent Test Case without changing the source or starting a Run.
 
-- Generate conservative missing-input, invalid-input, and boundary suggestions.
-- Allow approve, edit, and dismiss actions with audit history.
-- Ensure suggestions never run or alter baselines before approval.
+### In scope
+
+- A deterministic Docker-local rule engine, not an LLM, runs only when a product member selects **Generate suggestions** on a saved Test Case.
+- The generator snapshots the current immutable source version and considers only non-secret, non-variable text-entry steps with captured validation metadata. It proposes blank required inputs, invalid email values, and one-character-outside known minimum/maximum boundaries.
+- The Demo CRM records first/last-name 2–50-character metadata and supplies those validation constraints, so Phase 7 can demonstrate one- and 51-character boundary drafts.
+- Passwords, redacted steps, variables, unsupported controls, and fields lacking relevant validation metadata are skipped and reported with a clear reason.
+- A central `/review` queue and a Test Case detail link support Product/status filtering and Draft, Approved, and Dismissed history.
+- A Draft may change only title, rationale, and its safe proposed text value. Target metadata, step order/kind, password behavior, and variable behavior remain immutable.
+- One persistent draft exists per source version, source step, and rule. Repeat generation is idempotent; a dismissed item remains historical and may be deliberately reopened.
+- Approval atomically creates a separately owned Test Case with independent Version 1, copies labels and safe variable configuration, changes only the proposed text step, links the source suggestion, and writes an audit trail. The approver is the derived Test Case owner.
+
+### Explicit exclusions
+
+- Generated Tests never run, queue, notify, file JIRA work, alter a baseline, or connect to external targets before and after approval in this phase.
+- LLM generation, broad heuristic guessing, automatic variables, arbitrary metadata edits, external validation, scheduling, releases, and Phase 9 change proposals remain out of scope.
+
+### Acceptance checklist
+
+- [ ] An authorized product member can manually generate only the documented deterministic missing-required, invalid-email, and boundary suggestions from the current source version.
+- [ ] Ineligible password, redacted, variable-backed, unsupported, and metadata-free fields are skipped without leaking their values.
+- [ ] Regeneration creates no duplicate source-version/step/rule suggestion and preserves Dismissed history for manual reopen.
+- [ ] Product authorization protects generation, Review queue/detail, draft editing, approval, dismissal, reopening, and derived Test Case links.
+- [ ] A Draft can change only name, rationale, and safe value; secret-like proposed values are rejected.
+- [ ] Approval creates an independent approver-owned Test Case Version 1 in one transaction; source Test Case, its historical versions, and Runs stay unchanged.
+- [ ] A suggestion has no Run before approval, and approval does not auto-run it or change a baseline.
+- [ ] Unit, integration, browser, and Phase 1–6 regression checks pass; `learning-log.md` has exactly ten Phase 7 owner questions.
+
+### Verification
+
+```text
+docker compose up --build -d
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/phase-7-suggestions.spec.ts
+docker compose down
+```
+
+Manual verification: record/save a fresh Demo CRM happy-path Test; select **Generate suggestions**; inspect the Review queue; edit and approve one safe draft; confirm the approver owns an independent Version 1 and neither Test has started a Run; dismiss and reopen another draft; then sign in as a user without the Product and confirm queue/action access is denied.
 
 ## Phase 8 — JIRA bug workflow
 
