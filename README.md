@@ -38,7 +38,7 @@ The attached requirements document is the current product source of truth. Archi
 - Phase 7: deterministic negative-Test suggestions are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
 - Phase 8: reviewed Jira Cloud Bug workflow is implemented; focused automated verification passed, while a real Jira Cloud and owner manual check remain pending.
 - Phase 10: explicit read-only local QA customer diagnostics are implemented and focused Docker verification passed; full regression, owner manual, and learning reviews remain pending.
-- Phase 11: controlled local-pilot hardening is implemented; full regression, adversarial review, owner manual, and learning reviews remain pending.
+- Phase 11: controlled local-pilot hardening, full regression, and adversarial review are complete; owner manual and learning reviews remain pending.
 - Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -202,4 +202,4 @@ For a manual readiness check, sign in locally, open the Dashboard, and confirm a
 
 ## Status
 
-Phases 1, 1.5, 2, 3, 4, 5, 6, and 7 are implementation and automated-acceptance verified. Phase 8 has focused automated verification; real Jira Cloud/manual verification remains pending. Phase 9 has focused Docker API/database verification; owner manual and learning review remain pending. Phase 10 has focused Docker fixture/role/adapter verification; full regression, owner manual, and learning review remain pending. Phase 11 has focused Docker verification; full regression, adversarial review, owner manual, and learning review remain pending. Owner learning reviews remain pending in `learning-log.md`, so no phase is marked fully understood. External production integrations, organization roles/identity, scheduling, external QA targets, Slack, LLM suggestions, GitHub deployment correlation, automatic change classification, and QA-network access remain later phases.
+Phases 1, 1.5, 2, 3, 4, 5, 6, and 7 are implementation and automated-acceptance verified. Phase 8 has focused automated verification; real Jira Cloud/manual verification remains pending. Phase 9 has focused Docker API/database verification; owner manual and learning review remain pending. Phase 10 has focused Docker fixture/role/adapter verification; full regression, owner manual, and learning review remain pending. Phase 11 has full Docker regression and adversarial-review verification; owner manual and learning review remain pending. Owner learning reviews remain pending in `learning-log.md`, so no phase is marked fully understood. External production integrations, organization roles/identity, scheduling, external QA targets, Slack, LLM suggestions, GitHub deployment correlation, automatic change classification, and QA-network access remain later phases.
