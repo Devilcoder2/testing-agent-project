@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { JiraFilingStatus, Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
+import { ChangeProposalStatus, JiraFilingStatus, Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
@@ -7,7 +7,7 @@ import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordi
 import { dashboardForUser } from "@/lib/dashboard";
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
 import { buildJiraDraft, isAllowedJiraPriority, jiraCloudIsConfigured, normalizeJiraProjectKey, publicJiraFiling, validateJiraProject } from "@/lib/jira";
-import { notifyRunFailure } from "@/lib/notifications";
+import { notifyChangeProposalResolved, notifyChangeProposalSubmitted, notifyRunFailure } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { enqueueAutoRun, enqueueJiraFiling } from "@/lib/queue";
 import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, variablePlaceholder } from "@/lib/variables";
@@ -1080,6 +1080,117 @@ async function route(request: Request, context: Context) {
       }
       return json(publicJiraFiling(queued), 202);
     }
+    if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "change-proposals") {
+      const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { testCase: true, testCaseVersion: { include: { steps: { orderBy: { order: "asc" } } } } } });
+      if (!run) return json({ error: "Run not found." }, 404);
+      await assertProductMember(user.id, run.productId);
+      if (run.status !== RunStatus.COMPLETED || run.outcome !== RunOutcome.FAILED) return json({ error: "Only a completed failed Run can start a change proposal." }, 409);
+      const context = typeof body.context === "string" ? body.context.trim() : "";
+      const changes = Array.isArray(body.changes) ? body.changes : [];
+      if (!context || context.length > 1000 || !changes.length) return json({ error: "Add deployment context and at least one changed description or expected outcome." }, 400);
+      try {
+        const proposal = await prisma.$transaction(async (tx) => {
+          const rows = changes.map((change: { stepId?: unknown; description?: unknown; expectedOutcome?: unknown }) => {
+            const step = run.testCaseVersion.steps.find((item) => item.id === change.stepId);
+            const description = typeof change.description === "string" ? change.description.trim() || null : null;
+            const expectedOutcome = typeof change.expectedOutcome === "string" ? change.expectedOutcome.trim() || null : null;
+            if (!step || (description === step.description && expectedOutcome === step.expectedOutcome) || (description && (description.length > 2000 || isSecretLikeVariable("proposal", description))) || (expectedOutcome && (expectedOutcome.length > 2000 || isSecretLikeVariable("proposal", expectedOutcome)))) throw new Error("INVALID_PROPOSAL_CHANGE");
+            return { sourceStepId: step.id, order: step.order, proposedDescription: description, proposedExpectedOutcome: expectedOutcome };
+          });
+          const created = await tx.changeProposal.create({ data: { runId: run.id, productId: run.productId, testCaseId: run.testCaseId, sourceVersionId: run.testCaseVersionId, createdById: user.id, ownerId: run.testCase.ownerId, context, changes: { create: rows } }, include: { changes: true } });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "CHANGE_PROPOSAL_CREATED", entityType: "ChangeProposal", entityId: created.id, details: { runId: run.id } } });
+          return created;
+        });
+        return json(proposal, 201);
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return json({ error: "This failed Run already has a change proposal." }, 409);
+        if (error instanceof Error && error.message === "INVALID_PROPOSAL_CHANGE") return json({ error: "Proposal changes must refer to saved steps and modify only safe annotations." }, 400);
+        throw error;
+      }
+    }
+    if (request.method === "POST" && path[0] === "change-proposals" && path[1] && path[2] === "submit") {
+      const proposal = await prisma.changeProposal.findUnique({ where: { id: path[1] } });
+      if (!proposal) return json({ error: "Change proposal not found." }, 404);
+      await assertProductMember(user.id, proposal.productId);
+      if (proposal.createdById !== user.id || proposal.status !== ChangeProposalStatus.DRAFT) return json({ error: "Only the proposal creator can submit a draft." }, 403);
+      const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.changeProposal.update({ where: { id: proposal.id }, data: { status: ChangeProposalStatus.SUBMITTED, submittedAt: new Date() } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "CHANGE_PROPOSAL_SUBMITTED", entityType: "ChangeProposal", entityId: proposal.id } });
+        return result;
+      });
+      await notifyChangeProposalSubmitted(updated.id);
+      return json(updated);
+    }
+    if (request.method === "PATCH" && path[0] === "change-proposals" && path[1]) {
+      const proposal = await prisma.changeProposal.findUnique({ where: { id: path[1] }, include: { sourceVersion: { include: { steps: true } } } });
+      if (!proposal) return json({ error: "Change proposal not found." }, 404);
+      await assertProductMember(user.id, proposal.productId);
+      if (proposal.createdById !== user.id || proposal.status !== ChangeProposalStatus.DRAFT) return json({ error: "Only the proposal creator can edit an unsubmitted draft." }, 403);
+      const context = typeof body.context === "string" ? body.context.trim() : "";
+      const changes = Array.isArray(body.changes) ? body.changes : [];
+      if (!context || context.length > 1000 || !changes.length) return json({ error: "Add deployment context and at least one changed description or expected outcome." }, 400);
+      try {
+        const updated = await prisma.$transaction(async (tx) => {
+          const rows = changes.map((change: { stepId?: unknown; description?: unknown; expectedOutcome?: unknown }) => {
+            const step = proposal.sourceVersion.steps.find((item) => item.id === change.stepId);
+            const description = typeof change.description === "string" ? change.description.trim() || null : null;
+            const expectedOutcome = typeof change.expectedOutcome === "string" ? change.expectedOutcome.trim() || null : null;
+            if (!step || (description === step.description && expectedOutcome === step.expectedOutcome) || (description && (description.length > 2000 || isSecretLikeVariable("proposal", description))) || (expectedOutcome && (expectedOutcome.length > 2000 || isSecretLikeVariable("proposal", expectedOutcome)))) throw new Error("INVALID_PROPOSAL_CHANGE");
+            return { sourceStepId: step.id, order: step.order, proposedDescription: description, proposedExpectedOutcome: expectedOutcome };
+          });
+          await tx.changeProposalStep.deleteMany({ where: { changeProposalId: proposal.id } });
+          const result = await tx.changeProposal.update({ where: { id: proposal.id }, data: { context, changes: { create: rows } }, include: { changes: true } });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "CHANGE_PROPOSAL_EDITED", entityType: "ChangeProposal", entityId: proposal.id } });
+          return result;
+        });
+        return json(updated);
+      } catch (error) {
+        if (error instanceof Error && error.message === "INVALID_PROPOSAL_CHANGE") return json({ error: "Proposal changes may update only safe descriptions and expected outcomes." }, 400);
+        throw error;
+      }
+    }
+    if (request.method === "POST" && path[0] === "change-proposals" && path[1] && (path[2] === "approve" || path[2] === "reject")) {
+      const proposal = await prisma.changeProposal.findUnique({ where: { id: path[1] }, include: { testCase: { include: { versions: { include: { steps: { orderBy: { order: "asc" } }, variables: true } } } }, changes: true } });
+      if (!proposal) return json({ error: "Change proposal not found." }, 404);
+      await assertProductMember(user.id, proposal.productId);
+      if (proposal.ownerId !== user.id || proposal.status !== ChangeProposalStatus.SUBMITTED) return json({ error: "Only the original Test Case owner can decide this submitted proposal." }, 403);
+      const note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) || null : null;
+      if (proposal.testCase.currentVersion !== proposal.testCase.versions.find((version) => version.id === proposal.sourceVersionId)?.version) {
+        return json(await prisma.changeProposal.update({ where: { id: proposal.id }, data: { status: ChangeProposalStatus.STALE, decidedAt: new Date(), decisionNote: "The Test Case baseline changed before review." } }), 409);
+      }
+      if (path[2] === "reject") {
+        const rejected = await prisma.$transaction(async (tx) => {
+          const result = await tx.changeProposal.update({ where: { id: proposal.id }, data: { status: ChangeProposalStatus.REJECTED, decisionNote: note, decidedAt: new Date() } });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "CHANGE_PROPOSAL_REJECTED", entityType: "ChangeProposal", entityId: proposal.id } });
+          const config = await tx.jiraProjectConfig.findUnique({ where: { productId: proposal.productId } });
+          const filing = await tx.jiraFiling.findUnique({ where: { runId: proposal.runId } });
+          if (config && !filing) {
+            const run = await tx.run.findUniqueOrThrow({ where: { id: proposal.runId }, include: { product: true, testCase: true, testCaseVersion: { include: { steps: { select: { order: true, kind: true } } } } } });
+            const draft = buildJiraDraft(run);
+            const jiraDraft = await tx.jiraFiling.create({ data: { runId: run.id, productId: run.productId, requestedById: user.id, summary: draft.summary, description: draft.description, priority: draft.priority } });
+            await tx.auditEvent.create({ data: { actorId: user.id, action: "JIRA_FILING_DRAFT_CREATED", entityType: "JiraFiling", entityId: jiraDraft.id, details: { source: "CHANGE_PROPOSAL_REJECTION" } } });
+          }
+          return result;
+        });
+        await notifyChangeProposalResolved(rejected.id);
+        return json(rejected);
+      }
+      const approved = await prisma.$transaction(async (tx) => {
+        const source = proposal.testCase.versions.find((version) => version.id === proposal.sourceVersionId)!;
+        const nextVersion = proposal.testCase.currentVersion + 1;
+        const version = await tx.testCaseVersion.create({ data: { testCaseId: proposal.testCaseId, version: nextVersion, steps: { create: source.steps.map((step) => { const change = proposal.changes.find((item) => item.sourceStepId === step.id); return { order: step.order, kind: step.kind, timestamp: step.timestamp, target: step.target === null ? Prisma.JsonNull : step.target as Prisma.InputJsonValue, value: step.value, isRedacted: step.isRedacted, description: change ? change.proposedDescription : step.description, expectedOutcome: change ? change.proposedExpectedOutcome : step.expectedOutcome, variableName: step.variableName, isCheckpoint: step.isCheckpoint }; }) }, variables: { create: source.variables.map((variable) => ({ name: variable.name, staticValueEncrypted: variable.staticValueEncrypted })) } } });
+        await tx.testCase.update({ where: { id: proposal.testCaseId }, data: { currentVersion: nextVersion } });
+        const result = await tx.changeProposal.update({ where: { id: proposal.id }, data: { status: ChangeProposalStatus.APPROVED, decisionNote: note, decidedAt: new Date(), appliedVersion: nextVersion } });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "CHANGE_PROPOSAL_APPROVED", entityType: "ChangeProposal", entityId: proposal.id, details: { versionId: version.id, version: nextVersion } } });
+        return result;
+      });
+      await notifyChangeProposalResolved(approved.id);
+      return json(approved);
+    }
+    if (request.method === "GET" && path.join("/") === "change-proposals") {
+      const proposals = await prisma.changeProposal.findMany({ where: { product: { memberships: { some: { userId: user.id } } } }, include: { testCase: { select: { name: true } }, run: { select: { id: true } }, createdBy: { select: { displayName: true } }, owner: { select: { displayName: true } }, changes: true }, orderBy: { createdAt: "desc" } });
+      return json(proposals);
+    }
     if (request.method === "GET" && path.join("/") === "runs") {
       const runs = await prisma.run.findMany({
         where: { product: { memberships: { some: { userId: user.id } } } },
@@ -1106,7 +1217,8 @@ async function route(request: Request, context: Context) {
           attempts: { orderBy: { attemptNumber: "asc" } },
           variableBindings: { select: { name: true, source: true, dataSetId: true } },
           evidence: { orderBy: { capturedAt: "asc" } },
-          jiraFiling: { include: { jiraIssue: true } }
+          jiraFiling: { include: { jiraIssue: true } },
+          changeProposal: { include: { changes: true } }
         }
       });
       if (!run) return json({ error: "Run not found." }, 404);
