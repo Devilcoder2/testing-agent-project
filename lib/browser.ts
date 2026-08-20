@@ -101,7 +101,21 @@ function recorderScript(endpoint: string, token: string) {
         method: 'POST', mode: 'cors', keepalive: true, headers: {'content-type':'application/json', 'x-recording-token': ${JSON.stringify(token)}},
         body: JSON.stringify({kind, target, value, isRedacted, timestamp: new Date().toISOString()})
       }).catch(() => undefined);
-      const describe = (element) => ({ tag: element.tagName.toLowerCase(), name: element.getAttribute('aria-label') || element.getAttribute('name') || '', text: element instanceof HTMLInputElement && element.type === 'password' ? '[REDACTED]' : (element.innerText || element.value || '').trim().slice(0, 120), testId: element.getAttribute('data-testid') || '' });
+      const describe = (element) => {
+        const textControl = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
+        return {
+          tag: element.tagName.toLowerCase(),
+          name: element.getAttribute('aria-label') || element.getAttribute('name') || '',
+          text: element instanceof HTMLInputElement && element.type === 'password' ? '[REDACTED]' : (element.innerText || element.value || '').trim().slice(0, 120),
+          testId: element.getAttribute('data-testid') || '',
+          ...(textControl ? {
+            inputType: element instanceof HTMLInputElement ? element.type : 'textarea',
+            required: element.required,
+            ...(element.hasAttribute('minlength') ? { minLength: element.minLength } : {}),
+            ...(element.hasAttribute('maxlength') ? { maxLength: element.maxLength } : {})
+          } : {})
+        };
+      };
       document.addEventListener('click', (event) => { const element = event.target.closest('button,a,input,select,textarea,[role="button"]'); if (element) emit('CLICK', describe(element)); }, true);
       document.addEventListener('change', (event) => { const element = event.target; if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) return; const secret = element instanceof HTMLInputElement && element.type === 'password'; emit('TEXT_ENTRY', describe(element), secret ? '[REDACTED]' : element.value, secret); }, true);
       const originalPush = history.pushState; history.pushState = function(...args) { const result = originalPush.apply(this, args); emit('NAVIGATION', {url: location.href, title: document.title}); return result; };
