@@ -13,7 +13,8 @@ const navigation = [
   { href: "/test-data", label: "Test Data", glyph: "▤" },
   { href: "/runs", label: "Runs", glyph: "▶" },
   { href: "/releases", label: "Releases", glyph: "▣" },
-  { href: "/notifications", label: "Notifications", glyph: "◉" }
+  { href: "/notifications", label: "Notifications", glyph: "◉" },
+  { href: "/review", label: "Review", glyph: "◇" }
 ];
 const sidebarPreferenceKey = "sentinel-sidebar-collapsed";
 
