@@ -126,9 +126,15 @@ Variables remain markable during recording through an explicit user-entered cano
 
 ### F5. Edge-case and negative testing
 
-After saving a happy-path Test Case, Sentinel may suggest high-confidence variations such as missing required fields, invalid input, and boundary values. Suggestions are drafts only. The tester can approve, edit, or dismiss each one. Approved suggestions become independently owned Test Cases.
+Phase 7 provides a deterministic, Docker-local suggestion generator after a tester explicitly selects **Generate suggestions** for a saved Test Case. It reads only the Test Case's current immutable version and its captured field-validation metadata; it does not call an LLM, infer external-site behavior, change a baseline, or create a Run.
 
-Default planning assumption: conservative suggestions to limit tester fatigue.
+Eligible steps are non-secret, non-variable text entries with known validation metadata. Sentinel proposes one-input variations only: a blank value for a required field, an invalid value for an email field, and one-character-too-short or one-character-too-long values where `minLength` or `maxLength` is known. For the local Demo CRM, first and last names require 2–50 characters, so the boundary drafts use one and 51 characters. Each proposal expects validation to block success: validation state appears and no success confirmation or navigation occurs. Passwords, variable-backed fields, redacted values, unsupported input types, and fields without the needed metadata are skipped with a visible reason.
+
+Suggestions are uniquely identified by source version, source step, and rule. Re-generating does not create duplicate drafts; dismissed suggestions remain historical and can be reopened deliberately. A product member may edit only a draft's name, rationale, and proposed safe value. They cannot edit its target metadata, order, kind, password behavior, or variable behavior.
+
+The central `/review` queue and a Test Case detail link expose Draft, Approved, and Dismissed suggestions. Product membership applies to every view and action. Approving a Draft atomically clones the source version into an independent Test Case owned by the approving user, retaining labels and safe variable configuration while changing only the proposed input. Historical Runs and the source Test Case remain unchanged. Approval, edits, dismissal, reopening, generation, and derived-Test creation are audit events.
+
+Default planning assumption: conservative rules and explicit review limit tester fatigue. No generated Test Case runs automatically in Phase 7; a tester starts Guided or Auto Runs only after approval. Notifications, JIRA filing, scheduling, external targets, LLM generation, and baseline-change proposals remain deferred.
 
 ### F6. Test and release management
 
