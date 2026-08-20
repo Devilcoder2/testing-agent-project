@@ -219,7 +219,47 @@ export function ProductsView() {
   }
 
   const isEditing = Boolean(editingProduct);
-  return <div className="dashboard-grid"><PageHeader eyebrow="Product configuration" title="Products" detail="Create and manage the Product contexts available for guided Test Case recording." actions={<Button className="product-create-action" type="button" onClick={() => openProductModal()}>New product <span aria-hidden="true">+</span></Button>} />{error && <Feedback tone="danger">{error}</Feedback>}{productMessage && !isCreateProductOpen && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}<section className="products-layout products-layout--single"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Accessible Products</p><h2>Your Product contexts</h2><p>Products are private to their members and persist between sessions.</p></div><StatusBadge tone="info">{products.length} total</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading Products</StatusBadge> : products.length === 0 ? <EmptyState title="No Products yet" detail="Create your first Product to start a guided recording." /> : <div className="product-list">{products.map((product) => { const testCount = testCases.filter((testCase) => testCase.product.id === product.id).length; return <article className="product-list__item" key={product.id}><div><h3>{product.name}</h3><p>{testCount} saved Test Case{testCount === 1 ? "" : "s"}</p></div><div className="product-list__actions"><Button type="button" variant="secondary" onClick={() => openProductModal(product)}>Edit</Button><Link className="button button--secondary" href={`/test-cases?productId=${product.id}`}>View Test Cases</Link></div></article>; })}</div>}</Card></section>{isCreateProductOpen && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title"><div className="modal__header"><div><p className="eyebrow">{isEditing ? "Product settings" : "New Product"}</p><h2 id="product-modal-title">{isEditing ? "Edit Product" : "Create new Product"}</h2><p>{isEditing ? "Update the Product name used to organize your Test Cases." : "A Product needs a name and is immediately available for your next recording."}</p></div><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Close</Button></div><form className="form-stack" onSubmit={saveProduct}><Field label="Product name"><TextInput value={newProductName} onChange={(event) => setNewProductName(event.target.value)} placeholder="e.g. Billing Portal" autoFocus required /></Field>{productMessage && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}<div className="modal__actions"><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Cancel</Button><Button type="submit">{isEditing ? "Save changes" : "Create Product"} <span aria-hidden="true">{isEditing ? "→" : "+"}</span></Button></div></form></section></div>}</div>;
+  return <div className="dashboard-grid">
+    <PageHeader eyebrow="Product configuration" title="Products" detail="Create and manage the Product contexts available for guided Test Case recording." actions={<Button className="product-create-action" type="button" onClick={() => openProductModal()}>New product <span aria-hidden="true">+</span></Button>} />
+    {error && <Feedback tone="danger">{error}</Feedback>}{productMessage && !isCreateProductOpen && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}
+    <section className="products-layout products-layout--single"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Accessible Products</p><h2>Your Product contexts</h2><p>Products are private to their members and persist between sessions.</p></div><StatusBadge tone="info">{products.length} total</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading Products</StatusBadge> : products.length === 0 ? <EmptyState title="No Products yet" detail="Create your first Product to start a guided recording." /> : <div className="product-list">{products.map((product) => { const testCount = testCases.filter((testCase) => testCase.product.id === product.id).length; return <article className="product-list__item" key={product.id}><div><h3>{product.name}</h3><p>{testCount} saved Test Case{testCount === 1 ? "" : "s"}</p></div><div className="product-list__actions"><JiraProjectSettings product={product} /><Button type="button" variant="secondary" onClick={() => openProductModal(product)}>Edit</Button><Link className="button button--secondary" href={`/test-cases?productId=${product.id}`}>View Test Cases</Link></div></article>; })}</div>}</Card></section>
+    {isCreateProductOpen && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title"><div className="modal__header"><div><p className="eyebrow">{isEditing ? "Product settings" : "New Product"}</p><h2 id="product-modal-title">{isEditing ? "Edit Product" : "Create new Product"}</h2><p>{isEditing ? "Update the Product name used to organize your Test Cases." : "A Product needs a name and is immediately available for your next recording."}</p></div><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Close</Button></div><form className="form-stack" onSubmit={saveProduct}><Field label="Product name"><TextInput value={newProductName} onChange={(event) => setNewProductName(event.target.value)} placeholder="e.g. Billing Portal" autoFocus required /></Field>{productMessage && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}<div className="modal__actions"><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Cancel</Button><Button type="submit">{isEditing ? "Save changes" : "Create Product"} <span aria-hidden="true">{isEditing ? "→" : "+"}</span></Button></div></form></section></div>}
+  </div>;
+}
+
+function JiraProjectSettings({ product }: { product: Product }) {
+  const [open, setOpen] = useState(false);
+  const [projectKey, setProjectKey] = useState("");
+  const [canConfigure, setCanConfigure] = useState(false);
+  const [available, setAvailable] = useState(false);
+  const [message, setMessage] = useState("");
+  const [working, setWorking] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    request(`products/${product.id}/jira`).then((result) => {
+      const config = result as { projectKey: string | null; canConfigure: boolean; available: boolean };
+      setProjectKey(config.projectKey ?? "");
+      setCanConfigure(config.canConfigure);
+      setAvailable(config.available);
+    }).catch((error) => setMessage(errorMessage(error, "Could not load Jira configuration.")));
+  }, [open, product.id]);
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setWorking(true);
+    setMessage("");
+    try {
+      await request(`products/${product.id}/jira`, "PUT", { projectKey });
+      setMessage("Jira project mapping saved and validated.");
+    } catch (error) {
+      setMessage(errorMessage(error, "Could not save Jira configuration."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return <><Button type="button" variant="secondary" onClick={() => setOpen(true)}>Jira</Button>{open && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby={`jira-config-${product.id}`}><div className="modal__header"><div><p className="eyebrow">Optional integration</p><h2 id={`jira-config-${product.id}`}>Jira Cloud</h2><p>Only the Product creator can change this Product’s Jira project. Credentials remain server-side.</p></div><Button type="button" variant="ghost" onClick={() => setOpen(false)}>Close</Button></div>{!available ? <Feedback tone="danger">Jira Cloud has not been configured for this Sentinel deployment.</Feedback> : !canConfigure ? <Feedback tone="danger">Only the Product creator can change this Jira mapping.</Feedback> : <form className="form-stack" onSubmit={save}><Field label="Jira project key"><TextInput value={projectKey} onChange={(event) => setProjectKey(event.target.value.toUpperCase())} placeholder="e.g. CRM" required /></Field>{message && <Feedback tone={message.includes("saved") ? "success" : "danger"}>{message}</Feedback>}<div className="modal__actions"><Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={working}>{working ? "Validating…" : "Save mapping"}</Button></div></form>}</section></div>}</>;
 }
 
 export function TestDataView() {
@@ -341,7 +381,8 @@ type EvidenceItem = { id: string; kind: string; objectKey?: string | null; check
 type RunStepResult = { id: string; order: number; status: "PENDING" | "RUNNING" | "WAITING_FOR_CONFIRMATION" | "PASSED" | "FAILED"; testStep: Step; evidence?: EvidenceItem[] };
 type RunAttempt = { id: string; attemptNumber: number; status: string; failureReason?: string | null; activeDurationMs?: number | null };
 type RunSummary = { id: string; mode: "GUIDED" | "AUTO"; status: "QUEUED" | "RUNNING" | "PAUSED" | "CANCELLING" | "COMPLETED"; outcome?: "PASSED" | "FAILED" | "INTERRUPTED" | null; evidenceStatus: "COMPLETE" | "PARTIAL"; createdAt: string; product: Product; testCase: { id: string; name: string }; initiatedBy: { displayName: string }; stepResults: Array<{ status: string }>; attempts?: RunAttempt[] };
-type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; checkpointDeadline?: string | null; failureReason?: string | null; activeDurationMs?: number | null; benchmarkMedianMs?: number | null; durationDeltaMs?: number | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; attempts: RunAttempt[]; evidence: EvidenceItem[]; variableBindings?: Array<{ name: string; source: "STATIC" | "POOL" | "MANUAL"; dataSetId?: string | null }>; viewerUrl?: string | null };
+type JiraFiling = { id: string; status: "DRAFT" | "QUEUED" | "FILED" | "FAILED"; action: "CREATE" | "COMMENT" | null; summary: string; description: string; priority: "Lowest" | "Low" | "Medium" | "High" | "Highest"; attemptCount: number; deliveryError: string | null; jiraIssue: { key: string; url: string; isOpen: boolean } | null };
+type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; checkpointDeadline?: string | null; failureReason?: string | null; activeDurationMs?: number | null; benchmarkMedianMs?: number | null; durationDeltaMs?: number | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; attempts: RunAttempt[]; evidence: EvidenceItem[]; variableBindings?: Array<{ name: string; source: "STATIC" | "POOL" | "MANUAL"; dataSetId?: string | null }>; jiraFiling?: JiraFiling | null; viewerUrl?: string | null };
 
 function runOutcomeTone(run: Pick<RunSummary, "status" | "outcome">) {
   if (run.status === "RUNNING") return "info" as const;
@@ -472,7 +513,79 @@ export function RunWorkspaceView({ runId }: { runId: string }) {
 }
 
 function RunEvidenceDetail({ screenshots, evidence, onOpenEvidence }: { screenshots: EvidenceItem[]; evidence: EvidenceItem[]; onOpenEvidence: (evidence: EvidenceItem) => Promise<void> }) {
-  return <div className="run-evidence"><div><p className="eyebrow">Run Detail</p><h2>Evidence timeline</h2><p>Outcome and capture status remain separate. Sensitive values are redacted before persistence.</p></div><section><h3>Screenshots</h3>{screenshots.length === 0 ? <p>No screenshots were captured.</p> : <div className="run-evidence__list">{screenshots.map((item) => <article key={item.id}><div><strong>{String((item.metadata as { label?: string } | null)?.label ?? "Screenshot")}</strong><small>{item.checksum ? `SHA-256 ${item.checksum.slice(0, 12)}…` : "Checksum unavailable"}</small></div><Button variant="secondary" onClick={() => void onOpenEvidence(item)}>Open</Button></article>)}</div>}</section>{["NETWORK", "CONSOLE", "STORAGE", "CAPTURE_ERROR"].map((kind) => { const items = evidence.filter((item) => item.kind === kind); return <section key={kind}><h3>{kind.replace("_", " ").toLowerCase()}</h3>{items.length === 0 ? <p>No {kind.toLowerCase().replace("_", " ")} evidence at this Run boundary.</p> : <div className="run-evidence__metadata">{items.map((item) => <pre key={item.id}>{item.captureError ?? JSON.stringify(item.metadata, null, 2)}</pre>)}</div>}</section>; })}</div>;
+  return <div className="run-evidence">
+    <div><p className="eyebrow">Run Detail</p><h2>Evidence timeline</h2><p>Outcome and capture status remain separate. Sensitive values are redacted before persistence.</p></div>
+    <section><h3>Screenshots</h3>{screenshots.length === 0 ? <p>No screenshots were captured.</p> : <div className="run-evidence__list">{screenshots.map((item) => <article key={item.id}><div><strong>{String((item.metadata as { label?: string } | null)?.label ?? "Screenshot")}</strong><small>{item.checksum ? `SHA-256 ${item.checksum.slice(0, 12)}…` : "Checksum unavailable"}</small></div><Button variant="secondary" onClick={() => void onOpenEvidence(item)}>Open</Button></article>)}</div>}</section>
+    {["NETWORK", "CONSOLE", "STORAGE", "CAPTURE_ERROR"].map((kind) => { const items = evidence.filter((item) => item.kind === kind); return <section key={kind}><h3>{kind.replace("_", " ").toLowerCase()}</h3>{items.length === 0 ? <p>No {kind.toLowerCase().replace("_", " ")} evidence at this Run boundary.</p> : <div className="run-evidence__metadata">{items.map((item) => <pre key={item.id}>{item.captureError ?? JSON.stringify(item.metadata, null, 2)}</pre>)}</div>}</section>; })}
+    <JiraFilingPanel />
+  </div>;
+}
+
+function JiraFilingPanel() {
+  const [run, setRun] = useState<RunDetail | null>(null);
+  const [filing, setFiling] = useState<JiraFiling | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [message, setMessage] = useState("");
+  const [working, setWorking] = useState(false);
+
+  useEffect(() => {
+    const runId = window.location.pathname.split("/").filter(Boolean).at(-1);
+    if (!runId) return;
+    request(`runs/${runId}`).then((result) => {
+      const detail = result as RunDetail;
+      setRun(detail);
+      setFiling(detail.jiraFiling ?? null);
+    }).catch(() => undefined);
+  }, []);
+
+  if (!run || run.status !== "COMPLETED" || run.outcome !== "FAILED") return null;
+  const failedRunId = run.id;
+
+  async function createDraft() {
+    setWorking(true);
+    setMessage("");
+    try {
+      const created = await request(`runs/${failedRunId}/jira-draft`, "POST") as JiraFiling;
+      setFiling(created);
+      setEditing(created.status === "DRAFT" || created.status === "FAILED");
+    } catch (error) {
+      setMessage(errorMessage(error, "Could not create a Jira draft."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function saveDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!filing) return;
+    setWorking(true);
+    setMessage("");
+    try {
+      const updated = await request(`jira-filings/${filing.id}`, "PATCH", { summary: filing.summary, description: filing.description, priority: filing.priority }) as JiraFiling;
+      setFiling(updated);
+      setEditing(false);
+    } catch (error) {
+      setMessage(errorMessage(error, "Could not save the Jira draft."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function file() {
+    if (!filing) return;
+    setWorking(true);
+    setMessage("");
+    try {
+      const queued = await request(`jira-filings/${filing.id}/file`, "POST") as JiraFiling;
+      setFiling(queued);
+    } catch (error) {
+      setMessage(errorMessage(error, "Could not queue the Jira filing."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return <section className="jira-filing"><div><p className="eyebrow">External bug workflow</p><h3>Jira Cloud</h3><p>Sentinel sends safe text and a protected Run Detail link. Evidence stays private here.</p></div>{message && <Feedback tone="danger">{message}</Feedback>}{!filing ? <Button variant="secondary" onClick={() => void createDraft()} disabled={working}>{working ? "Preparing…" : "Create Jira issue"}</Button> : <><div className="jira-filing__status"><StatusBadge tone={filing.status === "FILED" ? "success" : filing.status === "FAILED" ? "danger" : "warning"}>{filing.status.toLowerCase()}</StatusBadge>{filing.jiraIssue && <a href={filing.jiraIssue.url} target="_blank" rel="noreferrer">{filing.action === "COMMENT" ? "Updated" : "Open"} {filing.jiraIssue.key}</a>}</div>{(filing.status === "DRAFT" || filing.status === "FAILED") && <div className="run-step__actions"><Button variant="secondary" onClick={() => setEditing(true)} disabled={working}>Edit draft</Button><Button onClick={() => void file()} disabled={working}>{working ? "Queueing…" : "File to Jira"}</Button></div>}{filing.status === "QUEUED" && <p>Jira filing is queued. Refresh this Run Detail shortly for delivery status.</p>}{filing.status === "FAILED" && filing.deliveryError && <p>{filing.deliveryError}</p>}</>}{editing && filing && <div className="modal-backdrop" role="presentation"><section className="modal jira-filing__modal" role="dialog" aria-modal="true" aria-labelledby="jira-filing-title"><div className="modal__header"><div><p className="eyebrow">Review before filing</p><h2 id="jira-filing-title">Jira Bug draft</h2><p>Bug type is fixed. Do not add evidence, credentials, variables, or raw logs.</p></div><Button type="button" variant="ghost" onClick={() => setEditing(false)}>Close</Button></div><form className="form-stack" onSubmit={saveDraft}><Field label="Summary"><TextInput value={filing.summary} maxLength={240} onChange={(event) => setFiling({ ...filing, summary: event.target.value })} required /></Field><Field label="Priority"><SelectInput value={filing.priority} onChange={(event) => setFiling({ ...filing, priority: event.target.value as JiraFiling["priority"] })}>{["Lowest", "Low", "Medium", "High", "Highest"].map((priority) => <option key={priority}>{priority}</option>)}</SelectInput></Field><Field label="Safe reproduction description"><TextArea value={filing.description} maxLength={8000} onChange={(event) => setFiling({ ...filing, description: event.target.value })} required /></Field><div className="modal__actions"><Button type="button" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button><Button type="submit" disabled={working}>{working ? "Saving…" : "Save draft"}</Button></div></form></section></div>}</section>;
 }
 
 export function NewRecordingDialog({ onClose }: { onClose: () => void }) {
