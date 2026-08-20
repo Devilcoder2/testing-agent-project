@@ -76,6 +76,17 @@ enum EvidenceKind {
   CONSOLE
   STORAGE
   CAPTURE_ERROR
+  DATABASE
+}
+
+enum DatabaseDiagnosticKind {
+  CUSTOMER_LOOKUP_BY_EMAIL
+}
+
+enum DatabaseDiagnosticStatus {
+  COMPLETE
+  INCOMPLETE
+  UNAVAILABLE
 }
 
 enum TestDataStatus {
@@ -188,6 +199,7 @@ model User {
   jiraFilings          JiraFiling[]        @relation("JiraFilingRequester")
   proposedChanges      ChangeProposal[]    @relation("ChangeProposalCreator")
   approvalRequests     ChangeProposal[]    @relation("ChangeProposalOwner")
+  databaseDiagnostics  DatabaseDiagnostic[] @relation("DatabaseDiagnosticRequester")
   auditEvents          AuditEvent[]        @relation("AuditActor")
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
@@ -522,12 +534,32 @@ model Run {
   notifications      Notification[]
   jiraFiling         JiraFiling?
   changeProposal     ChangeProposal?
+  databaseDiagnostics DatabaseDiagnostic[]
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
   @@index([productId, createdAt])
   @@index([testCaseId, createdAt])
   @@index([mode, status, createdAt])
+}
+
+model DatabaseDiagnostic {
+  id           String                   @id @default(cuid())
+  runId        String
+  kind         DatabaseDiagnosticKind
+  status       DatabaseDiagnosticStatus
+  requestedById String
+  safeMetadata Json?
+  errorCode    String?
+  completedAt  DateTime?
+  run          Run                      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  requestedBy  User                     @relation("DatabaseDiagnosticRequester", fields: [requestedById], references: [id])
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  @@unique([runId, kind])
+  @@index([runId, createdAt])
+  @@index([requestedById, createdAt])
 }
 
 model Notification {
