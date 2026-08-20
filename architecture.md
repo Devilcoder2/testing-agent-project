@@ -39,7 +39,7 @@ Provides authentication, a product-authorized health dashboard, product and Test
 
 ### Application API
 
-Validates user permissions, persists domain state, starts jobs, derives dashboard health metrics using a rolling UTC window, exposes Run/evidence/notification metadata, generates deterministic Phase 7 suggestion drafts, records audit events, and coordinates approval and integration workflows. API operations are the authorization boundary for all writes.
+Validates user permissions, persists domain state, starts jobs, derives dashboard health metrics using a rolling UTC window, exposes Run/evidence/notification metadata, generates deterministic Phase 7 suggestion drafts, records audit events, and coordinates approval and integration workflows. Phase 11 adds explicit creator-authorized ownership transfer endpoints and an authenticated, read-only pilot-readiness projection. API operations are the authorization boundary for all writes.
 
 ### Sentinel PostgreSQL
 
@@ -47,7 +47,7 @@ Stores users, product membership, Test Cases, versioned steps, variables, Releas
 
 ### Run queue and browser workers
 
-Phase 2 retains one explicitly user-started guided Run directly in the existing noVNC browser. Phase 3 adds Redis/BullMQ and one worker service: the API atomically persists an Auto Run and attempt before enqueueing its ID, while the worker owns a headless Playwright context for that attempt. Phase 6 uses a separate BullMQ notification queue in that same worker service: the API persists each Notification before queueing its delivery, and the worker retries only one transient SMTP delivery failure. Worker concurrency is fixed at two for browser jobs in local Docker. Jobs, attempts, and database state make enqueue/retry idempotent; the worker never shares the guided Selenium/noVNC browser.
+Phase 2 retains one explicitly user-started guided Run directly in the existing noVNC browser. Phase 3 adds Redis/BullMQ and one worker service: the API atomically persists an Auto Run and attempt before enqueueing its ID, while the worker owns a headless Playwright context for that attempt. Phase 6 uses a separate BullMQ notification queue in that same worker service: the API persists each Notification before queueing its delivery, and the worker retries only one transient SMTP delivery failure. Phase 11 adds a short-lived Redis worker heartbeat and startup/daily evidence-retention maintenance. Maintenance records safe outcome counts in PostgreSQL, deletes old MinIO objects before matching detailed evidence rows, and skips active Runs. Worker concurrency is fixed at two for browser jobs in local Docker. Jobs, attempts, and database state make enqueue/retry idempotent; the worker never shares the guided Selenium/noVNC browser.
 
 ### Browser recording and replay
 
@@ -74,6 +74,8 @@ The API exposes no SQL input. For a completed failed Run, a Product member expli
 ### Integration adapters
 
 Jira Cloud, email, and optional Slack calls are isolated behind adapters. Phase 8 adds one server-configured Jira Cloud connection and a Product-scoped project-key mapping that only the Product creator can change. A failed-Run filing is first persisted as a safe reviewer-editable draft, then a BullMQ job creates a fixed Bug or comments on the Test Case's linked open issue. A unique filing record per Run, an open-issue check, and adapter-level retry make external side effects idempotent. The adapter transfers only a safe summary, immutable reproduction steps, and a protected Sentinel Run Detail link; it never transfers evidence binaries, signed object URLs, raw operational evidence, variables, or credentials. Jira delivery state cannot alter factual Run/Release/evidence state. Phase 6 provides a local SMTP email adapter pointed at the Docker-local Mailpit service. Slack stays deferred until the email path and audit behavior are proven.
+
+Phase 11 keeps Jira optional for the local pilot. HTTP 429 becomes a transient adapter error carrying only a validated retry delay; BullMQ performs one retry after that delay, capped at 60 seconds. Local Docker remains a non-production boundary: public ports bind only to localhost and seeded development identities are not an Internet-facing authentication design.
 
 ## 4. Core data relationships
 
