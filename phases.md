@@ -410,12 +410,34 @@ Manual verification: record/save a fresh Demo CRM happy-path Test; select **Gene
 ## Phase 8 — JIRA bug workflow
 
 **Depends on:** Phase 2 and Phase 6  
-**Outcome:** Likely bugs create or update JIRA issues with evidence.
+**Outcome:** An authorized Product member can review and explicitly file a privacy-safe Jira Cloud Bug for a failed Run, or update that Test Case's existing open Bug.
 
-- Configure server-side JIRA adapter and required fields.
-- Generate clear reproduction steps and evidence links/attachments.
-- Implement duplicate-open-issue detection and idempotent retries.
-- Allow review/edit before or immediately after filing.
+### In scope
+
+- A server-only Jira Cloud adapter and one creator-managed Jira project-key mapping per Product.
+- A failed-Run review draft with editable safe summary, reproduction description, and priority; Jira issue type remains Bug.
+- Protected Sentinel Run Detail links, ordered immutable-version reproduction steps, Product/Test context, and safe failure reason only.
+- One open Jira issue per Test Case; later failed Runs update its open issue with a safe comment and a new protected Run link.
+- Durable per-Run filing state, one transient retry, final safe error state, audit events, and Run Detail status.
+
+### Explicit exclusions
+
+- Automatic filing, passed/interrupted-Run filing, Jira attachments, Jira Server/Data Center, arbitrary Jira project fields, Slack, GitHub triggers, and Phase 9 approval routing.
+
+### Acceptance checklist
+
+- [ ] A Product creator can configure, validate, replace, and remove only their Product's Jira project mapping.
+- [ ] A current Product member can create and safely edit a draft for a completed failed Run, but cannot file from a passed or interrupted Run.
+- [ ] Filing creates a Jira Cloud Bug with only safe text and a protected Sentinel Run Detail link.
+- [ ] A later failed Run for the same Test Case updates its existing open Jira issue; a Jira Done issue permits a new Bug.
+- [ ] Refreshes, duplicate clicks, job retries, and simultaneous filing requests cannot create duplicate Jira side effects for one Run.
+- [ ] One transient Jira failure retries once and final failure remains visible without changing Run outcome, evidence status, Release readiness, or notification state.
+- [ ] Product authorization protects mappings, filing drafts, filing status, and linked Run access.
+- [ ] Unit, integration, browser, and Phase 1–7 regression checks pass; `learning-log.md` has exactly ten Phase 8 owner questions.
+
+### Verification
+
+Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jira Cloud adapter for automated create/update/retry coverage. When server-only Jira credentials are configured, manually map a Product, fail a Run, review and file the Bug, confirm Jira contains only safe text/protected Sentinel links, then fail that Test Case again and verify the original open issue receives a comment.
 
 ## Phase 9 — Change-aware approval
 
