@@ -29,7 +29,9 @@ services:
       - sentinel-qa-postgres:/var/lib/postgresql/data
 
   qa-fixture:
-    build: .
+    build:
+      context: .
+      dockerfile: qa-fixture/Dockerfile
     depends_on:
       qa-postgres:
         condition: service_healthy
