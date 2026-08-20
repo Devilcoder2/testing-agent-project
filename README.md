@@ -37,6 +37,7 @@ The attached requirements document is the current product source of truth. Archi
 - Phase 6: health dashboard and durable local notifications are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
 - Phase 7: deterministic negative-Test suggestions are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
 - Phase 8: reviewed Jira Cloud Bug workflow is implemented; focused automated verification passed, while a real Jira Cloud and owner manual check remain pending.
+- Phase 10: explicit read-only local QA customer diagnostics are implemented and focused Docker verification passed; full regression, owner manual, and learning reviews remain pending.
 - Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -169,6 +170,19 @@ To verify the focused API/database behavior:
 docker compose exec sentinel npx vitest run tests/change-proposals.test.ts
 ```
 
+## Phase 10 scope
+
+Phase 10 adds one explicit, Product-authorized troubleshooting action for a completed failed Run: **Run customer lookup**. It uses the final eligible customer email from that Run only in memory to query the separate Docker-local QA customer fixture. The email, raw customer row, SQL, and database credentials are never displayed or stored. Run Detail shows only Found/Not found, customer status and timestamps, or a safe incomplete/unavailable state. The diagnostic database role is independently read-only and the adapter uses a parameterized one-row query in a read-only transaction with a 1.5-second timeout. A completed safe summary can appear in a later manually reviewed Jira draft; it never creates or files Jira work by itself.
+
+To verify the focused fixture and adapter behavior after starting Docker:
+
+```text
+docker compose exec sentinel npx vitest run tests/database-diagnostics.test.ts
+docker compose exec sentinel npx prisma migrate status
+```
+
+For a manual check, record and save the Demo CRM customer journey, start a Guided Run, manually enter the same customer journey, fail a step, complete the Run, then open Run Detail and select **Run customer lookup**. It should show a safe customer-found result without exposing the email. A passed or interrupted Run must not offer this action.
+
 ## Status
 
-Phases 1, 1.5, 2, 3, 4, 5, 6, and 7 are implementation and automated-acceptance verified. Phase 8 has focused automated verification; real Jira Cloud/manual verification remains pending. Phase 9 has focused Docker API/database verification; owner manual and learning review remain pending. Owner learning reviews remain pending in `learning-log.md`, so no phase is marked fully understood. External production integrations, scheduling, external QA targets, Slack, LLM suggestions, GitHub deployment correlation, automatic change classification, and QA-network access remain later phases.
+Phases 1, 1.5, 2, 3, 4, 5, 6, and 7 are implementation and automated-acceptance verified. Phase 8 has focused automated verification; real Jira Cloud/manual verification remains pending. Phase 9 has focused Docker API/database verification; owner manual and learning review remain pending. Phase 10 has focused Docker fixture/role/adapter verification; full regression, owner manual, and learning review remain pending. Owner learning reviews remain pending in `learning-log.md`, so no phase is marked fully understood. External production integrations, scheduling, external QA targets, Slack, LLM suggestions, GitHub deployment correlation, automatic change classification, and QA-network access remain later phases.
