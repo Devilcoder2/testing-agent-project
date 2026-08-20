@@ -10,6 +10,7 @@ import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/l
 import { buildJiraDraftWithDiagnostic, isAllowedJiraPriority, jiraCloudIsConfigured, normalizeJiraProjectKey, publicJiraFiling, validateJiraProject } from "@/lib/jira";
 import { notifyChangeProposalResolved, notifyChangeProposalSubmitted, notifyRunFailure } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
+import { pilotReadiness } from "@/lib/pilot-readiness";
 import { enqueueAutoRun, enqueueJiraFiling } from "@/lib/queue";
 import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, variablePlaceholder } from "@/lib/variables";
 import { markReleaseRunItemQueueFailure, refreshReleaseRun, syncReleaseRunItemForRun } from "@/lib/releases";
@@ -328,6 +329,9 @@ async function route(request: Request, context: Context) {
     if (request.method === "GET" && path.join("/") === "dashboard") {
       const productId = new URL(request.url).searchParams.get("productId") ?? undefined;
       return json(await dashboardForUser(user.id, productId));
+    }
+    if (request.method === "GET" && path.join("/") === "pilot-readiness") {
+      return json(await pilotReadiness());
     }
     if (request.method === "GET" && path.join("/") === "notifications") {
       const unreadOnly = new URL(request.url).searchParams.get("filter") === "unread";
