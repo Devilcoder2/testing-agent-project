@@ -60,6 +60,7 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 | `/runs` | Product-authorized Run inventory with outcome and Product filters. |
 | `/runs/[id]` | Focused guided Run workspace while active, then a Run Detail timeline with evidence panels when completed. |
 | `/notifications` | Phase 6 product-authorized inbox with unread/all filtering, delivery state, protected Run or Release links, and individual or bulk read actions. |
+| `/review` | Phase 7 product-authorized suggestion queue with Product/status filters, safe draft editing, explicit approval/dismiss/reopen controls, and links to source and approved Test Cases. |
 
 ### Future route specifications
 
@@ -71,10 +72,10 @@ The following are documented design targets only. Phase 1.5 must not create plac
 | `/test-data` | Phase 4 product-scoped Test Data Sets. The list shows name, field names, reuse policy, lifecycle, and audit context without raw values; a creation/replacement dialog defaults to reusable data and offers an intentional single-use policy for values that must not be reused after a passed Run. |
 | `/releases` | Phase 5 Release inventory and creation. Each row shows a name, Product scope, tagged Test Case count, latest batch state, and derived readiness without implying a result is manually editable. |
 | `/releases/[id]` | Phase 5 Release Detail: tagged Test Cases, version-snapshot batch history, explicit ineligible-item reasons, linked Auto Run status, and consolidated readiness. Editing tags is visually separate from starting a batch so a completed batch remains understandable. |
-| `/review` | Change proposals, negative-test suggestions, checkpoint decisions, and owner approvals. |
+| `/review` | Later Phase 9 change proposals and owner approvals extend the implemented Phase 7 negative-Test review queue; checkpoint decisions remain on Run Detail. |
 | `/settings` | Product access, integration health, notification configuration, and safe connection state. |
 
-The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 6 navigation exposes Dashboard, Products, Test Cases, Test Data, Runs, Releases, and Notifications; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Review and Settings remain future navigation.
+The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 7 navigation exposes Dashboard, Products, Test Cases, Test Data, Runs, Releases, Notifications, and Review; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Settings remains future navigation.
 
 ## 5. Page experience decisions
 
@@ -92,7 +93,11 @@ Use the shared App Shell with a concise chronological inbox. A segmented **Unrea
 
 ### Saved Test Case detail
 
-Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Phase 4 adds a Variables panel: show canonical names, affected step numbers, and masked static-default status; never display a stored raw value. Both **Run test** and **Auto Run** open the same pre-run binding dialog when variables exist. Each row selects static, a compatible Test Data Set, or a manual entry, and inline errors explain unavailable/consumed data or rejected secret-like input. The Test Data screen labels reusable and single-use sets clearly; reusable means sequential reuse only, because an active Run reserves the set until it ends.
+Use breadcrumbs, product and owner metadata, a version badge, and a vertical ordered Step Timeline. Saved annotations appear as readable metadata chips or labelled content, while redacted values remain visibly redacted. Editing a saved version is not implied by its appearance. Phase 4 adds a Variables panel: show canonical names, affected step numbers, and masked static-default status; never display a stored raw value. Both **Run test** and **Auto Run** open the same pre-run binding dialog when variables exist. Each row selects static, a compatible Test Data Set, or a manual entry, and inline errors explain unavailable/consumed data or rejected secret-like input. The Test Data screen labels reusable and single-use sets clearly; reusable means sequential reuse only, because an active Run reserves the set until it ends. Phase 7 adds a secondary **Generate suggestions** action and a Review link: generation reports created, already-known, and skipped items without leaving the source Test Case or implying an automatic run.
+
+### Review queue
+
+Use the shared App Shell for a calm, review-first queue rather than a Test Case editor. Product and status filters sit with the queue heading. Each suggestion card identifies its source Test Case/version/step, deterministic rule, safe proposed value, rationale, and expected validation/no-success result. Draft controls use an edit dialog limited to name, rationale, and proposed safe text; the source target and step structure remain visible but read-only. **Approve**, **Dismiss**, and **Reopen** are explicit state-changing actions with announced feedback and confirmation where destructive intent could be unclear. Approved cards link to their separately owned Test Case; dismissed cards remain discoverable under the status filter. No row presents Run controls, evidence, or a baseline-update action.
 
 ### Run inventory and Run Detail
 
