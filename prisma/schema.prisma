@@ -89,6 +89,16 @@ enum DatabaseDiagnosticStatus {
   UNAVAILABLE
 }
 
+enum MaintenanceKind {
+  EVIDENCE_RETENTION
+}
+
+enum MaintenanceStatus {
+  RUNNING
+  COMPLETED
+  PARTIAL
+}
+
 enum TestDataStatus {
   SAFE
   RESERVED
@@ -560,6 +570,22 @@ model DatabaseDiagnostic {
   @@unique([runId, kind])
   @@index([runId, createdAt])
   @@index([requestedById, createdAt])
+}
+
+model MaintenanceRun {
+  id                       String            @id @default(cuid())
+  kind                     MaintenanceKind
+  status                   MaintenanceStatus @default(RUNNING)
+  deletedEvidenceCount     Int               @default(0)
+  deletedScreenshotCount   Int               @default(0)
+  deletedDiagnosticCount   Int               @default(0)
+  errorCode                String?
+  startedAt                DateTime          @default(now())
+  completedAt              DateTime?
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+
+  @@index([kind, completedAt])
 }
 
 model Notification {
