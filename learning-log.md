@@ -1430,6 +1430,45 @@ The Product creator maps each Product to one Jira project key. Jira Cloud URL, s
 - Protected Sentinel links preserve current authorization. Jira users who are not Sentinel Product members cannot use the linked Run Detail to obtain evidence.
 - Phase 8 does not attach screenshots, file automatically, classify bugs with an LLM, send Slack notices, or handle Phase 9 change-approval routing.
 
+## Phase 9 — Change-aware approval
+
+### What this feature does
+
+Phase 9 lets a Product member explain a known QA deployment after a completed failed Run and propose a narrow baseline annotation update. The proposal contains deployment context plus replacement descriptions and/or expected outcomes for saved steps. It cannot edit the recorded browser action. This prevents a failure from silently becoming the new expected behavior while still giving the original Test Case owner a practical review path.
+
+### End-to-end flow and implementation choices
+
+The failed Run is the entry point. The API checks current Product membership and verifies that the Run is completed with a `FAILED` outcome. It stores a `ChangeProposal` bound to the exact immutable Test Case version used by that Run and child `ChangeProposalStep` rows keyed to saved source steps. The creator submits it, which creates a safe notification for the original Test Case owner. Review renders the source and proposed description/expected-outcome text side by side.
+
+Only the original owner can decide. Approval rechecks that the Test Case still points at the proposal's source version, clones that version's ordered steps and encrypted variable configuration into the next version in one Prisma transaction, then applies only the reviewed annotation changes. If another version became current first, Sentinel marks the proposal `STALE` and refuses to merge. Rejection records the decision and, when the Product already has a Jira mapping, creates the existing Phase 8 `JiraFiling` as `DRAFT`; a person must still review and explicitly file it. Existing BullMQ/Mailpit notification delivery reports submission and resolution without affecting proposal truth.
+
+This uses PostgreSQL/Prisma transactions because source-version binding, version creation, and audit events must agree atomically. It reuses the notification and Jira-draft mechanisms rather than inventing an approval worker. The tradeoff is that deployment intent is manual in this phase: there is no Git or deployment signal, no automatic classifier, and no merge/conflict-resolution engine. The critical source files are `prisma/schema.prisma`, `app/api/[[...route]]/route.ts`, `lib/notifications.ts`, `components/sentinel-views.tsx`, `components/review-views.tsx`, and `tests/change-proposals.test.ts`.
+
+### Owner understanding check — pending follow-up
+
+1. Why is a Change Proposal allowed only from a completed failed Run, and what unsafe behavior would a passed-Run proposal enable?
+   **Owner answer:** Pending follow-up.
+2. Which fields may Phase 9 change, and why are selector metadata, values, variables, checkpoints, and order deliberately excluded?
+   **Owner answer:** Pending follow-up.
+3. What exact version does a proposal reference, and how does that preserve historical Run meaning?
+   **Owner answer:** Pending follow-up.
+4. Why does approval create a new immutable Test Case version instead of editing the current one?
+   **Owner answer:** Pending follow-up.
+5. What check marks a proposal stale, and why is stopping safer than attempting an automatic merge?
+   **Owner answer:** Pending follow-up.
+6. Which user may approve or reject, and how is that enforced independently of the UI?
+   **Owner answer:** Pending follow-up.
+7. What happens on rejection when a Product has a Jira mapping, and what intentional human action is still required?
+   **Owner answer:** Pending follow-up.
+8. What information is safe for a proposal notification/email, and what must remain only in protected Sentinel evidence?
+   **Owner answer:** Pending follow-up.
+9. Which transaction boundaries and audit events are most important to review before changing this feature?
+   **Owner answer:** Pending follow-up.
+10. How would GitHub/deployment correlation change the trigger safely without allowing automatic baseline updates?
+    **Owner answer:** Pending follow-up.
+
+**Learning status:** Pending. The owner explicitly deferred Phase 9 answers; revisit these ten questions before treating the feature as fully understood.
+
 ### Ten-question understanding check
 
 1. Why is Jira filing manual in Phase 8, and which Run states are eligible?
