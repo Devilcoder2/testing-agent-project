@@ -9,6 +9,7 @@ type NotificationRecord = {
   productId: string | null;
   runId: string | null;
   releaseRunId: string | null;
+  changeProposalId: string | null;
   type: NotificationType;
 };
 
@@ -54,6 +55,7 @@ async function createNotifications(input: {
   productId?: string;
   runId?: string;
   releaseRunId?: string;
+  changeProposalId?: string;
   type: NotificationType;
   actorId: string;
 }) {
@@ -68,6 +70,7 @@ async function createNotifications(input: {
             productId: input.productId,
             runId: input.runId,
             releaseRunId: input.releaseRunId,
+            changeProposalId: input.changeProposalId,
             type: input.type
           }
         });
@@ -77,7 +80,7 @@ async function createNotifications(input: {
             action: "NOTIFICATION_CREATED",
             entityType: "Notification",
             entityId: createdNotification.id,
-            details: { type: input.type, recipientId, runId: input.runId, releaseRunId: input.releaseRunId }
+            details: { type: input.type, recipientId, runId: input.runId, releaseRunId: input.releaseRunId, changeProposalId: input.changeProposalId }
           }
         });
         return createdNotification;
@@ -135,12 +138,37 @@ export async function notifyReleaseCompletion(releaseRunId: string) {
   });
 }
 
+export async function notifyChangeProposalSubmitted(proposalId: string) {
+  const proposal = await prisma.changeProposal.findUnique({ where: { id: proposalId } });
+  if (!proposal || proposal.status !== "SUBMITTED") return [];
+  return createNotifications({
+    recipientIds: [proposal.ownerId],
+    productId: proposal.productId,
+    changeProposalId: proposal.id,
+    type: NotificationType.CHANGE_PROPOSAL_REQUESTED,
+    actorId: proposal.createdById
+  });
+}
+
+export async function notifyChangeProposalResolved(proposalId: string) {
+  const proposal = await prisma.changeProposal.findUnique({ where: { id: proposalId } });
+  if (!proposal || (proposal.status !== "APPROVED" && proposal.status !== "REJECTED")) return [];
+  return createNotifications({
+    recipientIds: [proposal.ownerId, proposal.createdById],
+    productId: proposal.productId,
+    changeProposalId: proposal.id,
+    type: NotificationType.CHANGE_PROPOSAL_RESOLVED,
+    actorId: proposal.ownerId
+  });
+}
+
 export function renderSafeNotificationEmail(notification: {
   type: NotificationType;
   createdAt: Date;
   product: { name: string } | null;
   run: { id: string; outcome: RunOutcome | null; failureReason: RunFailureReason | null; testCase: { name: string } } | null;
   releaseRun: { readiness: string; release: { id: string; name: string } } | null;
+  changeProposal?: { id: string; status: string; testCase: { name: string } } | null;
 }) : MailSummary {
   if (notification.type === NotificationType.RUN_FAILED && notification.run) {
     return {
@@ -152,6 +180,18 @@ export function renderSafeNotificationEmail(notification: {
     return {
       subject: `Sentinel: checkpoint needs review for ${notification.run.testCase.name}`,
       text: `Product: ${notification.product?.name ?? "Unknown Product"}\nTest Case: ${notification.run.testCase.name}\nState: Auto Run paused at a checkpoint\nTimestamp: ${notification.createdAt.toISOString()}\nOpen in Sentinel: ${appUrl(`/runs/${notification.run.id}`)}`
+    };
+  }
+  if (notification.type === NotificationType.CHANGE_PROPOSAL_REQUESTED && notification.changeProposal) {
+    return {
+      subject: `Sentinel: change review needed for ${notification.changeProposal.testCase.name}`,
+      text: `Test Case: ${notification.changeProposal.testCase.name}\nState: A failed Run has a proposed expectation update for your review.\nTimestamp: ${notification.createdAt.toISOString()}\nOpen in Sentinel: ${appUrl("/review")}`
+    };
+  }
+  if (notification.type === NotificationType.CHANGE_PROPOSAL_RESOLVED && notification.changeProposal) {
+    return {
+      subject: `Sentinel: change proposal ${notification.changeProposal.status.toLowerCase()}`,
+      text: `Test Case: ${notification.changeProposal.testCase.name}\nDecision: ${notification.changeProposal.status}\nTimestamp: ${notification.createdAt.toISOString()}\nOpen in Sentinel: ${appUrl("/review")}`
     };
   }
   return {
@@ -168,6 +208,7 @@ export async function deliverNotification(notificationId: string) {
       product: { select: { name: true } },
       run: { select: { id: true, outcome: true, failureReason: true, testCase: { select: { name: true } } } },
       releaseRun: { select: { id: true, readiness: true, release: { select: { id: true, name: true } } } }
+      ,changeProposal: { select: { id: true, status: true, testCase: { select: { name: true } } } }
     }
   });
   if (!notification || notification.deliveryStatus === NotificationDeliveryStatus.SENT || notification.deliveryStatus === NotificationDeliveryStatus.FAILED) return;
