@@ -127,6 +127,7 @@ type DashboardData = {
   selected: (DashboardMetric & { product: Product; trend: Array<{ date: string; passed: number; failed: number }> }) | null;
   needsAttention: Array<{ id: string; type: string; createdAt: string; product: { name: string } | null; run: { id: string; testCase: { name: string } } | null }>;
 };
+type PilotReadinessData = { localOnly: boolean; ready: boolean; items: Array<{ key: string; label: string; status: "READY" | "ATTENTION" | "OPTIONAL"; detail: string }> };
 
 function dashboardDate(value: string) {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
@@ -137,6 +138,7 @@ export function DashboardView() {
   const [productId, setProductId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [readiness, setReadiness] = useState<PilotReadinessData | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -152,12 +154,14 @@ export function DashboardView() {
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [productId]);
+  useEffect(() => { void request("pilot-readiness").then((result) => setReadiness(result as PilotReadinessData)).catch(() => setReadiness(null)); }, []);
 
   const selected = data?.selected ?? null;
   const trendMaximum = Math.max(1, ...(selected?.trend.map((day) => day.passed + day.failed) ?? []));
   return <div className="dashboard-grid">
     <PageHeader eyebrow="Quality health · rolling 30-day UTC window" title="Dashboard" detail="Recent Test health across the Products you can currently access." actions={<Field label="Product drill-down"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)} disabled={loading || !data?.products.length}><option value="">All accessible Products</option>{data?.products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field>} />
     {error && <Feedback tone="danger">{error}</Feedback>}
+    {readiness && <Card className="panel-card pilot-readiness"><div className="panel-card__head"><div><p className="eyebrow">Controlled internal pilot</p><h2>Pilot readiness</h2><p>{readiness.localOnly ? "Local Docker services and seeded named users only." : "Deployment readiness."}</p></div><StatusBadge tone={readiness.ready ? "success" : "warning"}>{readiness.ready ? "Ready" : "Needs attention"}</StatusBadge></div><div className="pilot-readiness__list">{readiness.items.map((item) => <div className="pilot-readiness__item" key={item.key}><div><strong>{item.label}</strong><p>{item.detail}</p></div><StatusBadge tone={item.status === "READY" ? "success" : item.status === "ATTENTION" ? "warning" : "info"}>{item.status.toLowerCase()}</StatusBadge></div>)}</div></Card>}
     {loading && !data ? <StatusBadge tone="info">Loading health data</StatusBadge> : !selected ? <EmptyState title="No accessible Products" detail="Create a Product, then save a Test Case to begin building health signals." /> : <>
       <section className="metrics metrics--health" aria-label="Selected Product health metrics">
         <Card className="metric-card"><p className="metric-card__label">Saved Test Cases</p><p className="metric-card__value">{selected.totalSavedTestCases}</p><p className="metric-card__detail">Current Product baseline</p></Card>
