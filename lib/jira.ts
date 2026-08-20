@@ -1,4 +1,4 @@
-import { JiraFilingAction, JiraFilingStatus, Prisma, RunFailureReason } from "@prisma/client";
+import { JiraFilingAction, JiraFilingStatus, RunFailureReason } from "@prisma/client";
 import { safeFailureReason } from "./notifications";
 import { prisma } from "./prisma";
 
@@ -108,7 +108,7 @@ async function jiraRequest(path: string, init?: RequestInit) {
         ...init?.headers
       }
     });
-  } catch (error) {
+  } catch {
     throw new JiraAdapterError("Jira Cloud could not be reached.", true);
   }
   if (!response.ok) {
