@@ -2,9 +2,10 @@ import { RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, Run
 import { Worker, type Job } from "bullmq";
 import { chromium, type Page, type Request } from "playwright";
 import { persistRunSnapshot, recordCaptureFailure } from "./lib/evidence";
+import { deliverJiraFiling } from "./lib/jira";
 import { deliverNotification, notifyAutoRunCheckpoint, notifyRunFailure } from "./lib/notifications";
 import { prisma } from "./lib/prisma";
-import { AUTO_RUN_QUEUE, NOTIFICATION_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData, type NotificationJobData } from "./lib/queue";
+import { AUTO_RUN_QUEUE, JIRA_FILING_QUEUE, NOTIFICATION_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData, type JiraFilingJobData, type NotificationJobData } from "./lib/queue";
 import { canRetryAutoRun, initialReplayState, ReplayError, replayStep, type ReplayStep } from "./lib/replay";
 import { decryptVariableValue } from "./lib/variables";
 import { markReleaseRunItemRunning, syncReleaseRunItemForRun } from "./lib/releases";
@@ -251,14 +252,17 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
 
 const autoRunWorker = new Worker<AutoRunJobData>(AUTO_RUN_QUEUE, processAutoRun, { connection: createRedisConnection(), concurrency: 2 });
 const notificationWorker = new Worker<NotificationJobData>(NOTIFICATION_QUEUE, async (job) => deliverNotification(job.data.notificationId), { connection: createRedisConnection(), concurrency: 4 });
+const jiraFilingWorker = new Worker<JiraFilingJobData>(JIRA_FILING_QUEUE, async (job) => deliverJiraFiling(job.data.filingId, job.attemptsMade + 1), { connection: createRedisConnection(), concurrency: 2 });
 
 autoRunWorker.on("failed", (job, error) => console.error("Sentinel Auto Run worker job failed", job?.id, error));
 autoRunWorker.on("error", (error) => console.error("Sentinel Auto Run worker error", error));
 notificationWorker.on("failed", (job, error) => console.error("Sentinel notification worker job failed", job?.id, error));
 notificationWorker.on("error", (error) => console.error("Sentinel notification worker error", error));
+jiraFilingWorker.on("failed", (job, error) => console.error("Sentinel Jira filing worker job failed", job?.id, error));
+jiraFilingWorker.on("error", (error) => console.error("Sentinel Jira filing worker error", error));
 
 async function shutdown() {
-  await Promise.all([autoRunWorker.close(), notificationWorker.close()]);
+  await Promise.all([autoRunWorker.close(), notificationWorker.close(), jiraFilingWorker.close()]);
   await prisma.$disconnect();
 }
 
