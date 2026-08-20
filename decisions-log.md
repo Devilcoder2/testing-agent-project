@@ -260,6 +260,7 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Decision:** Phase 7 generates suggestions only through explicit user action and deterministic rules over the current immutable Test Case version's captured validation metadata. It supports blank required-field, invalid-email, and one-character-outside boundary drafts for eligible non-secret, non-variable text entries. The Demo CRM adds 2–50 character first/last-name constraints solely as a local boundary fixture. The Review queue supports Draft, Approved, and Dismissed history; dismissed drafts can be reopened, but re-generation never duplicates a source-version/step/rule.
 - **Reason:** This gives testers useful negative coverage that is explainable, reproducible, and safe without pretending an LLM understands arbitrary applications or creating reviewer fatigue from speculative cases.
 - **Impact:** Passwords, variables, redacted or unsupported fields, and unknown validation constraints are skipped with a reason. A reviewer may edit only the draft's title, rationale, and safe proposed value. Approving atomically creates a separately owned Version 1 Test Case while retaining the source version, historical Runs, labels, and safe variable configuration. Suggestions never run, update a baseline, notify, file JIRA work, or reach an external target in Phase 7.
+- **Status:** Implemented and automated-acceptance verified on 2026-08-20; owner manual and learning reviews pending.
 
 ## D-032 — Phase 8 reviewed Jira Cloud filing
 
@@ -268,4 +269,3 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Human review prevents noisy or unsafe external tickets, Product mapping prevents cross-project mistakes, and protected links preserve Sentinel's evidence authorization instead of copying sensitive evidence into Jira.
 - **Impact:** Jira Cloud credentials stay in environment configuration, filing is durable and idempotent per Run through the worker queue, and one transient delivery failure retries once. Jira side effects never alter Run, evidence, Release, or notification truth. Attachments, automatic filing, arbitrary Jira fields, Slack, and Jira Server/Data Center remain deferred.
 - **Status:** Confirmed by project owner; implementation pending.
-- **Status:** Implemented and automated-acceptance verified on 2026-08-20; owner manual and learning reviews pending.
