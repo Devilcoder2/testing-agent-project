@@ -1,10 +1,11 @@
 import crypto from "node:crypto";
-import { ChangeProposalStatus, JiraFilingStatus, Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
+import { ChangeProposalStatus, DatabaseDiagnosticKind, DatabaseDiagnosticStatus, EvidenceKind, JiraFilingStatus, Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { readSession, signSession, type SessionUser } from "@/lib/auth";
 import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordingBrowser, launchRunBrowser, replayGuidedRunStep } from "@/lib/browser";
 import { dashboardForUser } from "@/lib/dashboard";
+import { customerEmailForDiagnostic, customerLookupByEmail } from "@/lib/database-diagnostics";
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
 import { buildJiraDraft, isAllowedJiraPriority, jiraCloudIsConfigured, normalizeJiraProjectKey, publicJiraFiling, validateJiraProject } from "@/lib/jira";
 import { notifyChangeProposalResolved, notifyChangeProposalSubmitted, notifyRunFailure } from "@/lib/notifications";
@@ -1213,6 +1214,29 @@ async function route(request: Request, context: Context) {
       await assertProductMember(user.id, run.productId);
       return json(run.jiraFiling ? publicJiraFiling(run.jiraFiling) : null);
     }
+    if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "diagnostics" && path[3] === "customer-lookup") {
+      const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { testCaseVersion: { include: { steps: { orderBy: { order: "asc" } } } }, variableBindings: true } });
+      if (!run) return json({ error: "Run not found." }, 404);
+      await assertProductMember(user.id, run.productId);
+      if (run.status !== RunStatus.COMPLETED || run.outcome !== RunOutcome.FAILED) return json({ error: "Database insight is available only for a completed failed Run." }, 409);
+      const existing = await prisma.databaseDiagnostic.findUnique({ where: { runId_kind: { runId: run.id, kind: DatabaseDiagnosticKind.CUSTOMER_LOOKUP_BY_EMAIL } } });
+      if (existing) return json(existing);
+      const email = customerEmailForDiagnostic(run.testCaseVersion.steps, run.variableBindings);
+      const result = email ? await customerLookupByEmail(email) : { status: "INCOMPLETE" as const, errorCode: "MISSING_LOOKUP_KEY" };
+      const metadata = result.status === "COMPLETE" ? { diagnostic: "CUSTOMER_LOOKUP_BY_EMAIL", status: result.status, ...result.safeMetadata } : { diagnostic: "CUSTOMER_LOOKUP_BY_EMAIL", status: result.status, errorCode: result.errorCode };
+      try {
+        const diagnostic = await prisma.$transaction(async (tx) => {
+          const created = await tx.databaseDiagnostic.create({ data: { runId: run.id, kind: DatabaseDiagnosticKind.CUSTOMER_LOOKUP_BY_EMAIL, status: result.status === "COMPLETE" ? DatabaseDiagnosticStatus.COMPLETE : result.status === "INCOMPLETE" ? DatabaseDiagnosticStatus.INCOMPLETE : DatabaseDiagnosticStatus.UNAVAILABLE, requestedById: user.id, safeMetadata: result.status === "COMPLETE" ? metadata as Prisma.InputJsonValue : Prisma.JsonNull, errorCode: result.status === "COMPLETE" ? null : result.errorCode, completedAt: new Date() } });
+          await tx.evidenceItem.create({ data: { runId: run.id, kind: EvidenceKind.DATABASE, metadata: metadata as Prisma.InputJsonValue } });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "DATABASE_DIAGNOSTIC_COMPLETED", entityType: "DatabaseDiagnostic", entityId: created.id, details: { kind: created.kind, status: created.status, errorCode: created.errorCode } } });
+          return created;
+        });
+        return json(diagnostic, 201);
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return json(await prisma.databaseDiagnostic.findUniqueOrThrow({ where: { runId_kind: { runId: run.id, kind: DatabaseDiagnosticKind.CUSTOMER_LOOKUP_BY_EMAIL } } }));
+        throw error;
+      }
+    }
     if (request.method === "GET" && path[0] === "runs" && path[1]) {
       const run = await prisma.run.findUnique({
         where: { id: path[1] },
@@ -1225,6 +1249,7 @@ async function route(request: Request, context: Context) {
           attempts: { orderBy: { attemptNumber: "asc" } },
           variableBindings: { select: { name: true, source: true, dataSetId: true } },
           evidence: { orderBy: { capturedAt: "asc" } },
+          databaseDiagnostics: { orderBy: { createdAt: "asc" } },
           jiraFiling: { include: { jiraIssue: true } },
           changeProposal: { include: { changes: true } }
         }
