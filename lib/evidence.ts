@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { CreateBucketCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { CreateBucketCommand, DeleteObjectCommand, GetObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { EvidenceKind, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
@@ -167,4 +167,9 @@ export async function signedEvidenceUrl(objectKey: string) {
   await ensureBucket();
   const browserEndpoint = process.env.MINIO_PUBLIC_ENDPOINT ?? process.env.MINIO_ENDPOINT ?? "http://minio:9000";
   return getSignedUrl(evidenceClient(browserEndpoint), new GetObjectCommand({ Bucket: evidenceBucket(), Key: objectKey }), { expiresIn: 15 * 60 });
+}
+
+export async function deleteEvidenceObject(objectKey: string) {
+  await ensureBucket();
+  await evidenceClient().send(new DeleteObjectCommand({ Bucket: evidenceBucket(), Key: objectKey }));
 }
