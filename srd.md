@@ -172,7 +172,11 @@ Pending-approval notifications are deferred until Phase 9 creates actual approva
 
 ### F8. JIRA integration
 
-For a likely genuine bug, automatically create a JIRA issue containing the tested journey, failure, reproduction steps, product/release context, and linked or attached evidence. Search for an existing open issue covering the same failure before creating a duplicate; add a comment and new evidence when one exists. Allow the owner to review or edit issue details before or immediately after filing.
+Phase 8 provides an optional, product-authorized Jira Cloud workflow for a completed failed Run. An authorized Product member explicitly selects **Create Jira issue**, reviews Sentinel's generated draft, optionally edits its safe summary, safe reproduction description, and priority, then explicitly files it. Sentinel never files automatically and does not file passed or interrupted Runs.
+
+Each Sentinel Product may map to one Jira Cloud project key. Only that Product's creator may configure, validate, replace, or remove the mapping; any current Product member may review and file a failed Run. Jira Cloud URL, service-account email, and API token are server-only deployment configuration, never Product form fields or API responses.
+
+Sentinel creates a fixed Jira **Bug** issue containing the Product/Test/Run context, ordered immutable-version reproduction steps, safe failure reason, and a protected Sentinel Run Detail link. It never transfers screenshots, raw evidence, console/network/storage data, variables, credentials, tokens, cookies, direct signed object URLs, or other secret material to Jira. A linked issue remains open unless Jira reports it as Done. Sentinel tracks at most one open Jira issue per Test Case: a later failed Run appends a safe comment and fresh protected Run link to that issue; a closed issue permits a new Bug. Filing is persisted and idempotent per Run, queued durably, retries one transient adapter failure, and records final failure without changing Run outcome, evidence status, Release readiness, or notifications.
 
 ### F9. Change-aware maintenance and approval
 
