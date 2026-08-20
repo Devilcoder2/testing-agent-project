@@ -383,7 +383,8 @@ type RunAttempt = { id: string; attemptNumber: number; status: string; failureRe
 type RunSummary = { id: string; mode: "GUIDED" | "AUTO"; status: "QUEUED" | "RUNNING" | "PAUSED" | "CANCELLING" | "COMPLETED"; outcome?: "PASSED" | "FAILED" | "INTERRUPTED" | null; evidenceStatus: "COMPLETE" | "PARTIAL"; createdAt: string; product: Product; testCase: { id: string; name: string }; initiatedBy: { displayName: string }; stepResults: Array<{ status: string }>; attempts?: RunAttempt[] };
 type JiraFiling = { id: string; status: "DRAFT" | "QUEUED" | "FILED" | "FAILED"; action: "CREATE" | "COMMENT" | null; summary: string; description: string; priority: "Lowest" | "Low" | "Medium" | "High" | "Highest"; attemptCount: number; deliveryError: string | null; jiraIssue: { key: string; url: string; isOpen: boolean } | null };
 type ChangeProposal = { id: string; status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "STALE"; context: string; appliedVersion?: number | null; changes: Array<{ sourceStepId: string; order: number; proposedDescription: string | null; proposedExpectedOutcome: string | null }> };
-type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; checkpointDeadline?: string | null; failureReason?: string | null; activeDurationMs?: number | null; benchmarkMedianMs?: number | null; durationDeltaMs?: number | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; attempts: RunAttempt[]; evidence: EvidenceItem[]; variableBindings?: Array<{ name: string; source: "STATIC" | "POOL" | "MANUAL"; dataSetId?: string | null }>; jiraFiling?: JiraFiling | null; changeProposal?: ChangeProposal | null; viewerUrl?: string | null };
+type DatabaseDiagnostic = { id: string; kind: "CUSTOMER_LOOKUP_BY_EMAIL"; status: "COMPLETE" | "INCOMPLETE" | "UNAVAILABLE"; safeMetadata: unknown; errorCode: string | null; completedAt: string | null };
+type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; checkpointDeadline?: string | null; failureReason?: string | null; activeDurationMs?: number | null; benchmarkMedianMs?: number | null; durationDeltaMs?: number | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; attempts: RunAttempt[]; evidence: EvidenceItem[]; variableBindings?: Array<{ name: string; source: "STATIC" | "POOL" | "MANUAL"; dataSetId?: string | null }>; jiraFiling?: JiraFiling | null; changeProposal?: ChangeProposal | null; databaseDiagnostics?: DatabaseDiagnostic[]; viewerUrl?: string | null };
 
 function runOutcomeTone(run: Pick<RunSummary, "status" | "outcome">) {
   if (run.status === "RUNNING") return "info" as const;
@@ -520,7 +521,23 @@ function RunEvidenceDetail({ screenshots, evidence, onOpenEvidence }: { screensh
     {["NETWORK", "CONSOLE", "STORAGE", "CAPTURE_ERROR"].map((kind) => { const items = evidence.filter((item) => item.kind === kind); return <section key={kind}><h3>{kind.replace("_", " ").toLowerCase()}</h3>{items.length === 0 ? <p>No {kind.toLowerCase().replace("_", " ")} evidence at this Run boundary.</p> : <div className="run-evidence__metadata">{items.map((item) => <pre key={item.id}>{item.captureError ?? JSON.stringify(item.metadata, null, 2)}</pre>)}</div>}</section>; })}
     <JiraFilingPanel />
     <ChangeProposalPanel />
+    <RunDiagnosticPanel />
   </div>;
+}
+
+function RunDiagnosticPanel() {
+  const [run, setRun] = useState<RunDetail | null>(null);
+  const [message, setMessage] = useState("");
+  const [working, setWorking] = useState(false);
+  useEffect(() => { const runId = window.location.pathname.split("/").filter(Boolean).at(-1); if (runId) request(`runs/${runId}`).then((result) => setRun(result as RunDetail)).catch(() => undefined); }, []);
+  if (!run || run.status !== "COMPLETED" || run.outcome !== "FAILED") return null;
+  const failedRun = run;
+  const diagnostic = failedRun.databaseDiagnostics?.find((item) => item.kind === "CUSTOMER_LOOKUP_BY_EMAIL");
+  async function diagnose() {
+    setWorking(true); setMessage("");
+    try { const created = await request(`runs/${failedRun.id}/diagnostics/customer-lookup`, "POST") as DatabaseDiagnostic; setRun({ ...failedRun, databaseDiagnostics: [...(failedRun.databaseDiagnostics ?? []), created] }); } catch (error) { setMessage(errorMessage(error, "Could not run the customer lookup.")); } finally { setWorking(false); }
+  }
+  return <section><h3>Database insight</h3><p>Query the isolated QA customer fixture only when diagnosing this failed Run. Sentinel uses the recorded customer email transiently and never displays or stores it.</p>{diagnostic ? <div className="run-evidence__metadata"><StatusBadge tone={diagnostic.status === "COMPLETE" ? "success" : "warning"}>{diagnostic.status.toLowerCase()}</StatusBadge>{diagnostic.safeMetadata !== null && diagnostic.safeMetadata !== undefined && <pre>{JSON.stringify(diagnostic.safeMetadata, null, 2)}</pre>}{diagnostic.errorCode && <p>Safe diagnostic state: {diagnostic.errorCode.replaceAll("_", " ").toLowerCase()}.</p>}</div> : <Button onClick={() => void diagnose()} disabled={working}>{working ? "Checking QA data…" : "Run customer lookup"}</Button>}{message && <Feedback tone="danger">{message}</Feedback>}</section>;
 }
 
 function ChangeProposalPanel() {
