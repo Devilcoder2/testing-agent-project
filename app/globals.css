@@ -158,3 +158,5 @@ h3 { margin-bottom: var(--space-1); font-size: var(--text-base); }
 }
 
 .jira-filing { display: grid; gap: var(--space-3); margin-top: var(--space-4); border-top: 0.0625rem solid var(--color-border); padding-top: var(--space-4); }.jira-filing__status { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }.jira-filing__status a { color: var(--color-primary-hover); font-weight: 750; }.jira-filing__modal { width: min(100%, 44rem); }.jira-filing__modal .textarea { min-height: 16rem; }
+
+.pilot-readiness__list { display: grid; gap: var(--space-2); }.pilot-readiness__item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); border-top: 0.0625rem solid var(--color-border); padding-top: var(--space-3); }.pilot-readiness__item:first-child { border-top: 0; padding-top: 0; }.pilot-readiness__item p { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--text-sm); }
