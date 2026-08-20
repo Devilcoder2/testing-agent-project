@@ -27,6 +27,7 @@
 | Variable encryption | Node.js `crypto` AES-256-GCM | Node 22 built-in API | Encrypts static defaults, local Test Data Set fields, and Run bindings without adding a key-management dependency to the Docker-local MVP. |
 | Release batches | Existing Prisma, Redis, and BullMQ stack | Existing pinned compatible versions | Phase 5 snapshots Test Case versions and enqueues eligible Auto Runs without adding a second scheduler or worker technology. |
 | Local email inspection | Mailpit SMTP sink | Pinned Docker image | Phase 6 proves durable notification delivery locally without real provider credentials or sending email outside Docker. |
+| Negative-test suggestions | Deterministic TypeScript rule module | Node 22 built-in runtime; no model/API dependency | Phase 7 derives conservative drafts from recorded validation metadata in a repeatable, reviewable way without sending Test data to an LLM or external provider. |
 
 ## 3. Integrations
 
@@ -47,6 +48,7 @@
 - The worker uses a five-second default action/navigation timeout for the local Demo CRM; `AUTO_RUN_ACTION_TIMEOUT_MS` may tune that worker-only limit without changing saved Test Cases.
 - Phase 5 adds no new service or dependency: immutable Test Case versions, product-local feature labels, Releases, Release Runs, and derived readiness use PostgreSQL transactions plus the existing two-concurrency BullMQ worker. Release batch work does not use the guided browser or a scheduler.
 - Phase 6 requires `SMTP_HOST`, `SMTP_PORT`, `EMAIL_FROM`, and `SENTINEL_APP_URL`. Docker defaults route SMTP internally to Mailpit and expose its inspection UI only at `http://localhost:8025`; no production email credentials belong in this repository.
+- Phase 7 adds no service, secret, worker, or third-party dependency. Its deterministic rule module and PostgreSQL-backed review state run in the Sentinel API transaction boundary; a Test Case is derived only after an authorized user approves one draft.
 - Phase 1.5 uses local system typography, CSS custom properties, and custom React/CSS primitives; it does not add external fonts, icon packs, Tailwind, shadcn, or a component library.
 - CI should run formatting/lint checks, unit tests, type checks, and browser smoke tests.
 - Structured logs should include correlation IDs for a Test Case, Run, job, evidence event, and external integration request.
@@ -62,6 +64,7 @@
 - Apply authorization before serving evidence URLs; use short-lived signed object URLs if supported.
 - Phase 2 stores no browser video. Screenshot objects receive SHA-256 checksums, while network, console, and storage metadata is redacted before persistence.
 - Phase 6 notification emails and in-app summaries may contain only approved Product/Test or Release names, state, timestamp, safe reason, and protected Sentinel link. They must never serialize evidence, screenshots, variables, raw logs, credentials, cookies, tokens, or encryption material.
+- Phase 7 rule evaluation must never serialize password, redacted, or variable plaintext values. Proposed values are accepted only for eligible safe text fields, remain product-authorized, and cannot be used to mutate a source Test Case or auto-start a Run.
 
 ## 6. Compatibility checks before coding
 
