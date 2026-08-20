@@ -61,6 +61,7 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 | `/runs/[id]` | Focused guided Run workspace while active, then a Run Detail timeline with evidence panels when completed. |
 | `/notifications` | Phase 6 product-authorized inbox with unread/all filtering, delivery state, protected Run or Release links, and individual or bulk read actions. |
 | `/review` | Phase 7 product-authorized suggestion queue with Product/status filters, safe draft editing, explicit approval/dismiss/reopen controls, and links to source and approved Test Cases. |
+| `/products` Jira panel | Phase 8 creator-only Jira Cloud project mapping, with connected, unavailable, and validation-error states; credentials never appear in the UI. |
 
 ### Future route specifications
 
@@ -74,6 +75,8 @@ The following are documented design targets only. Phase 1.5 must not create plac
 | `/releases/[id]` | Phase 5 Release Detail: tagged Test Cases, version-snapshot batch history, explicit ineligible-item reasons, linked Auto Run status, and consolidated readiness. Editing tags is visually separate from starting a batch so a completed batch remains understandable. |
 | `/review` | Later Phase 9 change proposals and owner approvals extend the implemented Phase 7 negative-Test review queue; checkpoint decisions remain on Run Detail. |
 | `/settings` | Product access, integration health, notification configuration, and safe connection state. |
+
+Phase 8 extends completed failed Run Detail with a secondary **Create Jira issue** action. It opens a review modal—not an automatic side effect—with a fixed Bug type, editable summary/reproduction text/priority, an explicit file action, and clear queued, filed, updated-existing, or delivery-failed feedback. The issue preview must state that evidence remains private in Sentinel and show only a protected Run Detail link. Passing and interrupted Runs omit the action. Product configuration keeps Jira mapping in the existing Product experience but shows it only to that Product's creator; all other members see integration state without connection controls.
 
 The desktop shell has a persistent, user-toggleable sidebar. Its compact state displays the Sentinel mark and navigation icons only; each icon keeps an accessible link name. Following a sidebar link preserves that compact state; only the top-bar navigation control may change it. Phase 7 navigation exposes Dashboard, Products, Test Cases, Test Data, Runs, Releases, Notifications, and Review; New recording is the single explicit primary action in the top bar’s right-hand corner, not a permanent destination or repeated page-level button. On narrow screens the same control opens and closes the full navigation drawer. Settings remains future navigation.
 
