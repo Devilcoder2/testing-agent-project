@@ -7,7 +7,7 @@ import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordi
 import { dashboardForUser } from "@/lib/dashboard";
 import { customerEmailForDiagnostic, customerLookupByEmail } from "@/lib/database-diagnostics";
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
-import { buildJiraDraft, isAllowedJiraPriority, jiraCloudIsConfigured, normalizeJiraProjectKey, publicJiraFiling, validateJiraProject } from "@/lib/jira";
+import { buildJiraDraftWithDiagnostic, isAllowedJiraPriority, jiraCloudIsConfigured, normalizeJiraProjectKey, publicJiraFiling, validateJiraProject } from "@/lib/jira";
 import { notifyChangeProposalResolved, notifyChangeProposalSubmitted, notifyRunFailure } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { enqueueAutoRun, enqueueJiraFiling } from "@/lib/queue";
@@ -1027,7 +1027,7 @@ async function route(request: Request, context: Context) {
       if (run.status !== RunStatus.COMPLETED || run.outcome !== RunOutcome.FAILED) return json({ error: "Only a completed failed Run can be filed to Jira." }, 409);
       const config = await prisma.jiraProjectConfig.findUnique({ where: { productId: run.productId } });
       if (!config) return json({ error: "This Product does not have a Jira project mapping." }, 409);
-      const draft = buildJiraDraft(run);
+      const draft = await buildJiraDraftWithDiagnostic(run);
       let filing = await prisma.jiraFiling.findUnique({ where: { runId: run.id }, include: { jiraIssue: true } });
       if (!filing) {
         try {
@@ -1175,7 +1175,7 @@ async function route(request: Request, context: Context) {
           const filing = await tx.jiraFiling.findUnique({ where: { runId: proposal.runId } });
           if (config && !filing) {
             const run = await tx.run.findUniqueOrThrow({ where: { id: proposal.runId }, include: { product: true, testCase: true, testCaseVersion: { include: { steps: { select: { order: true, kind: true } } } } } });
-            const draft = buildJiraDraft(run);
+            const draft = await buildJiraDraftWithDiagnostic(run);
             const jiraDraft = await tx.jiraFiling.create({ data: { runId: run.id, productId: run.productId, requestedById: user.id, summary: draft.summary, description: draft.description, priority: draft.priority } });
             await tx.auditEvent.create({ data: { actorId: user.id, action: "JIRA_FILING_DRAFT_CREATED", entityType: "JiraFiling", entityId: jiraDraft.id, details: { source: "CHANGE_PROPOSAL_REJECTION" } } });
           }
