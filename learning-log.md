@@ -1535,3 +1535,46 @@ Relevant implementation references: `qa-fixture/init.sql`, `qa-fixture/server.ts
     **Owner answer:** Pending follow-up.
 
 **Learning status:** Pending. The owner explicitly deferred Phase 10 answers; revisit these ten questions before treating the feature as fully understood.
+
+## Phase 11 — Controlled internal-pilot hardening
+
+Phase 11 turns the existing Docker prototype into a bounded internal-pilot environment rather than a production deployment. It keeps the seeded named users but binds Sentinel, Demo CRM, and the noVNC browser only to localhost. The Dashboard Pilot readiness panel lets an authenticated user see whether the local database, Redis queues, worker heartbeat, evidence bucket, guided browser, Mailpit, QA read-only role, and evidence cleanup are ready. Jira remains optional; an unconfigured Jira connection is expected for this pilot.
+
+Ownership no longer becomes a dead end when a person is unavailable. The Product creator can transfer a Product, Test Case, or Release to an existing eligible member through a confirmation dialog. A Test Case recipient must already belong to its Product. A Release recipient must belong to every Product it contains, and a cross-product Release can be transferred only by a user who created every represented Product. A Test Case transfer also changes the designated owner of submitted Change Proposals, so the new owner can decide them. Historical Runs, recordings, and existing notification recipients do not change.
+
+The worker runs evidence retention at startup and every 24 hours. It selects only evidence from completed Runs older than `EVIDENCE_RETENTION_DAYS` (30 by default), removes a MinIO screenshot object first, then removes the matching detailed Evidence row. If object deletion fails, it retains the metadata so the next maintenance pass can retry. Completed database diagnostics are deleted at the same boundary. A `MaintenanceRun` record retains safe counts and failure code, while safe Run summaries, Test Cases, versions, notifications, Jira drafts, and audit events remain available.
+
+| Technology or pattern | Why it is used | Tradeoff |
+|---|---|---|
+| Product creator as temporary transfer authority | Preserves a simple pilot authorization model without adding roles. | It is not a replacement for organization admins, manager roles, or deprovisioning. |
+| Redis heartbeat | Detects a recently active worker without a new external monitoring system. | It proves process activity, not full job capacity or production observability. |
+| MinIO-first retention deletion | Avoids leaving binary evidence behind after its database metadata is removed. | A failed deletion deliberately leaves metadata for retry, which can temporarily exceed the retention target. |
+| `MaintenanceRun` persistence | Makes cleanup results visible and testable without pretending a background task is a user action. | It is operational history, not a comprehensive audit/monitoring platform. |
+| BullMQ custom Jira backoff | Honors one provider-requested 429 delay safely. | The retry remains limited to one attempt and the local pilot does not validate a live Jira tenant. |
+
+The relevant files are `prisma/schema.prisma`, `prisma/migrations/20260820180000_add_maintenance_runs/migration.sql`, `lib/maintenance.ts`, `lib/pilot-readiness.ts`, `lib/evidence.ts`, `lib/jira.ts`, `lib/queue.ts`, `worker.ts`, `docker-compose.yml`, `app/api/[[...route]]/route.ts`, `components/ownership-transfer.tsx`, `components/sentinel-views.tsx`, `components/release-views.tsx`, and `tests/pilot-hardening.test.ts`. See D-035 and `adversarial-review.md` for the pilot boundary and deferred deployment risks.
+
+### Ten-question understanding check
+
+1. Why is Phase 11 explicitly local-only even though a named user can sign in?
+   **Owner answer:** Pending follow-up.
+2. Which person can transfer a Product, Test Case, or Release, and what membership checks apply to each transfer?
+   **Owner answer:** Pending follow-up.
+3. Why does Test Case transfer reroute submitted Change Proposals, while historic Runs and recordings stay unchanged?
+   **Owner answer:** Pending follow-up.
+4. Which evidence categories expire after 30 days, and which durable records intentionally remain?
+   **Owner answer:** Pending follow-up.
+5. Why does retention remove a MinIO object before deleting its Evidence metadata, and what happens on object-delete failure?
+   **Owner answer:** Pending follow-up.
+6. What does the Redis worker heartbeat prove, and what does it not prove about production readiness?
+   **Owner answer:** Pending follow-up.
+7. Which Pilot readiness checks are required, and why is unconfigured Jira not an attention state for this pilot?
+   **Owner answer:** Pending follow-up.
+8. How does the Jira retry logic safely interpret a 429 `Retry-After` value, and what is the maximum delay and retry count?
+   **Owner answer:** Pending follow-up.
+9. Which failures must never change a factual Run outcome, evidence status, Release readiness, or notification truth?
+   **Owner answer:** Pending follow-up.
+10. Which findings in `adversarial-review.md` block deployment beyond the localhost pilot?
+    **Owner answer:** Pending follow-up.
+
+**Learning status:** Pending. The owner explicitly deferred Phase 11 answers; revisit these ten questions and the earlier outstanding phase questions before calling Sentinel fully understood.
