@@ -156,3 +156,5 @@ h3 { margin-bottom: var(--space-1); font-size: var(--text-base); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+.jira-filing { display: grid; gap: var(--space-3); margin-top: var(--space-4); border-top: 0.0625rem solid var(--color-border); padding-top: var(--space-4); }.jira-filing__status { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }.jira-filing__status a { color: var(--color-primary-hover); font-weight: 750; }.jira-filing__modal { width: min(100%, 44rem); }.jira-filing__modal .textarea { min-height: 16rem; }
