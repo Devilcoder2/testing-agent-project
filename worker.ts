@@ -2,7 +2,7 @@ import { RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, Run
 import { Worker, type Job } from "bullmq";
 import { chromium, type Page, type Request } from "playwright";
 import { persistRunSnapshot, recordCaptureFailure } from "./lib/evidence";
-import { deliverJiraFiling } from "./lib/jira";
+import { deliverJiraFiling, JiraAdapterError } from "./lib/jira";
 import { deliverNotification, notifyAutoRunCheckpoint, notifyRunFailure } from "./lib/notifications";
 import { runEvidenceRetention } from "./lib/maintenance";
 import { prisma } from "./lib/prisma";
@@ -257,7 +257,13 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
 
 const autoRunWorker = new Worker<AutoRunJobData>(AUTO_RUN_QUEUE, processAutoRun, { connection: createRedisConnection(), concurrency: 2 });
 const notificationWorker = new Worker<NotificationJobData>(NOTIFICATION_QUEUE, async (job) => deliverNotification(job.data.notificationId), { connection: createRedisConnection(), concurrency: 4 });
-const jiraFilingWorker = new Worker<JiraFilingJobData>(JIRA_FILING_QUEUE, async (job) => deliverJiraFiling(job.data.filingId, job.attemptsMade + 1), { connection: createRedisConnection(), concurrency: 2 });
+const jiraFilingWorker = new Worker<JiraFilingJobData>(JIRA_FILING_QUEUE, async (job) => deliverJiraFiling(job.data.filingId, job.attemptsMade + 1), {
+  connection: createRedisConnection(),
+  concurrency: 2,
+  settings: {
+    backoffStrategy: (_attemptsMade, type, error) => type === "sentinel-jira" && error instanceof JiraAdapterError ? error.retryAfterMs ?? 1_000 : 1_000
+  }
+});
 const heartbeatConnection = createRedisConnection();
 
 async function refreshWorkerHeartbeat() {
