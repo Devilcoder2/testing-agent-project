@@ -180,7 +180,11 @@ Sentinel creates a fixed Jira **Bug** issue containing the Product/Test/Run cont
 
 ### F9. Change-aware maintenance and approval
 
-Classify failures as likely bugs or likely intentional changes. For likely changes, draft updated steps or expectations and send the proposal to the original Test Case owner. The old baseline remains active until explicit approval. The owner can compare, approve, or reject. Approval updates the baseline; rejection routes the failure to JIRA. Keep a complete proposal and decision history. Re-running after a known QA deployment is the primary trigger; source-control correlation remains optional future work.
+Phase 9 provides a manual, evidence-linked change proposal only for a completed failed Run after a known QA deployment. A Product member supplies deployment context and may propose changes only to saved-step descriptions and expected outcomes. Recorded actions, selectors/target metadata, literal values, variable markers, checkpoints, kinds, labels, and order remain read-only.
+
+Each proposal snapshots the Run's immutable Test Case version and is submitted to that Test Case's original owner. The current baseline remains active while the proposal is Draft or Submitted. The owner alone may approve or reject a submitted proposal. Approval atomically creates the next immutable Test Case version, copies the source steps/variables, and applies only the reviewed annotation changes. If the current version has advanced since the proposal source version, Sentinel marks the proposal Stale and blocks approval rather than overwriting newer work.
+
+Rejection preserves the failed Run and proposal decision history. If the Product has a Jira project mapping, Sentinel creates an editable Jira draft for that failed Run; it never queues or files the issue automatically. Submission notifies the owner; approval or rejection notifies the owner and proposal creator through the existing safe in-app/email channel. Emails contain only Test Case name, state, timestamp, and a protected Review link. Automated deployment/Git correlation, automatic change classification, and automatic Jira filing remain future work.
 
 ### F10. Read-only database insight
 
