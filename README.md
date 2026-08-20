@@ -35,7 +35,7 @@ The attached requirements document is the current product source of truth. Archi
 - Phase 4: encrypted variables and the local Test Data lifecycle are implementation and automated-acceptance verified; owner learning review remains pending.
 - Phase 5: Test Case versioning and Release management are implementation and automated-acceptance verified; owner learning review remains pending.
 - Phase 6: health dashboard and durable local notifications are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
-- Phase 7: deterministic negative-Test suggestions are in implementation; they remain Docker-local and require explicit review before creating an independent Test Case.
+- Phase 7: deterministic negative-Test suggestions are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
 - Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -156,4 +156,4 @@ For a manual check, record and save a fresh Demo CRM happy-path Test, select **G
 
 ## Status
 
-Phases 1, 1.5, 2, 3, 4, 5, and 6 are implementation and automated-acceptance verified. Owner learning reviews remain pending in `learning-log.md`, so completed phases are not yet marked fully understood. Phase 6 owner manual inspection remains pending; Phase 7 implementation is in progress. External production integrations, scheduling, external QA targets, Slack, LLM suggestions, approval notices, and QA-network access remain later phases.
+Phases 1, 1.5, 2, 3, 4, 5, 6, and 7 are implementation and automated-acceptance verified. Owner learning reviews remain pending in `learning-log.md`, so completed phases are not yet marked fully understood. Phase 6 and Phase 7 owner manual inspection remain pending. External production integrations, scheduling, external QA targets, Slack, LLM suggestions, approval notices, and QA-network access remain later phases.
