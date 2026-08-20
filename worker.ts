@@ -4,6 +4,7 @@ import { chromium, type Page, type Request } from "playwright";
 import { persistRunSnapshot, recordCaptureFailure } from "./lib/evidence";
 import { deliverJiraFiling } from "./lib/jira";
 import { deliverNotification, notifyAutoRunCheckpoint, notifyRunFailure } from "./lib/notifications";
+import { runEvidenceRetention } from "./lib/maintenance";
 import { prisma } from "./lib/prisma";
 import { AUTO_RUN_QUEUE, JIRA_FILING_QUEUE, NOTIFICATION_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData, type JiraFilingJobData, type NotificationJobData } from "./lib/queue";
 import { canRetryAutoRun, initialReplayState, ReplayError, replayStep, type ReplayStep } from "./lib/replay";
@@ -11,6 +12,10 @@ import { decryptVariableValue } from "./lib/variables";
 import { markReleaseRunItemRunning, syncReleaseRunItemForRun } from "./lib/releases";
 
 const CHECKPOINT_TIMEOUT_MS = 10 * 60 * 1000;
+const MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const WORKER_HEARTBEAT_INTERVAL_MS = 15 * 1000;
+const WORKER_HEARTBEAT_TTL_SECONDS = 45;
+export const WORKER_HEARTBEAT_KEY = "sentinel:worker:heartbeat";
 
 type EvidenceCollector = {
   snapshot: () => Promise<{ screenshot: Buffer; network: unknown[]; console: unknown[]; storage: unknown }>;
@@ -253,6 +258,16 @@ async function processAutoRun(job: Job<AutoRunJobData>) {
 const autoRunWorker = new Worker<AutoRunJobData>(AUTO_RUN_QUEUE, processAutoRun, { connection: createRedisConnection(), concurrency: 2 });
 const notificationWorker = new Worker<NotificationJobData>(NOTIFICATION_QUEUE, async (job) => deliverNotification(job.data.notificationId), { connection: createRedisConnection(), concurrency: 4 });
 const jiraFilingWorker = new Worker<JiraFilingJobData>(JIRA_FILING_QUEUE, async (job) => deliverJiraFiling(job.data.filingId, job.attemptsMade + 1), { connection: createRedisConnection(), concurrency: 2 });
+const heartbeatConnection = createRedisConnection();
+
+async function refreshWorkerHeartbeat() {
+  await heartbeatConnection.set(WORKER_HEARTBEAT_KEY, String(Date.now()), "EX", WORKER_HEARTBEAT_TTL_SECONDS).catch((error) => console.error("Sentinel worker heartbeat failed", error));
+}
+
+void runEvidenceRetention();
+void refreshWorkerHeartbeat();
+const maintenanceTimer = setInterval(() => void runEvidenceRetention(), MAINTENANCE_INTERVAL_MS);
+const heartbeatTimer = setInterval(() => void refreshWorkerHeartbeat(), WORKER_HEARTBEAT_INTERVAL_MS);
 
 autoRunWorker.on("failed", (job, error) => console.error("Sentinel Auto Run worker job failed", job?.id, error));
 autoRunWorker.on("error", (error) => console.error("Sentinel Auto Run worker error", error));
@@ -262,7 +277,10 @@ jiraFilingWorker.on("failed", (job, error) => console.error("Sentinel Jira filin
 jiraFilingWorker.on("error", (error) => console.error("Sentinel Jira filing worker error", error));
 
 async function shutdown() {
+  clearInterval(maintenanceTimer);
+  clearInterval(heartbeatTimer);
   await Promise.all([autoRunWorker.close(), notificationWorker.close(), jiraFilingWorker.close()]);
+  await heartbeatConnection.quit();
   await prisma.$disconnect();
 }
 
