@@ -472,12 +472,19 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 ## Phase 10 — Read-only database insight
 
 **Depends on:** Phase 2 and confirmed database access  
-**Outcome:** Failures can include safe, relevant database context.
+**Outcome:** A completed failed Run can include safe, relevant, explicit QA customer-state context without granting Sentinel database write access.
 
-- Define an allowlisted diagnostic query catalog and parameter contracts.
-- Provision a database role that cannot write and verify it automatically.
-- Add timeouts, row limits, redaction, audit logging, and incomplete-context states.
-- Attach relevant results to Run Detail and JIRA evidence.
+- [x] Add the local `qa-postgres` fixture database and Demo CRM customer-write fixture API, isolated from Sentinel's application PostgreSQL.
+- [x] Provision distinct fixture writer and Sentinel diagnostic roles; automatically verify the diagnostic role can select but cannot insert, update, delete, or create schema objects.
+- [x] Define one allowlisted `customer_lookup_by_email` query. Derive its lookup value transiently from the final eligible non-secret email step or encrypted Run binding; never accept an email from the UI.
+- [x] Restrict the query to a parameterized one-row `qa_customers` lookup in a read-only transaction with a 1.5-second timeout.
+- [x] Persist only found/not-found state, customer status, and timestamps as database-diagnostic and `DATABASE` evidence; persist safe incomplete/unavailable codes for failures.
+- [x] Add a Product-authorized, explicit Run Detail action for completed failed Runs. Never display or persist the lookup email, raw row, SQL, or credentials.
+- [x] Include only the safe completed diagnostic summary in a later reviewed Jira draft; never create or file Jira work automatically.
+- [x] Add focused Docker tests for email selection/redaction, read-only role verification, fixture lookup, and safe found/not-found metadata.
+- [ ] Run full lint, type-check, full Vitest, Phase 1–9 regression, manual Run Detail, and learning review before calling Phase 10 acceptance complete.
+
+**Out of scope:** Generic SQL, QA-database writes, external QA-database connections, automatic failed-Run diagnosis, raw-row browsing, automatic Jira filing, and notifications based on diagnostic results.
 
 ## Phase 11 — Release readiness and hardening
 
