@@ -1191,8 +1191,8 @@ async function route(request: Request, context: Context) {
       return json(approved);
     }
     if (request.method === "GET" && path.join("/") === "change-proposals") {
-      const proposals = await prisma.changeProposal.findMany({ where: { product: { memberships: { some: { userId: user.id } } } }, include: { testCase: { select: { name: true } }, run: { select: { id: true } }, createdBy: { select: { displayName: true } }, owner: { select: { displayName: true } }, changes: true }, orderBy: { createdAt: "desc" } });
-      return json(proposals);
+      const proposals = await prisma.changeProposal.findMany({ where: { product: { memberships: { some: { userId: user.id } } } }, include: { testCase: { select: { name: true } }, run: { select: { id: true } }, sourceVersion: { select: { version: true, steps: { select: { id: true, order: true, description: true, expectedOutcome: true } } } }, createdBy: { select: { displayName: true } }, owner: { select: { displayName: true } }, changes: true }, orderBy: { createdAt: "desc" } });
+      return json(proposals.map((proposal) => ({ ...proposal, canDecide: proposal.ownerId === user.id, canEdit: proposal.createdById === user.id && proposal.status === ChangeProposalStatus.DRAFT })));
     }
     if (request.method === "GET" && path.join("/") === "runs") {
       const runs = await prisma.run.findMany({
