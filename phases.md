@@ -489,13 +489,17 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 ## Phase 11 — Release readiness and hardening
 
 **Depends on:** Phases 4–10  
-**Outcome:** The platform is ready for a controlled internal pilot.
+**Outcome:** The Docker-local platform is ready for a controlled internal pilot, with explicit operational limits and recovery evidence.
 
-- Re-run all acceptance criteria and security checks.
-- Test concurrency, retries, evidence retention, notification failure, JIRA rate limits, and database denial.
-- Run an adversarial review against `problem-brief.md`, `srd.md`, and `architecture.md`.
-- Resolve ownership reassignment, retention, target metrics, and provider configuration.
-- Complete setup documentation, learning reviews, and a single-file commit/push audit.
+- [x] Keep the pilot local-only: bind Sentinel, Demo CRM, and noVNC to localhost; retain seeded named users; document that production identity and roles remain a launch blocker.
+- [x] Add independent Product/Test Case/Release ownership transfer for eligible members, Product-creator authorization, submitted-proposal rerouting, confirmation UI, and audit events.
+- [x] Resolve evidence retention as 30 days. Delete expired completed-Run MinIO objects before detailed Evidence records, delete completed database diagnostics, skip active Runs, and retain failed object deletions for retry.
+- [x] Record startup/daily retention outcomes and a Redis worker heartbeat; expose safe service, retention, and optional-Jira state on the authenticated Dashboard readiness panel.
+- [x] Honor optional Jira HTTP 429 `Retry-After` once, capped at 60 seconds, without altering factual Run, evidence, Release, or notification state.
+- [x] Add focused Docker coverage for transfers, proposal reassignment, retention, readiness authentication, and rate-limit parsing.
+- [ ] Re-run full lint, type-check, Vitest, Playwright, Docker startup, concurrency/retry/denial checks, and manual readiness verification.
+- [ ] Publish an adversarial review and resolve or explicitly defer each finding.
+- [ ] Complete deferred owner learning answers before calling the platform fully understood.
 
 ## Post-current-phase discovery backlog — not scheduled
 
