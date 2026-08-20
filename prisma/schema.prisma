@@ -148,6 +148,18 @@ enum TestSuggestionStatus {
   DISMISSED
 }
 
+enum JiraFilingStatus {
+  DRAFT
+  QUEUED
+  FILED
+  FAILED
+}
+
+enum JiraFilingAction {
+  CREATE
+  COMMENT
+}
+
 model User {
   id                   String              @id @default(cuid())
   email                String              @unique
@@ -163,6 +175,7 @@ model User {
   notifications        Notification[]      @relation("NotificationRecipient")
   approvedSuggestions  TestSuggestion[]    @relation("SuggestionApprover")
   dismissedSuggestions TestSuggestion[]    @relation("SuggestionDismisser")
+  jiraFilings          JiraFiling[]        @relation("JiraFilingRequester")
   auditEvents          AuditEvent[]        @relation("AuditActor")
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
@@ -182,6 +195,9 @@ model Product {
   testDataSets    TestDataSet[]
   notifications   Notification[]
   suggestions     TestSuggestion[]
+  jiraConfig      JiraProjectConfig?
+  jiraIssues      JiraIssue[]
+  jiraFilings     JiraFiling[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -264,6 +280,7 @@ model TestCase {
   releaseRunItems     ReleaseRunItem[]
   sourceSuggestions   TestSuggestion[]       @relation("SuggestionSourceTestCase")
   approvedSuggestions TestSuggestion[]       @relation("SuggestionApprovedTestCase")
+  jiraIssues          JiraIssue[]
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
 }
@@ -487,6 +504,7 @@ model Run {
   reservedDataSets   TestDataSet[]        @relation("ReservedDataSet")
   releaseRunItem     ReleaseRunItem?      @relation("ReleaseRunItemRun")
   notifications      Notification[]
+  jiraFiling         JiraFiling?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
@@ -604,4 +622,58 @@ model AuditEvent {
   details    Json?
   actor      User     @relation("AuditActor", fields: [actorId], references: [id])
   createdAt  DateTime @default(now())
+}
+
+model JiraProjectConfig {
+  id          String   @id @default(cuid())
+  productId   String   @unique
+  projectKey  String
+  validatedAt DateTime?
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model JiraIssue {
+  id             String       @id @default(cuid())
+  productId      String
+  testCaseId     String
+  jiraKey        String       @unique
+  jiraUrl        String
+  isOpen         Boolean      @default(true)
+  statusCategory String?
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  testCase       TestCase     @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  filings        JiraFiling[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([testCaseId, isOpen])
+  @@index([productId, isOpen])
+}
+
+model JiraFiling {
+  id            String           @id @default(cuid())
+  runId         String           @unique
+  productId     String
+  requestedById String
+  jiraIssueId   String?
+  status        JiraFilingStatus @default(DRAFT)
+  action        JiraFilingAction?
+  summary       String
+  description   String
+  priority      String           @default("Medium")
+  attemptCount  Int              @default(0)
+  deliveryError String?
+  queuedAt      DateTime?
+  filedAt       DateTime?
+  run           Run              @relation(fields: [runId], references: [id], onDelete: Cascade)
+  product       Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  requestedBy   User             @relation("JiraFilingRequester", fields: [requestedById], references: [id])
+  jiraIssue     JiraIssue?       @relation(fields: [jiraIssueId], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([productId, createdAt])
+  @@index([jiraIssueId, createdAt])
 }
