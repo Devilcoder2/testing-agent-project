@@ -444,10 +444,30 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Depends on:** Phases 3, 6, and 8  
 **Outcome:** Intentional changes are proposed to the original owner without silent baseline updates.
 
-- Compare expected and observed behavior after a known QA deployment.
-- Draft side-by-side step or expectation proposals.
-- Route approval to the original owner, maintain old baseline until approval, and route rejection to JIRA.
-- Store complete proposal, decision, and Test Case history.
+### Implemented scope
+
+- A current Product member may create and submit one proposal from a completed failed Run after entering known-deployment context.
+- A proposal may change only saved-step description and expected outcome. Actions, target metadata, values, variables, checkpoints, order, kinds, and labels are read-only.
+- Review shows side-by-side source/proposed annotations and a protected failed-Run evidence link.
+- Only the Test Case's original owner can approve or reject a submitted proposal. Approval clones the source into the next immutable Test Case version; old versions and Runs remain unchanged.
+- Approval is blocked and the proposal becomes `STALE` if the Test Case current version changed after proposal creation.
+- Rejection creates an editable Phase 8 Jira draft only when the Product has a Jira mapping; it never files automatically.
+- Submission notifies the owner. Approval/rejection notifies the owner and creator, using the existing in-app/Mailpit safe-delivery path.
+
+### Acceptance checklist
+
+- [x] Failed-Run-only proposal creation and Product authorization are enforced.
+- [x] Proposed text rejects secret-like content and cannot mutate replay behavior.
+- [x] Owner-only approval produces the next immutable Test Case version atomically.
+- [x] Stale proposals cannot overwrite a newer baseline.
+- [x] Rejection leaves an unfiled Jira draft when a mapping exists.
+- [x] Proposal notification recipients are de-duplicated and email contains safe summary text only.
+- [x] Focused Docker API/database verification covers approval, authorization, stale protection, and Jira-draft state.
+- [ ] Owner manual review and Phase 9 learning questions remain pending.
+
+### Deferred
+
+- Automatic deployment detection, Git/GitHub correlation, automatic change classification, merge/conflict resolution, automatic Jira filing, and changes to action/selector/value semantics.
 
 ## Phase 10 — Read-only database insight
 
