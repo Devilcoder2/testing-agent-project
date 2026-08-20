@@ -100,6 +100,7 @@ function publicNotification(notification: {
   product: { name: string } | null;
   run: { id: string; outcome: string | null; testCase: { name: string } } | null;
   releaseRun: { release: { id: string; name: string }; readiness: string } | null;
+  changeProposal: { id: string; status: string; testCase: { name: string } } | null;
 }) {
   return {
     id: notification.id,
@@ -112,7 +113,8 @@ function publicNotification(notification: {
     readAt: notification.readAt,
     productName: notification.product?.name ?? null,
     run: notification.run ? { id: notification.run.id, name: notification.run.testCase.name, outcome: notification.run.outcome } : null,
-    release: notification.releaseRun ? { id: notification.releaseRun.release.id, name: notification.releaseRun.release.name, readiness: notification.releaseRun.readiness } : null
+    release: notification.releaseRun ? { id: notification.releaseRun.release.id, name: notification.releaseRun.release.name, readiness: notification.releaseRun.readiness } : null,
+    changeProposal: notification.changeProposal ? { id: notification.changeProposal.id, status: notification.changeProposal.status, testCaseName: notification.changeProposal.testCase.name } : null
   };
 }
 
@@ -326,7 +328,8 @@ async function route(request: Request, context: Context) {
         include: {
           product: { select: { name: true } },
           run: { select: { id: true, productId: true, outcome: true, testCase: { select: { name: true } } } },
-          releaseRun: { select: { releaseId: true, readiness: true, release: { select: { id: true, name: true } } } }
+          releaseRun: { select: { releaseId: true, readiness: true, release: { select: { id: true, name: true } } } },
+          changeProposal: { select: { id: true, status: true, testCase: { select: { name: true } } } }
         },
         orderBy: { createdAt: "desc" }
       });
