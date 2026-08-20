@@ -442,30 +442,22 @@ async function route(request: Request, context: Context) {
       let created = 0;
       let existing = 0;
       await prisma.$transaction(async (tx) => {
-        for (const candidate of generated.candidates) {
-          try {
-            await tx.testSuggestion.create({
-              data: {
-                productId: testCase.productId,
-                sourceTestCaseId: testCase.id,
-                sourceVersionId: version.id,
-                sourceStepId: candidate.sourceStepId,
-                kind: candidate.kind as TestSuggestionKind,
-                title: candidate.title,
-                rationale: candidate.rationale,
-                expectedOutcome: candidate.expectedOutcome,
-                proposedValue: candidate.proposedValue
-              }
-            });
-            created += 1;
-          } catch (error) {
-            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-              existing += 1;
-              continue;
-            }
-            throw error;
-          }
-        }
+        const inserted = await tx.testSuggestion.createMany({
+          data: generated.candidates.map((candidate) => ({
+            productId: testCase.productId,
+            sourceTestCaseId: testCase.id,
+            sourceVersionId: version.id,
+            sourceStepId: candidate.sourceStepId,
+            kind: candidate.kind as TestSuggestionKind,
+            title: candidate.title,
+            rationale: candidate.rationale,
+            expectedOutcome: candidate.expectedOutcome,
+            proposedValue: candidate.proposedValue
+          })),
+          skipDuplicates: true
+        });
+        created = inserted.count;
+        existing = generated.candidates.length - inserted.count;
         await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_SUGGESTIONS_GENERATED", entityType: "TestCase", entityId: testCase.id, details: { sourceVersion: version.version, created, existing, skipped: generated.skipped.length } } });
       });
       return json({ created, existing, skipped: generated.skipped, sourceVersion: version.version }, 201);
