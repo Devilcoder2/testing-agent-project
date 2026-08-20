@@ -67,7 +67,9 @@ Phase 2's API-led guided Run captures screenshots at start, end, and failure; ne
 
 ### Read-only database adapter
 
-Provides explicitly configured, parameterized diagnostic queries against QA PostgreSQL. It uses a database role with `CONNECT` and `SELECT` privileges only, separate credentials from the application database, query timeouts, row limits, and audit logging. Sentinel has no generic SQL editor in v1.
+Phase 10 makes this boundary concrete with a separate Docker-local `qa-postgres` fixture and `qa-fixture` write API. The Demo CRM writes created customers to that fixture using its own writer role; Sentinel's `QA_DATABASE_URL` uses a separate `qa_diagnostic` role with only `CONNECT`, schema `USAGE`, and `SELECT` over the one allowlisted `qa_customers` table. Startup SQL grants neither DML nor schema creation, and an automated privilege check verifies that boundary.
+
+The API exposes no SQL input. For a completed failed Run, a Product member explicitly requests `customer_lookup_by_email`. The adapter derives the last eligible email field transiently from immutable steps and encrypted bindings, then uses a parameterized, one-row query in a read-only transaction with a 1.5-second timeout. It returns only found/not-found state, status, and timestamps. A `DatabaseDiagnostic` plus `DATABASE` evidence stores that safe summary or a safe incomplete/unavailable error code; no raw email, row, query, credential, or connection string crosses the API/evidence/Jira boundary. Jira draft generation may read this safe summary, but nothing is automatically filed. Sentinel has no generic SQL editor in v1.
 
 ### Integration adapters
 
@@ -89,6 +91,7 @@ erDiagram
     PRODUCT ||--o{ TEST_DATA_SET : owns
     RUN ||--o{ STEP_RESULT : records
     RUN ||--o{ RUN_VARIABLE_BINDING : resolves
+    RUN ||--o{ DATABASE_DIAGNOSTIC : explains
     RUN ||--o| EVIDENCE_BUNDLE : produces
     RELEASE ||--o{ RELEASE_TEST : includes
     TEST_CASE ||--o{ RELEASE_TEST : tagged
