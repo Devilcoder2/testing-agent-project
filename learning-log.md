@@ -1490,3 +1490,48 @@ This uses PostgreSQL/Prisma transactions because source-version binding, version
 
 - Configure an untracked Jira Cloud test connection, map a Product, file one failed Run, then fail the same Test Case again and confirm the open Jira Bug receives a comment rather than a duplicate.
 - Answer all ten questions using D-032, the Jira schema/migration, `lib/jira.ts`, `worker.ts`, API route, and Jira tests.
+
+## Phase 10 — Read-only database insight
+
+Phase 10 helps a tester investigate a completed failed Run without turning Sentinel into a database administration tool. The tester explicitly chooses **Run customer lookup** from failed Run Detail. Sentinel finds the final eligible non-secret email field in the immutable Run version, decrypting a saved Run binding only when the field is variable-backed. That lookup value exists only while the server performs the query. It is not displayed, returned from the API, stored in a diagnostic/evidence record, included in a Jira draft, or logged.
+
+The local Demo CRM now sends completed customer creation to the isolated `qa-fixture` service. That service writes to `qa-postgres` with its own writer account. Sentinel has a different `qa_diagnostic` PostgreSQL role. Startup SQL gives that role only database connection, schema usage, and table selection rights; it has no insert, update, delete, or schema-create grant. `lib/database-diagnostics.ts` verifies those permissions before using its only catalog entry: a parameterized `qa_customers` lookup limited to one result, inside `BEGIN READ ONLY`, with a 1.5-second statement timeout. It returns only whether a customer was found, the safe status, and creation/update timestamps. A missing key, unavailable database, denied role, or timeout becomes a safe incomplete/unavailable code instead of a false claim.
+
+The API checks current Product membership and requires the Run to be completed and failed. It saves a `DatabaseDiagnostic`, `DATABASE` Evidence item, and audit event in one transaction; a unique Run/kind constraint makes duplicate clicks idempotent. Run Detail renders only the safe result. The Phase 8 Jira-draft builder may add that same safe summary to a human-reviewed draft, but it cannot file an issue and it never receives the raw lookup input or row.
+
+| Technology or pattern | Why it is used | Maintainer concern |
+|---|---|---|
+| Separate PostgreSQL service and roles | Demonstrates least privilege independently from Sentinel's application database. | Replace Docker-local passwords with managed, rotated deployment secrets before any real QA connection. |
+| `pg` parameterized query | Keeps the diagnostic adapter narrow and prevents query-value interpolation. | Add a catalog entry deliberately; never introduce user-supplied SQL. |
+| Read-only transaction, timeout, and one-row limit | Limits impact if the fixture/database is slow or unexpectedly large. | Keep these controls for every future diagnostic and test denial/timeout paths. |
+| Prisma diagnostic/evidence records | Preserves an authorized, auditable safe result on Run Detail. | Do not add raw values to `safeMetadata`; JSON is not automatically safe. |
+| Explicit UI action | Lets a tester decide when diagnosis is relevant and avoids automatic database reads on every failure. | Do not make it automatic without a consent, cost, and audit decision. |
+
+The main tradeoff is deliberately narrow usefulness: Sentinel can only answer one customer existence/state question against a local fixture, not inspect arbitrary tables or diagnose external QA environments. A generic SQL editor or a broad database integration would be simpler for a developer but would undermine authorization, privacy, reliability, and least-privilege guarantees. Future external QA adapters need a separately approved query catalog, environment-specific role verification, credential management/rotation, retention policy, and a review of whether the safe metadata is still appropriate.
+
+Relevant implementation references: `qa-fixture/init.sql`, `qa-fixture/server.ts`, `qa-fixture/Dockerfile`, `demo-target/index.html`, `docker-compose.yml`, `prisma/schema.prisma`, `prisma/migrations/20260820170000_add_database_diagnostics/migration.sql`, `lib/database-diagnostics.ts`, `app/api/[[...route]]/route.ts`, `components/sentinel-views.tsx`, `lib/jira.ts`, and `tests/database-diagnostics.test.ts`. See D-034, `srd.md`, `architecture.md`, `techstack.md`, and `phases.md` for the accepted boundary.
+
+### Ten-question understanding check
+
+1. Why does Phase 10 require a completed failed Run and an explicit user action instead of automatically querying the database for every Run?
+   **Owner answer:** Pending follow-up.
+2. Which database role writes Demo CRM fixture customers, which role Sentinel uses for diagnosis, and why must these credentials be separate?
+   **Owner answer:** Pending follow-up.
+3. How does `customerEmailForDiagnostic` choose the lookup value while ensuring the value is not persisted in Run Detail or evidence?
+   **Owner answer:** Pending follow-up.
+4. Which precise query safeguards prevent SQL injection, unbounded results, slow execution, and accidental writes?
+   **Owner answer:** Pending follow-up.
+5. What information may the `DatabaseDiagnostic` and `DATABASE` evidence records contain, and which categories must never be stored there?
+   **Owner answer:** Pending follow-up.
+6. How does the API enforce Product authorization and duplicate-click idempotency independently of the frontend button?
+   **Owner answer:** Pending follow-up.
+7. What should Sentinel show if no usable customer email exists, if the fixture is down, or if the query times out—and why is that safer than guessing?
+   **Owner answer:** Pending follow-up.
+8. Under what condition may a Jira draft include database context, and why must it remain a safe summary and a manual human-reviewed filing?
+   **Owner answer:** Pending follow-up.
+9. Which test proves the diagnostic role cannot write, and which test proves the result does not serialize the lookup email?
+   **Owner answer:** Pending follow-up.
+10. Before connecting a real QA database, which parts of this design need a new security and operational approval?
+    **Owner answer:** Pending follow-up.
+
+**Learning status:** Pending. The owner explicitly deferred Phase 10 answers; revisit these ten questions before treating the feature as fully understood.
