@@ -188,7 +188,7 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Decision:** Phase 2 introduces an explicitly tester-guided Run of the current immutable Test Case version, limited to the Docker-local Demo CRM and the existing single isolated browser. The tester completes saved steps strictly in order; pass advances, fail ends the Run safely, and refresh resumes the existing Run. Full browser video remains prohibited. Screenshots are stored in a private Docker-local MinIO bucket, while redacted network, console, and storage metadata remains in PostgreSQL. Evidence links require product authorization and expire after 15 minutes.
 - **Reason:** This supplies a useful, inspectable Run and evidence baseline without falsely claiming autonomous replay, prematurely introducing queue infrastructure, or storing a sensitive browser recording.
 - **Impact:** Run outcome (`passed`, `failed`, `interrupted`) is distinct from capture status (`complete`, `partial`), so unavailable evidence cannot alter the factual test result. Phase 2 adds no Redis/BullMQ, skip/pause/cancel flow, external targets, retention automation, or stored video. Only one browser-backed recording or Run may exist locally at a time.
-- **Status:** Confirmed by project owner; implementation in progress.
+- **Status:** Implemented and automated-acceptance verified on 2026-08-20; owner manual and learning reviews pending.
 
 ## D-023 — Keep guided Run browser sessions alive and make Demo CRM evidence observable
 
