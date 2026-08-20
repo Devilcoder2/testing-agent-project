@@ -35,6 +35,7 @@ The attached requirements document is the current product source of truth. Archi
 - Phase 4: encrypted variables and the local Test Data lifecycle are implementation and automated-acceptance verified; owner learning review remains pending.
 - Phase 5: Test Case versioning and Release management are implementation and automated-acceptance verified; owner learning review remains pending.
 - Phase 6: health dashboard and durable local notifications are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
+- Phase 7: deterministic negative-Test suggestions are in implementation; they remain Docker-local and require explicit review before creating an independent Test Case.
 - Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -138,6 +139,21 @@ docker compose exec sentinel npm test
 docker compose exec sentinel npx playwright test tests/phase-6-dashboard-notifications.spec.ts
 ```
 
+## Phase 7 scope
+
+Phase 7 adds a central **Review** queue for conservative, deterministic negative-Test drafts. From a saved Test Case, an authorized product member manually selects **Generate suggestions**. Sentinel reads the current immutable version's captured validation metadata and may propose a blank required field, invalid email, or one-character-outside a known text boundary. Passwords, variable-backed and redacted values, unsupported fields, and missing metadata are skipped without exposing values. A draft may change only its title, rationale, and safe proposed value. Approving one creates an independent Version 1 Test Case owned by the approver; it does not mutate the source, start a Run, update a baseline, or notify anyone.
+
+To verify it after the stack is running:
+
+```text
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+docker compose exec sentinel npm test
+docker compose exec sentinel npx playwright test tests/phase-7-suggestions.spec.ts
+```
+
+For a manual check, record and save a fresh Demo CRM happy-path Test, select **Generate suggestions**, then open **Review**. Inspect skip explanations and draft rules; edit and approve one draft; confirm the new independent Test Case has Version 1 and no Run; dismiss/reopen another draft; and verify a user without that Product cannot access the queue or its linked Tests.
+
 ## Status
 
-Phases 1, 1.5, 2, 3, 4, 5, and 6 are implementation and automated-acceptance verified. Owner learning reviews remain pending in `learning-log.md`, so completed phases are not yet marked fully understood. Phase 6 owner manual inspection remains pending. External production integrations, scheduling, external QA targets, Slack, approval notices, and QA-network access remain later phases.
+Phases 1, 1.5, 2, 3, 4, 5, and 6 are implementation and automated-acceptance verified. Owner learning reviews remain pending in `learning-log.md`, so completed phases are not yet marked fully understood. Phase 6 owner manual inspection remains pending; Phase 7 implementation is in progress. External production integrations, scheduling, external QA targets, Slack, LLM suggestions, approval notices, and QA-network access remain later phases.
