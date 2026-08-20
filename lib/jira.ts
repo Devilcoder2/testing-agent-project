@@ -6,7 +6,7 @@ const PRIORITIES = ["Lowest", "Low", "Medium", "High", "Highest"] as const;
 export type JiraPriority = typeof PRIORITIES[number];
 
 export class JiraAdapterError extends Error {
-  constructor(message: string, readonly transient = false) {
+  constructor(message: string, readonly transient = false, readonly retryAfterMs?: number) {
     super(message);
   }
 }
@@ -62,6 +62,14 @@ function appUrl(path: string) {
 
 function safeLine(value: string, maximum = 240) {
   return value.replace(/[\r\n\t]+/g, " ").trim().slice(0, maximum);
+}
+
+export function jiraRetryAfterMs(value: string | null, now = Date.now()) {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(Math.round(seconds * 1_000), 60_000);
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? undefined : Math.min(Math.max(0, date - now), 60_000);
 }
 
 export function buildJiraDraft(run: DraftRun) {
@@ -126,7 +134,7 @@ async function jiraRequest(path: string, init?: RequestInit) {
   }
   if (!response.ok) {
     const transient = response.status === 429 || response.status >= 500;
-    throw new JiraAdapterError(`Jira Cloud rejected the request (${response.status}).`, transient);
+    throw new JiraAdapterError(`Jira Cloud rejected the request (${response.status}).`, transient, response.status === 429 ? jiraRetryAfterMs(response.headers.get("retry-after")) : undefined);
   }
   return { response, baseUrl };
 }
