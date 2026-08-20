@@ -36,7 +36,7 @@ The attached requirements document is the current product source of truth. Archi
 - Phase 5: Test Case versioning and Release management are implementation and automated-acceptance verified; owner learning review remains pending.
 - Phase 6: health dashboard and durable local notifications are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
 - Phase 7: deterministic negative-Test suggestions are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
-- Phase 8: planned reviewed Jira Cloud Bug workflow; implementation has not started.
+- Phase 8: reviewed Jira Cloud Bug workflow is implemented; focused automated verification passed, while a real Jira Cloud and owner manual check remain pending.
 - Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
