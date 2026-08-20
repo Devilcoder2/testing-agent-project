@@ -38,6 +38,7 @@ The attached requirements document is the current product source of truth. Archi
 - Phase 7: deterministic negative-Test suggestions are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
 - Phase 8: reviewed Jira Cloud Bug workflow is implemented; focused automated verification passed, while a real Jira Cloud and owner manual check remain pending.
 - Phase 10: explicit read-only local QA customer diagnostics are implemented and focused Docker verification passed; full regression, owner manual, and learning reviews remain pending.
+- Phase 11: controlled local-pilot hardening is implemented; full regression, adversarial review, owner manual, and learning reviews remain pending.
 - Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
@@ -183,6 +184,22 @@ docker compose exec sentinel npx prisma migrate status
 
 For a manual check, record and save the Demo CRM customer journey, start a Guided Run, manually enter the same customer journey, fail a step, complete the Run, then open Run Detail and select **Run customer lookup**. It should show a safe customer-found result without exposing the email. A passed or interrupted Run must not offer this action.
 
+## Phase 11 scope
+
+Phase 11 makes this a **local-only controlled pilot**. Sentinel, Demo CRM, and noVNC bind only to `localhost`; seeded named users remain development/pilot identities and must not be exposed to a network or production deployment. The Dashboard now includes Pilot readiness for local PostgreSQL, Redis, worker heartbeat, MinIO, Selenium, Mailpit, QA read-only diagnostics, evidence retention, and optional Jira configuration.
+
+Product creators can transfer Product, Test Case, and Release ownership to eligible existing members. A Test Case transfer moves pending submitted change-proposal review responsibility, but never changes historical Runs, recordings, or audit history. Completed Run evidence and completed database diagnostics expire after 30 days. The worker removes MinIO screenshot objects before their detailed records and leaves failed deletions for later retry.
+
+Verify focused Phase 11 behavior:
+
+```text
+docker compose exec sentinel npx vitest run tests/pilot-hardening.test.ts
+docker compose exec sentinel npm run lint
+docker compose exec sentinel npm run typecheck
+```
+
+For a manual readiness check, sign in locally, open the Dashboard, and confirm all required Pilot readiness checks are ready. Create a Product with a second eligible member, transfer a Test Case, and verify any submitted change proposal is now reviewable by the new owner. Do not configure real email or Jira credentials for this local pilot.
+
 ## Status
 
-Phases 1, 1.5, 2, 3, 4, 5, 6, and 7 are implementation and automated-acceptance verified. Phase 8 has focused automated verification; real Jira Cloud/manual verification remains pending. Phase 9 has focused Docker API/database verification; owner manual and learning review remain pending. Phase 10 has focused Docker fixture/role/adapter verification; full regression, owner manual, and learning review remain pending. Owner learning reviews remain pending in `learning-log.md`, so no phase is marked fully understood. External production integrations, scheduling, external QA targets, Slack, LLM suggestions, GitHub deployment correlation, automatic change classification, and QA-network access remain later phases.
+Phases 1, 1.5, 2, 3, 4, 5, 6, and 7 are implementation and automated-acceptance verified. Phase 8 has focused automated verification; real Jira Cloud/manual verification remains pending. Phase 9 has focused Docker API/database verification; owner manual and learning review remain pending. Phase 10 has focused Docker fixture/role/adapter verification; full regression, owner manual, and learning review remain pending. Phase 11 has focused Docker verification; full regression, adversarial review, owner manual, and learning review remain pending. Owner learning reviews remain pending in `learning-log.md`, so no phase is marked fully understood. External production integrations, organization roles/identity, scheduling, external QA targets, Slack, LLM suggestions, GitHub deployment correlation, automatic change classification, and QA-network access remain later phases.
