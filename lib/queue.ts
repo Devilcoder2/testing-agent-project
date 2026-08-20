@@ -3,6 +3,7 @@ import IORedis from "ioredis";
 
 export const AUTO_RUN_QUEUE = "sentinel-auto-runs";
 export const NOTIFICATION_QUEUE = "sentinel-notifications";
+export const JIRA_FILING_QUEUE = "sentinel-jira-filings";
 
 export type AutoRunJobData = {
   runId: string;
@@ -11,6 +12,10 @@ export type AutoRunJobData = {
 
 export type NotificationJobData = {
   notificationId: string;
+};
+
+export type JiraFilingJobData = {
+  filingId: string;
 };
 
 function redisUrl() {
@@ -23,6 +28,7 @@ export function createRedisConnection() {
 
 let queue: Queue<AutoRunJobData> | undefined;
 let notificationQueueInstance: Queue<NotificationJobData> | undefined;
+let jiraFilingQueueInstance: Queue<JiraFilingJobData> | undefined;
 
 export function autoRunQueue() {
   if (!queue) queue = new Queue<AutoRunJobData>(AUTO_RUN_QUEUE, { connection: createRedisConnection() });
@@ -46,6 +52,22 @@ export function notificationQueue() {
 export async function enqueueNotification(data: NotificationJobData) {
   const job = await notificationQueue().add("deliver", data, {
     jobId: `notification-${data.notificationId}`,
+    attempts: 2,
+    backoff: { type: "fixed", delay: 1_000 },
+    removeOnComplete: 100,
+    removeOnFail: 100
+  });
+  return String(job.id);
+}
+
+export function jiraFilingQueue() {
+  if (!jiraFilingQueueInstance) jiraFilingQueueInstance = new Queue<JiraFilingJobData>(JIRA_FILING_QUEUE, { connection: createRedisConnection() });
+  return jiraFilingQueueInstance;
+}
+
+export async function enqueueJiraFiling(data: JiraFilingJobData) {
+  const job = await jiraFilingQueue().add("file", data, {
+    jobId: `jira-filing-${data.filingId}`,
     attempts: 2,
     backoff: { type: "fixed", delay: 1_000 },
     removeOnComplete: 100,
