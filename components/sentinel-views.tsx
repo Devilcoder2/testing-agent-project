@@ -382,7 +382,8 @@ type RunStepResult = { id: string; order: number; status: "PENDING" | "RUNNING" 
 type RunAttempt = { id: string; attemptNumber: number; status: string; failureReason?: string | null; activeDurationMs?: number | null };
 type RunSummary = { id: string; mode: "GUIDED" | "AUTO"; status: "QUEUED" | "RUNNING" | "PAUSED" | "CANCELLING" | "COMPLETED"; outcome?: "PASSED" | "FAILED" | "INTERRUPTED" | null; evidenceStatus: "COMPLETE" | "PARTIAL"; createdAt: string; product: Product; testCase: { id: string; name: string }; initiatedBy: { displayName: string }; stepResults: Array<{ status: string }>; attempts?: RunAttempt[] };
 type JiraFiling = { id: string; status: "DRAFT" | "QUEUED" | "FILED" | "FAILED"; action: "CREATE" | "COMMENT" | null; summary: string; description: string; priority: "Lowest" | "Low" | "Medium" | "High" | "Highest"; attemptCount: number; deliveryError: string | null; jiraIssue: { key: string; url: string; isOpen: boolean } | null };
-type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; checkpointDeadline?: string | null; failureReason?: string | null; activeDurationMs?: number | null; benchmarkMedianMs?: number | null; durationDeltaMs?: number | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; attempts: RunAttempt[]; evidence: EvidenceItem[]; variableBindings?: Array<{ name: string; source: "STATIC" | "POOL" | "MANUAL"; dataSetId?: string | null }>; jiraFiling?: JiraFiling | null; viewerUrl?: string | null };
+type ChangeProposal = { id: string; status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "STALE"; context: string; appliedVersion?: number | null; changes: Array<{ sourceStepId: string; order: number; proposedDescription: string | null; proposedExpectedOutcome: string | null }> };
+type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; checkpointDeadline?: string | null; failureReason?: string | null; activeDurationMs?: number | null; benchmarkMedianMs?: number | null; durationDeltaMs?: number | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; attempts: RunAttempt[]; evidence: EvidenceItem[]; variableBindings?: Array<{ name: string; source: "STATIC" | "POOL" | "MANUAL"; dataSetId?: string | null }>; jiraFiling?: JiraFiling | null; changeProposal?: ChangeProposal | null; viewerUrl?: string | null };
 
 function runOutcomeTone(run: Pick<RunSummary, "status" | "outcome">) {
   if (run.status === "RUNNING") return "info" as const;
@@ -518,7 +519,36 @@ function RunEvidenceDetail({ screenshots, evidence, onOpenEvidence }: { screensh
     <section><h3>Screenshots</h3>{screenshots.length === 0 ? <p>No screenshots were captured.</p> : <div className="run-evidence__list">{screenshots.map((item) => <article key={item.id}><div><strong>{String((item.metadata as { label?: string } | null)?.label ?? "Screenshot")}</strong><small>{item.checksum ? `SHA-256 ${item.checksum.slice(0, 12)}…` : "Checksum unavailable"}</small></div><Button variant="secondary" onClick={() => void onOpenEvidence(item)}>Open</Button></article>)}</div>}</section>
     {["NETWORK", "CONSOLE", "STORAGE", "CAPTURE_ERROR"].map((kind) => { const items = evidence.filter((item) => item.kind === kind); return <section key={kind}><h3>{kind.replace("_", " ").toLowerCase()}</h3>{items.length === 0 ? <p>No {kind.toLowerCase().replace("_", " ")} evidence at this Run boundary.</p> : <div className="run-evidence__metadata">{items.map((item) => <pre key={item.id}>{item.captureError ?? JSON.stringify(item.metadata, null, 2)}</pre>)}</div>}</section>; })}
     <JiraFilingPanel />
+    <ChangeProposalPanel />
   </div>;
+}
+
+function ChangeProposalPanel() {
+  const [run, setRun] = useState<RunDetail | null>(null);
+  const [context, setContext] = useState("");
+  const [stepId, setStepId] = useState("");
+  const [description, setDescription] = useState("");
+  const [expectedOutcome, setExpectedOutcome] = useState("");
+  const [message, setMessage] = useState("");
+  const [working, setWorking] = useState(false);
+
+  useEffect(() => { const runId = window.location.pathname.split("/").filter(Boolean).at(-1); if (runId) request(`runs/${runId}`).then((result) => setRun(result as RunDetail)).catch(() => undefined); }, []);
+  if (!run || run.status !== "COMPLETED" || run.outcome !== "FAILED") return null;
+  const failedRun = run;
+  const selected = failedRun.stepResults.find((step) => step.testStep.id === stepId);
+  const existing = failedRun.changeProposal;
+  async function submit() {
+    if (!selected) return;
+    setWorking(true); setMessage("");
+    try {
+      const proposal = await request(`runs/${failedRun.id}/change-proposals`, "POST", { context, changes: [{ stepId: selected.testStep.id, description, expectedOutcome }] }) as ChangeProposal;
+      await request(`change-proposals/${proposal.id}/submit`, "POST");
+      setMessage("Change proposal submitted to the original Test Case owner.");
+      setRun({ ...failedRun, changeProposal: { ...proposal, status: "SUBMITTED" } });
+    } catch (error) { setMessage(errorMessage(error, "Could not submit the change proposal.")); } finally { setWorking(false); }
+  }
+  if (existing) return <section><h3>Change proposal</h3><p>A baseline-change proposal is {existing.status.toLowerCase()}. It never changes this failed Run or its source version.</p><p><Link href="/review">Open Review <span aria-hidden="true">→</span></Link></p></section>;
+  return <section><h3>Propose intentional change</h3><p>Use this only after a known QA deployment. Proposals can change a step’s description or expected outcome, never its action, selector, value, variable, checkpoint, or order.</p><div className="form-stack"><Field label="Deployment context"><TextArea value={context} onChange={(event) => setContext(event.target.value)} maxLength={1000} placeholder="What intentional QA change explains this failed Run?" /></Field><Field label="Saved step"><SelectInput value={stepId} onChange={(event) => { const next = run.stepResults.find((step) => step.testStep.id === event.target.value); setStepId(event.target.value); setDescription(next?.testStep.description ?? ""); setExpectedOutcome(next?.testStep.expectedOutcome ?? ""); }}><option value="">Choose a step</option>{run.stepResults.map((step) => <option key={step.id} value={step.testStep.id}>Step {step.order}: {runStepLabel(step)}</option>)}</SelectInput></Field>{selected && <><Field label="Proposed description"><TextArea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={2000} placeholder={selected.testStep.description ?? "Optional"} /></Field><Field label="Proposed expected outcome"><TextArea value={expectedOutcome} onChange={(event) => setExpectedOutcome(event.target.value)} maxLength={2000} placeholder={selected.testStep.expectedOutcome ?? "Optional"} /></Field></>} {message && <Feedback tone={message.startsWith("Change proposal") ? "success" : "danger"}>{message}</Feedback>}<Button onClick={() => void submit()} disabled={working || !context || !selected}>{working ? "Submitting…" : "Submit for owner review"}</Button></div></section>;
 }
 
 function JiraFilingPanel() {
