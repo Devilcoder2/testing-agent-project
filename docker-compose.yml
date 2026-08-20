@@ -87,6 +87,9 @@ services:
       SMTP_PORT: "1025"
       EMAIL_FROM: Sentinel <noreply@sentinel.local>
       SENTINEL_APP_URL: http://localhost:3001
+      JIRA_CLOUD_URL: ${JIRA_CLOUD_URL:-}
+      JIRA_SERVICE_EMAIL: ${JIRA_SERVICE_EMAIL:-}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
       GUIDED_RUN_DEMO_PASSWORD: ${GUIDED_RUN_DEMO_PASSWORD:?Set GUIDED_RUN_DEMO_PASSWORD in an untracked .env file}
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
     command: sh -c "npm ci --ignore-scripts && npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
@@ -125,6 +128,9 @@ services:
       SMTP_PORT: "1025"
       EMAIL_FROM: Sentinel <noreply@sentinel.local>
       SENTINEL_APP_URL: http://localhost:3001
+      JIRA_CLOUD_URL: ${JIRA_CLOUD_URL:-}
+      JIRA_SERVICE_EMAIL: ${JIRA_SERVICE_EMAIL:-}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
       AUTO_RUN_DEMO_EMAIL: qa.tester@example.test
       AUTO_RUN_DEMO_PASSWORD: TestPassword!
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
