@@ -69,7 +69,7 @@ export async function enqueueJiraFiling(data: JiraFilingJobData) {
   const job = await jiraFilingQueue().add("file", data, {
     jobId: `jira-filing-${data.filingId}`,
     attempts: 2,
-    backoff: { type: "fixed", delay: 1_000 },
+    backoff: { type: "sentinel-jira", delay: 1_000 },
     removeOnComplete: 100,
     removeOnFail: 100
   });
