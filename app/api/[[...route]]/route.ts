@@ -891,6 +891,19 @@ async function route(request: Request, context: Context) {
       });
       return json(release);
     }
+    if (request.method === "GET" && path[0] === "releases" && path[1] && path[2] === "members") {
+      const release = await assertReleaseMember(user.id, path[1]);
+      if (!release) return json({ error: "Release not found." }, 404);
+      const productIds = [...new Set(release.tests.map((item) => item.testCase.productId))];
+      const products = await prisma.product.findMany({ where: { id: { in: productIds } }, include: { memberships: { include: { user: { select: { id: true, displayName: true, email: true } } } } } });
+      const canTransfer = products.length === productIds.length && products.every((product) => product.createdById === user.id);
+      const eligibleIds = products.reduce<Set<string> | null>((shared, product) => {
+        const memberIds = new Set(product.memberships.map((membership) => membership.userId));
+        return shared === null ? memberIds : new Set([...shared].filter((id) => memberIds.has(id)));
+      }, null) ?? new Set<string>();
+      const members = products[0]?.memberships.map((membership) => membership.user).filter((member) => eligibleIds.has(member.id)).sort((left, right) => left.displayName.localeCompare(right.displayName)) ?? [];
+      return json({ canTransfer, members });
+    }
     if (request.method === "PATCH" && path[0] === "releases" && path[1] && path[2] === "owner") {
       const release = await prisma.release.findUnique({ where: { id: path[1] }, include: { tests: { include: { testCase: { select: { productId: true } } } } } });
       if (!release) return json({ error: "Release not found." }, 404);
