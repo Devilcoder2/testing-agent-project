@@ -277,3 +277,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Deployment/Git signals and automatic intent classification are not yet trustworthy enough to alter a replay baseline. Narrow annotation-only proposals make the operational difference visible while protecting browser action semantics and history.
 - **Impact:** Submitted and decided proposals use the existing safe notification path. Stale proposals stop rather than merge with newer Test Case work. GitHub correlation, automatic classification, action/selector changes, and automatic ticket filing remain deferred.
 - **Status:** Implemented and focused Docker API/database verified on 2026-08-20; owner manual and learning review pending.
+
+## D-034 — Phase 10 explicit, fixture-scoped database diagnosis
+
+- **Date:** 2026-08-20
+- **Decision:** Phase 10 uses a separate Docker-local QA PostgreSQL fixture plus a Demo CRM customer-write API. Sentinel receives only a different `qa_diagnostic` role that can connect, use the public schema, and select from the one `qa_customers` table. The only diagnostic is an explicit completed-failed-Run `customer_lookup_by_email`; it derives the final eligible customer email transiently from immutable steps and encrypted bindings, rather than accepting an email or SQL from the user.
+- **Reason:** A scoped fixture proves the least-privilege, parameterization, timeout, redaction, evidence, and authorization boundaries without accidentally granting Sentinel write access to its own application database or a future production QA system.
+- **Impact:** The query runs in a read-only transaction with a 1.5-second timeout and a one-row limit. It persists and displays only found/not-found state, status, and timestamps, or a safe incomplete/unavailable error code. The email, raw row, SQL, credentials, and connection string are excluded from UI, API responses, evidence, audit data, logs, email, and Jira. A completed safe summary may enrich a later human-reviewed Jira draft; no diagnosis or Jira action is automatic.
+- **Status:** Implemented with focused Docker fixture/role/adapter tests on 2026-08-20; full regression, owner manual review, and learning review remain pending.
