@@ -35,15 +35,15 @@ flowchart LR
 
 ### Web application
 
-Provides authentication, a product-authorized health dashboard, product and Test Case management, Recording Workspace, Run Detail, Releases, notification inbox, approvals, and manual actions. Its route-based App Shell uses the tokenized Sentinel frontend system documented in [`frontend.md`](frontend.md): a persistent sidebar, accessible semantic controls, and a desktop-first focused Recording Workspace. It never directly owns browser automation or external integration credentials.
+Provides authentication, a product-authorized health dashboard, product and Test Case management, Recording Workspace, Run Detail, Releases, notification inbox, a Phase 7 review queue, approvals, and manual actions. Its route-based App Shell uses the tokenized Sentinel frontend system documented in [`frontend.md`](frontend.md): a persistent sidebar, accessible semantic controls, and a desktop-first focused Recording Workspace. It never directly owns browser automation or external integration credentials.
 
 ### Application API
 
-Validates user permissions, persists domain state, starts jobs, derives dashboard health metrics using a rolling UTC window, exposes Run/evidence/notification metadata, records audit events, and coordinates approval and integration workflows. API operations are the authorization boundary for all writes.
+Validates user permissions, persists domain state, starts jobs, derives dashboard health metrics using a rolling UTC window, exposes Run/evidence/notification metadata, generates deterministic Phase 7 suggestion drafts, records audit events, and coordinates approval and integration workflows. API operations are the authorization boundary for all writes.
 
 ### Sentinel PostgreSQL
 
-Stores users, product membership, Test Cases, versioned steps, variables, releases, Runs, step results, Notifications, proposals, approvals, integration references, and audit records. Large evidence files are stored outside the relational database.
+Stores users, product membership, Test Cases, versioned steps, variables, Releases, Runs, step results, Notifications, Phase 7 suggestion drafts, proposals, approvals, integration references, and audit records. Large evidence files are stored outside the relational database.
 
 ### Run queue and browser workers
 
@@ -56,6 +56,8 @@ Playwright is the autonomous replay boundary for Chromium-based web testing. Eac
 Phase 4 adds a server/worker-only variable boundary. AES-256-GCM encrypts reusable static values, local Test Data Set fields, and immutable per-Run bindings using a required deployment key. Recorded and saved steps contain placeholders, not variable values. A pre-run transaction validates product membership and local pool eligibility, creates encrypted bindings, reserves any selected pool data set, and then creates the Guided or Auto Run. Every set has an explicit reuse policy: reusable sets return to safe after any terminal Run outcome, while single-use sets become consumed only after a passed Run. The reservation remains exclusive while a Run is active, preventing concurrent use of the same values. Guided replay and the worker decrypt only the binding required to perform a text action. Evidence, audit text, API detail responses, queues, and browser logs receive only variable names, source metadata, and masked placeholders. Existing consumed sets are migrated to safe reusable sets. External pool adapters and read-only QA-database verification remain Phase 10 work.
 
 Phase 5 adds feature-label and Release aggregates to the same modular monolith. A product-local feature-label record is joined to a Test Case, while a Test Case edit transaction clones the current version's ordered steps and variable configuration into the next immutable version. Existing versions and Runs are never altered. A Release owns a set of Test Case tags and a Release Run snapshots their exact current version IDs before submitting eligible items to the existing Auto Run queue. Each Release Run item keeps its own status, exclusion reason, and linked Auto Run. A shared completion helper projects linked Run terminal outcomes into the Release Run and derives readiness; it does not alter an individual Run's existing evidence, attempt, retry, or authorization boundary.
+
+Phase 7 adds a deterministic rule module and a `TestSuggestion` aggregate without a new service or third-party model. The API takes a snapshot of the source Test Case's current immutable version, then considers only captured non-secret, non-variable text-entry validation metadata. It persists at most one suggestion for each source version, source step, and rule, so repeat generation is idempotent and historical dismissals are retained. Draft edits are limited to title, rationale, and a safe proposed value. Approval is a single PostgreSQL transaction: it creates an independent saved recording fixture and a new owner-approved Test Case with a new immutable Version 1, copies labels and safe variable configuration, applies only the proposed step value, links the suggestion, and writes audit events. It never schedules or starts a Run. Product membership is rechecked for every generation, queue query, draft action, and derived Test Case link.
 
 For Phases 1–2, Sentinel hosts one local Chromium session in Docker and exposes its noVNC viewer inside a focused workspace. The embedded viewer hides noVNC's own clipboard, settings, fullscreen, and connection controls so it acts only as the remote display and input surface. Chromium runs in kiosk app mode, and managed browser policies block every URL except the allowlisted demo target and the exact internal recorder-event endpoint. Kiosk app mode removes the browser chrome and the host does not expose the WebDriver port. Developer Tools policy cannot be disabled in this Selenium design because ChromeDriver requires the same browser debugging protocol; URL policy remains the enforced navigation boundary. Before a new launch, Sentinel closes the browser it knows about and reclaims any Selenium session occupying the single slot, including a session that outlived a Sentinel restart. Each startup operation is time-bounded; a failed launch returns a retryable error rather than holding the workspace in a disabled state. The local Selenium node allows a guided session to remain idle for 30 minutes because noVNC input does not itself reset Selenium's idle timer. This replacement behavior is global to Phase 2: a browser-backed recording and a browser-backed Run cannot coexist. The Sentinel server attaches to that session through WebDriver, injects the Phase 1 recorder when teaching, and injects Phase 2 in-page fetch and warning/error-console instrumentation when guiding a Run. Password values are redacted before they leave the browser page.
 
@@ -97,6 +99,11 @@ erDiagram
     PRODUCT ||--o{ NOTIFICATION : scopes
     RUN ||--o{ NOTIFICATION : concerns
     RELEASE_RUN ||--o{ NOTIFICATION : summarizes
+    PRODUCT ||--o{ TEST_SUGGESTION : scopes
+    TEST_CASE ||--o{ TEST_SUGGESTION : sources
+    TEST_VERSION ||--o{ TEST_SUGGESTION : snapshots
+    STEP ||--o{ TEST_SUGGESTION : varies
+    TEST_SUGGESTION ||--o| TEST_CASE : approves_into
     TEST_CASE ||--o{ CHANGE_PROPOSAL : receives
     USER ||--o{ CHANGE_PROPOSAL : approves
 ```
@@ -111,6 +118,8 @@ Important invariants:
 - Release readiness is derived from every persisted item; a checkpoint, missing static variable default, or other ineligible item is visible as excluded rather than skipped.
 - Evidence belongs to one Run and is access-controlled through the Run’s Test Case and product.
 - A Notification belongs to one recipient and references the Product, Run, or Release Run that caused it; opening the notification or its link rechecks the recipient’s current authorization.
+- A Test Suggestion belongs to one Product, source Test Case, immutable source version, source step, and deterministic rule. It never mutates that source or runs before an authorized product member approves it.
+- Approving a Test Suggestion atomically creates a separately owned Test Case and immutable Version 1; the proposal changes one safe text value only and keeps its source relationship for auditability.
 - An approval is tied to the owner identity at the time of the decision and is auditable.
 
 ## 5. Security boundaries
