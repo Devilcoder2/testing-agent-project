@@ -75,8 +75,8 @@
             <section class="panel">
               ${confirmation ? '<div class="success" role="status">Customer created successfully.</div>' : ''}
               ${create ? `<form id="customer-form">
-                <label>First name<input name="firstName" required /></label>
-                <label>Last name<input name="lastName" required /></label>
+                <label>First name<input name="firstName" required minlength="2" maxlength="50" /></label>
+                <label>Last name<input name="lastName" required minlength="2" maxlength="50" /></label>
                 <label>Email address<input name="email" type="email" required /></label>
                 <div class="message" id="customer-message"></div>
                 <button type="submit">Create customer</button>
