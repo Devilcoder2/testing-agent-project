@@ -1536,6 +1536,7 @@ async function route(request: Request, context: Context) {
 
 export const GET = (request: Request, context: Context) => route(request, context);
 export const POST = (request: Request, context: Context) => route(request, context);
+export const PUT = (request: Request, context: Context) => route(request, context);
 export const PATCH = (request: Request, context: Context) => route(request, context);
 export const DELETE = (request: Request, context: Context) => route(request, context);
 export const OPTIONS = (request: Request, context: Context) => route(request, context);
