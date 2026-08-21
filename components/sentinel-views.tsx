@@ -149,7 +149,6 @@ export function DashboardView() {
       if (!active) return;
       const next = result as DashboardData;
       setData(next);
-      if (!productId && next.selected) setProductId(next.selected.product.id);
     }).catch((loadError) => {
       if (active) setError(errorMessage(loadError, "Could not load health data."));
     }).finally(() => { if (active) setLoading(false); });
@@ -158,14 +157,15 @@ export function DashboardView() {
   useEffect(() => { void request("pilot-readiness").then((result) => setReadiness(result as PilotReadinessData)).catch(() => setReadiness(null)); }, []);
 
   const selected = data?.selected ?? null;
+  const isAllProducts = selected?.product.id === "";
   const trendMaximum = Math.max(1, ...(selected?.trend.map((day) => day.passed + day.failed) ?? []));
   return <div className="dashboard-grid">
     <PageHeader eyebrow="Quality health · rolling 30-day UTC window" title="Dashboard" detail="Recent Test health across the Products you can currently access." actions={<Field label="Product drill-down"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)} disabled={loading || !data?.products.length}><option value="">All accessible Products</option>{data?.products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field>} />
     {error && <Feedback tone="danger">{error}</Feedback>}
     {readiness && <Card className="panel-card pilot-readiness"><div className="panel-card__head"><div><p className="eyebrow">Controlled internal pilot</p><h2>Pilot readiness</h2><p>{readiness.localOnly ? "Local Docker services and seeded named users only." : "Deployment readiness."}</p></div><StatusBadge tone={readiness.ready ? "success" : "warning"}>{readiness.ready ? "Ready" : "Needs attention"}</StatusBadge></div><div className="pilot-readiness__list">{readiness.items.map((item) => <div className="pilot-readiness__item" key={item.key}><div><strong>{item.label}</strong><p>{item.detail}</p></div><StatusBadge tone={item.status === "READY" ? "success" : item.status === "ATTENTION" ? "warning" : "info"}>{item.status.toLowerCase()}</StatusBadge></div>)}</div></Card>}
     {loading && !data ? <StatusBadge tone="info">Loading health data</StatusBadge> : !selected ? <EmptyState title="No accessible Products" detail="Create a Product, then save a Test Case to begin building health signals." /> : <>
-      <section className="metrics metrics--health" aria-label="Selected Product health metrics">
-        <Card className="metric-card"><p className="metric-card__label">Saved Test Cases</p><p className="metric-card__value">{selected.totalSavedTestCases}</p><p className="metric-card__detail">Current Product baseline</p></Card>
+      <section className="metrics metrics--health" aria-label={isAllProducts ? "All accessible Products health metrics" : "Selected Product health metrics"}>
+        <Card className="metric-card"><p className="metric-card__label">Saved Test Cases</p><p className="metric-card__value">{selected.totalSavedTestCases}</p><p className="metric-card__detail">{isAllProducts ? "All accessible Products" : "Current Product baseline"}</p></Card>
         <Card className="metric-card"><p className="metric-card__label">Completed Runs</p><p className="metric-card__value">{selected.completedRuns}</p><p className="metric-card__detail">Finished in this window</p></Card>
         <Card className="metric-card"><p className="metric-card__label">Pass rate</p><p className="metric-card__value">{selected.passRate === null ? "—" : `${Math.round(selected.passRate * 100)}%`}</p><p className="metric-card__detail">Interrupted Runs excluded</p></Card>
         <Card className="metric-card"><p className="metric-card__label">Failed Runs</p><p className="metric-card__value">{selected.failedRuns}</p><p className="metric-card__detail">Needs investigation</p></Card>
