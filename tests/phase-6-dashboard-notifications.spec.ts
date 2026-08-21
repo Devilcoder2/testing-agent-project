@@ -33,10 +33,15 @@ test("shows an authorized health drill-down and lets the tester read a failure n
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByLabel("Product drill-down")).toHaveValue("");
+    await expect(page.getByRole("heading", { name: "All accessible Products", exact: true })).toBeVisible();
     await page.getByLabel("Product drill-down").selectOption(fixture.productId);
     await expect(page.getByText("Failed Runs", { exact: true })).toBeVisible();
     await expect(page.getByText("1", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Dashboard failed journey", { exact: true })).toBeVisible();
+    await page.getByLabel("Product drill-down").selectOption("");
+    await expect(page.getByLabel("Product drill-down")).toHaveValue("");
+    await expect(page.getByRole("heading", { name: "All accessible Products", exact: true })).toBeVisible();
 
     await page.locator(".sidebar").getByRole("link", { name: "Notifications" }).click();
     await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
