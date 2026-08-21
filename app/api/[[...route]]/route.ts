@@ -7,7 +7,7 @@ import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordi
 import { dashboardForUser } from "@/lib/dashboard";
 import { customerEmailForDiagnostic, customerLookupByEmail } from "@/lib/database-diagnostics";
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
-import { buildJiraDraftWithDiagnostic, isAllowedJiraPriority, jiraCloudIsConfigured, normalizeJiraProjectKey, publicJiraFiling, validateJiraProject } from "@/lib/jira";
+import { buildJiraDraftWithDiagnostic, isAllowedJiraPriority, JiraAdapterError, jiraCloudIsConfigured, normalizeJiraProjectKey, publicJiraFiling, validateJiraProject } from "@/lib/jira";
 import { notifyChangeProposalResolved, notifyChangeProposalSubmitted, notifyRunFailure } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { pilotReadiness } from "@/lib/pilot-readiness";
@@ -1528,6 +1528,7 @@ async function route(request: Request, context: Context) {
     if (code.startsWith("VARIABLE_DATA_SET_REQUIRED:")) return json({ error: `Choose a Test Data Set for ${code.slice("VARIABLE_DATA_SET_REQUIRED:".length)} before starting this Run.` }, 400);
     if (code.startsWith("VARIABLE_DATA_SET_FIELD_MISSING:")) return json({ error: `The selected Test Data Set does not provide ${code.slice("VARIABLE_DATA_SET_FIELD_MISSING:".length)}.` }, 409);
     if (code.startsWith("BROWSER_")) return json({ error: "The live browser could not start. Try launching it again." }, 503);
+    if (error instanceof JiraAdapterError) return json({ error: error.message }, error.transient ? 503 : 400);
     console.error("Sentinel API failure", error);
     return json({ error: "The recording browser could not be launched. Check the Sentinel container logs for details." }, 500);
   }
