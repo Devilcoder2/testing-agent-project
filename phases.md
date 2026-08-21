@@ -8,8 +8,8 @@
 
 ```mermaid
 flowchart LR
-    P1["1. Foundation and recording"] --> P15["1.5 Frontend foundation and UX redesign"]
-    P15 --> P2["2. Run model and evidence"]
+    P1["1. Foundation and recording"] --> P1_5["1.5 Frontend foundation and UX redesign"]
+    P1_5 --> P2["2. Run model and evidence"]
     P2 --> P3["3. Replay engine"]
     P3 --> P4["4. Variables and data"]
     P3 --> P5["5. Test and release management"]
@@ -21,6 +21,12 @@ flowchart LR
     P8 --> P11["11. Release readiness and hardening"]
     P9 --> P11
     P10 --> P11
+    P11 --> P12["12. Organization roles and administration"]
+    P12 --> P13["13. Optional GitHub-triggered Runs"]
+    P12 --> P14["14. Conversational agent integration"]
+    P12 --> P15["15. Product-wide UI revamp"]
+    P13 --> P15
+    P14 --> P15
 ```
 
 ## Phase 1 — Foundation and guided recording
@@ -501,22 +507,69 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 - [x] Publish an adversarial review and explicitly defer each wider-deployment finding.
 - [ ] Complete deferred owner learning answers before calling the platform fully understood.
 
-## Post-current-phase discovery backlog — not scheduled
+## Phase 12 — Organization roles and administration
 
-These owner-proposed ideas must be discussed and approved only after the current Phase 6–11 roadmap is complete. They are reminders, not requirements for any existing phase and do not authorize implementation now.
+**Depends on:** Phase 11 and an approved identity/authentication decision.
+**Outcome:** Sentinel has an organization-aware authorization boundary in which approved administrators can manage membership and roles, while every existing Product, Test Case, Run, Release, evidence, variable, Jira, and diagnostic action remains protected by explicit permissions.
 
-### UI revamp
+- [ ] Confirm the organization model, identity provider/login method, invite/deprovisioning flow, session policy, and individual-project workspace behavior before implementation; do not assume a production identity provider.
+- [ ] Confirm and document the complete permission matrix for the intended roles: **admin**, **manager**, and **tester**. Resolve every current action—including ownership transfer, Product membership, Test Data, Runs, Releases, Jira configuration, approvals, diagnostics, notifications, and future integrations—rather than relying on broad percentage-of-access descriptions.
+- [ ] Add organization, membership, role-assignment, and audit persistence with a safe migration from seeded pilot users and existing Product memberships.
+- [ ] Build administrator-only membership management: invite/link an existing user, assign or change a role, remove access safely, and preserve historical ownership/audit data without orphaning active work.
+- [ ] Apply authorization consistently to the existing UI, APIs, queues, signed evidence access, Jira configuration, database diagnostics, and ownership-transfer paths. Deny by default when role or organization context is absent.
+- [ ] Define the individual-project workspace rule so its designated individual tester receives administrator capabilities without weakening organization isolation.
+- [ ] Provide an administration experience for organization members, role state, Product access, and safe audit context; never expose credentials, variable values, or evidence bodies in access-management views.
+- [ ] Add unit, integration, and browser tests for permission boundaries, privilege changes, removal/deprovisioning, historical access denial, session refresh, cross-organization isolation, and audit records.
+- [ ] Update all required documentation, add an append-only learning-log entry with exactly 10 owner questions, run full regression, and complete owner manual authorization testing.
 
-Revisit the complete product experience after the current features are available. The goal is a modern, clearer, less cognitively demanding interface rather than incremental cosmetic changes to the current UI. Future discovery must review navigation, information hierarchy, workflows, visual language, accessibility, and the needs of every delivered feature before defining a dedicated redesign phase.
+**Out of scope:** SSO/SAML/SCIM implementation unless selected during the approval gate, billing, self-service public signup, arbitrary custom roles, and production deployment.
 
-### Organization roles and administration
+## Phase 13 — Optional GitHub connection and branch-triggered Runs
 
-Add an administration and authorization model with three intended organization-level roles: **admin** with full application access, **manager** with substantial but deliberately limited access, and **tester** with a narrower working-access set. The exact permission matrix, role assignment workflow, audit requirements, and authentication model remain undecided. For an individual-project workspace, its individual tester is intended to act as the administrator. No role behavior is approved or implemented yet.
+**Depends on:** Phase 12 and an approved GitHub authentication model.
+**Outcome:** An authorized organization can optionally connect a Product to approved GitHub repositories and branches so qualifying pushes start only explicitly eligible Auto Runs, with safe traceability and no effect on unconnected Products.
 
-### Conversational agent integration
+- [ ] Confirm GitHub App versus OAuth, repository-installation ownership, required GitHub permissions, webhook endpoint/deployment boundary, and disconnect/revocation behavior before implementation.
+- [ ] Let only the approved organization/Product authority create, view, pause, edit, or remove a connection. Store repository identifiers, selected branch rules, and safe connection state; never store GitHub tokens in browser-visible data or audit detail.
+- [ ] Verify webhook signatures, enforce repository and branch allowlists, reject replayed/stale events, and persist a de-duplicated delivery record before any Run is queued.
+- [ ] Define and display an explicit Test Case eligibility policy. At minimum, a source-control event must not bypass existing Auto Run safeguards for checkpoints, variable/Test Data bindings, Product authorization, concurrency, or browser-target allowlists.
+- [ ] Queue eligible Runs through the existing worker with bounded concurrency, link every queued Run to the GitHub delivery and commit metadata, and preserve normal retries, evidence redaction, outcomes, and notifications.
+- [ ] Provide a Product-level connection screen and a safe activity view showing branch, commit identifier, trigger decision, excluded Tests/reasons, queued Runs, pause state, and protected Run links; never display source code, tokens, or raw webhook payloads unnecessarily.
+- [ ] Define idempotent retry and failure behavior for webhook receipt and Run queueing. A failed webhook or worker delivery must not create duplicate Runs or grant access.
+- [ ] Add unit, integration, webhook-signature, queue, authorization, and browser tests for connected versus unconnected Products, branch filtering, duplicate delivery, pause/disconnect, ineligible Tests, and safe notifications/audit history.
+- [ ] Update all required documentation, add an append-only learning-log entry with exactly 10 owner questions, run full regression, and complete owner manual GitHub sandbox testing.
 
-Explore a WhatsApp and/or Telegram agent that lets an authorized tester list Releases or Test Cases, choose tests, request an Auto Run, and receive the outcome without opening Sentinel on a laptop. Future discovery must decide the messaging provider, identity linking, organization/role authorization, command confirmation, run eligibility, result/evidence sharing, secret handling, audit trail, and failure/retry behavior. This must reuse Sentinel’s authorization and safe Auto Run boundaries; it must not give a chat message unrestricted access to the platform.
+**Out of scope:** GitHub source-code analysis, automatic baseline/Test Case modification, arbitrary workflow automation, pull-request approval, automatic Jira filing, and connections to non-GitHub source-control providers.
 
-### Optional GitHub repository connection and branch-triggered Runs
+## Phase 14 — Conversational agent integration
 
-Explore an optional, organization-authorized GitHub connection that lets a Product link to one or more repositories and selected branches. A qualifying push may trigger an eligible set of Test Cases automatically; Products without a configured connection remain entirely manual. Future discovery must decide the GitHub App versus OAuth model, repository and branch allowlists, webhook signature verification, event de-duplication and retry behavior, which Test Cases qualify for automatic execution, variable/Test Data handling, queue limits, notification and audit behavior, permission mapping, safe evidence links, and how a connection can be paused or removed. This integration must reuse Sentinel's existing authorization, Release, and Auto Run safety boundaries; a source-control event must never grant unrestricted access or trigger unsafe Tests.
+**Depends on:** Phase 12; may reuse Phase 13 Run traceability but must not require a GitHub connection.
+**Outcome:** An explicitly linked, authorized tester can safely use an approved WhatsApp or Telegram integration to discover Tests/Releases, request eligible Auto Runs, confirm the request, and receive a privacy-safe result without opening Sentinel on a laptop.
+
+- [ ] Confirm the first messaging provider, provider account ownership, webhook/authentication model, message-retention policy, identity-linking flow, and support/runbook before implementation. WhatsApp and Telegram are alternatives until the owner approves scope.
+- [ ] Require a one-time, authenticated Sentinel identity link and re-check current organization, role, and Product access for every command. A phone number, chat ID, or forwarded message alone must never authorize an action.
+- [ ] Support a deliberately narrow command flow: list authorized Releases/Test Cases, select one or more eligible Tests, show a clear confirmation including scope, then request existing Auto Runs. Do not expose a generic administrative command surface.
+- [ ] Reuse existing Auto Run eligibility, variable/Test Data binding rules, checkpoints, queue limits, cancellation, retry, authorization, evidence redaction, and audit boundaries. Ineligible Tests must return a clear safe reason rather than being silently skipped.
+- [ ] Send only privacy-safe chat replies: names, states, timestamps, safe failure reason, and protected Sentinel links. Never send credentials, variables, Test Data values, screenshots, raw logs, evidence URLs, database results beyond existing safe summaries, or unrestricted Run controls.
+- [ ] Make inbound messages and outbound status notifications idempotent, rate-limited, auditable, and recoverable from provider/worker failures. Explicitly define confirmation expiry and how cancellation is authorized.
+- [ ] Provide a Sentinel integration/status screen for administrators: linked identities, safe connection status, last command state, revoke/unlink action, and audit history without message or secret leakage.
+- [ ] Add unit, integration, provider-webhook, queue, authorization, redaction, confirmation, retry, and browser tests—including revoked access, stale confirmation, duplicate message, unauthorized chat, and failed-provider cases.
+- [ ] Update all required documentation, add an append-only learning-log entry with exactly 10 owner questions, run full regression, and complete owner manual sandbox-provider testing.
+
+**Out of scope:** Unrestricted natural-language administration, autonomous Test selection, direct evidence delivery in chat, production customer support, multi-provider implementation in the first iteration, and bypassing Sentinel's approved browser/Run policies.
+
+## Phase 15 — Product-wide UI/UX revamp
+
+**Depends on:** Phases 12–14. This phase is intentionally last.
+**Outcome:** The complete delivered Sentinel product has a cohesive, modern, accessible, and understandable experience across administration, GitHub automation, conversational integrations, recording, testing, Runs, Releases, Review, evidence, notifications, and settings—without changing approved business/security behavior accidentally.
+
+- [ ] Run structured UX discovery across representative admins, managers, and testers. Confirm target workflows, vocabulary, navigation, density, information hierarchy, accessibility needs, desktop/mobile policy, and success measures before visual implementation.
+- [ ] Audit every current route, modal, empty/loading/error state, protected action, focus order, responsive state, and operational workflow. Produce approved user journeys and page blueprints before redesigning components.
+- [ ] Define the revised visual language, design tokens, typography, colour/contrast roles, component states, icon strategy, motion rules, accessibility specification, and content guidelines. Do not assume an external design system, font, or asset library without approval.
+- [ ] Redesign the application shell, navigation, Dashboard, Product/administration areas, Test Cases, recording workspace, Run/evidence detail, Releases, Review, notifications, GitHub settings/activity, and conversational-integration management as one coherent system.
+- [ ] Preserve all authorization visibility rules, protected links, destructive-action confirmations, privacy-redaction cues, desktop recording constraints, and existing keyboard/reduced-motion behavior while improving clarity and speed.
+- [ ] Validate responsive behavior against the agreed policy. Recording and other browser-heavy operational workspaces must retain an explicit supported-viewport experience rather than silently degrading.
+- [ ] Add visual, keyboard, accessibility, route/navigation, error-feedback, and end-to-end regression coverage for every existing critical workflow; verify that the redesign does not alter API contracts, persisted data, Run behavior, or security boundaries.
+- [ ] Conduct owner usability testing, record findings and approved refinements, then update all required documentation and add an append-only learning-log entry with exactly 10 owner questions.
+
+**Out of scope:** New business features, replacing the browser automation/evidence architecture, changing role policy, a native mobile application, or styling-only changes without the approved UX discovery and accessibility review.
