@@ -62,6 +62,7 @@ Motion defaults are 150 ms for press and hover feedback and 220 ms for surface t
 | `/notifications` | Phase 6 product-authorized inbox with unread/all filtering, delivery state, protected Run or Release links, and individual or bulk read actions. |
 | `/review` | Phase 7 product-authorized suggestion queue plus Phase 9 change-proposal queue. Change proposals show source/proposed description and expected-outcome text side by side, preserve failed-Run evidence links, and expose decision controls only to the original Test Case owner. |
 | `/products` Jira panel | Phase 8 creator-only Jira Cloud project mapping, with connected, unavailable, and validation-error states; credentials never appear in the UI. |
+| `/admin` | Phase 12 Admin-only organization workspace for members, invitations, roles, account state, Product access, and safe audit context. Managers and Testers never see this navigation destination. |
 
 ### Future route specifications
 
@@ -91,6 +92,10 @@ Use a branded full-height entry screen with a concise development-access card, c
 ### Dashboard, Products, and Test Case inventory
 
 Use the shared App Shell and keep responsibilities separate. Phase 6 Dashboard is a clean operational overview, not an inventory: a Product selector changes the authorized 30-day UTC health view; compact metric cards show saved Tests, completed Runs, pass rate, failures, flakiness, and coverage growth; a custom CSS daily result trend and latest-Run list communicate state without a chart dependency; and a clear **Needs attention** region links only the current user's unread failure/checkpoint items. Empty metrics explain that there is no recent activity rather than implying a zero-quality result. Products owns creation and name management through a heading-level modal action, with rename validation matching creation validation and a direct **View Test Cases** link that applies the Product filter; Test Cases owns searchable inventory, leaves clear separation between its search field and results, and shows its visible/total count beside the heading. The top-bar **New recording** action opens a compact, labelled creation dialog over the current page rather than a standalone creation screen.
+
+### Phase 12 identity and administration
+
+Use dedicated sign-in, password-reset, and invitation-acceptance screens with labelled fields, neutral reset feedback, clear expiry/error states, and no organization/user enumeration. The Admin workspace shows role and account-state text beside every member, Product access through explicit controls, and confirmation before disablement or access removal. It never shows passwords, invitation/reset tokens, evidence, variable values, or Test Data values. Navigation and action visibility follow the effective active organization role; a denied deep link returns a safe access message without rendering administration data.
 
 ### Notifications inbox
 
