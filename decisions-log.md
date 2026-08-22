@@ -293,3 +293,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** The project needs a recoverable pilot operating boundary before adding the separately proposed organization roles, external identity, provider credentials, and production deployment model. Ownership continuity and bounded evidence storage address concrete pilot risks without broadening scope into administration.
 - **Impact:** A Dashboard readiness panel checks local services, worker heartbeat, QA read-only access, retention state, and optional Jira configuration without exposing secrets. Jira HTTP 429 retries once after a validated `Retry-After` delay capped at 60 seconds. Real email, production Jira, external access, retention/legal policy, and role-based access remain future decisions.
 - **Status:** Implemented with focused Docker verification on 2026-08-20; full regression, adversarial review, owner manual check, and learning review remain pending.
+
+## D-036 — Phase 12 built-in multi-organization roles
+
+- **Date:** 2026-08-22
+- **Decision:** Use built-in local accounts, controlled organization bootstrap, PostgreSQL-backed eight-hour sessions, and Admin/Manager/Tester organization roles. Admins manage membership, Product access, and ownership; Managers manage QA work in assigned Products; Testers manage only their own Tests/Test Data while running any assigned Product Test. Invite/reset links are one-time and expire after 24 hours.
+- **Reason:** The local pilot needs a real, immediately revocable authorization boundary before GitHub triggers or conversational controls can request Runs. An external provider, public signup, and custom roles would expand the first administration phase beyond its approved scope.
+- **Impact:** Existing seeded data migrates into one demo organization. Product creators remain historical attribution, while role policy replaces creator-only Jira, ownership, and change-approval authority. Disabled users preserve history but lose effective access and sessions immediately.
+- **Status:** Confirmed by project owner; implementation pending.
