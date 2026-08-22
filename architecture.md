@@ -179,3 +179,9 @@ The design avoids Kubernetes, microservices per feature, a general-purpose AI ag
 - Email/Slack provider and delivery policy.
 - Database schema discovery and approved diagnostic query catalog.
 - Ownership reassignment workflow.
+
+## 10. Phase 12 identity and organization boundary
+
+Phase 12 keeps Sentinel as a modular monolith but replaces the signed identity-only development cookie with persistent server-side sessions. PostgreSQL stores organizations, organization memberships/roles, active/disabled account state, password hashes, one-time invitation/reset token hashes, and sessions. The browser receives only an opaque, HttpOnly, same-site session identifier; every request resolves the active user and organization membership from PostgreSQL, so disablement, role changes, and Product-access removal revoke access immediately.
+
+Products gain an organization boundary; their existing Product memberships scope Managers and Testers, while an active organization Admin has full access within that organization. Product-linked records inherit organization isolation through their Product. Existing queued work must re-check active authorization before sensitive worker actions; evidence links, notifications, Jira, diagnostics, and ownership transfers use the same policy layer. Local Mailpit delivers invitation and reset links only; no production identity provider or email service is introduced in this phase.
