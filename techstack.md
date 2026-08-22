@@ -33,7 +33,7 @@
 
 ## 3. Integrations
 
-- **Authentication:** Organization-approved OIDC/SAML provider when confirmed; a development-only local identity adapter may be used before the provider is available. Shared login must resolve to a named actor.
+- **Authentication:** Phase 12 uses a built-in local account adapter with Node.js `crypto.scrypt` password hashing, hashed one-time invitation/reset tokens, and PostgreSQL-backed opaque sessions. Sessions expire after eight hours and are revoked on disable/access changes. OIDC/SAML/SCIM remain deferred.
 - **Jira Cloud:** REST API v3 through a server/worker adapter. `JIRA_CLOUD_URL`, `JIRA_SERVICE_EMAIL`, and `JIRA_API_TOKEN` are server-only configuration. Each Product stores only its non-secret Jira project key; the adapter queues reviewed requests, retries one transient failure, checks whether the Test Case's linked issue is still open, and sends only safe text plus protected Sentinel links.
 - **Notifications:** A Nodemailer SMTP adapter sends Phase 6 local messages to Mailpit. It persists notification delivery state before queueing through BullMQ, retries one transient SMTP failure, and never makes delivery outcome part of Run or Release truth. Slack remains deferred.
 - **QA PostgreSQL:** Phase 10 Docker development uses a distinct `qa-postgres` PostgreSQL 16 service and a small `qa-fixture` Node API that receives Demo CRM customer writes. Sentinel uses `QA_DATABASE_URL` only with the separate `qa_diagnostic` role. The adapter has one parameterized customer lookup with a 1.5-second timeout, one-row limit, read-only transaction, safe result/error metadata, and audit logging.
@@ -47,6 +47,7 @@
 - The local Selenium node uses a 30-minute idle session limit for guided Runs because noVNC input does not reset Selenium’s WebDriver activity timer.
 - Auto Run Demo CRM credentials are worker-only environment configuration. They are never stored in PostgreSQL, MinIO metadata, browser logs, or API responses.
 - `VARIABLE_ENCRYPTION_KEY` is a required base64-encoded 32-byte local secret available only to the Sentinel API and worker. It encrypts Phase 4 variable values; missing or invalid configuration blocks variable setup and affected Runs rather than falling back to plaintext.
+- Phase 12 requires untracked `BOOTSTRAP_ORGANIZATION_NAME`, `BOOTSTRAP_ADMIN_EMAIL`, and `BOOTSTRAP_ADMIN_PASSWORD` values to provision the controlled local demo organization. Invitation/reset links use the existing local Mailpit SMTP adapter and `SENTINEL_APP_URL`.
 - The worker uses a five-second default action/navigation timeout for the local Demo CRM; `AUTO_RUN_ACTION_TIMEOUT_MS` may tune that worker-only limit without changing saved Test Cases.
 - Phase 5 adds no new service or dependency: immutable Test Case versions, product-local feature labels, Releases, Release Runs, and derived readiness use PostgreSQL transactions plus the existing two-concurrency BullMQ worker. Release batch work does not use the guided browser or a scheduler.
 - Phase 6 requires `SMTP_HOST`, `SMTP_PORT`, `EMAIL_FROM`, and `SENTINEL_APP_URL`. Docker defaults route SMTP internally to Mailpit and expose its inspection UI only at `http://localhost:8025`; no production email credentials belong in this repository.
