@@ -191,11 +191,31 @@ enum JiraFilingAction {
   COMMENT
 }
 
+enum OrganizationRole {
+  ADMIN
+  MANAGER
+  TESTER
+}
+
+enum AccountStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum AuthTokenKind {
+  INVITE
+  PASSWORD_RESET
+}
+
 model User {
   id                   String              @id @default(cuid())
   email                String              @unique
   displayName          String
-  devPassword          String
+  passwordHash         String?
+  accountStatus        AccountStatus       @default(ACTIVE)
+  organizationMemberships OrganizationMember[]
+  sessions             UserSession[]
+  authTokens           AuthToken[]
   memberships          ProductMembership[]
   products             Product[]
   recordings           RecordingSession[]  @relation("RecordingOwner")
@@ -217,9 +237,11 @@ model User {
 
 model Product {
   id              String              @id @default(cuid())
+  organizationId  String?
   name            String
   createdById     String
   createdBy       User                @relation(fields: [createdById], references: [id])
+  organization    Organization?       @relation(fields: [organizationId], references: [id])
   memberships     ProductMembership[]
   recordings      RecordingSession[]
   testCases       TestCase[]
@@ -237,6 +259,56 @@ model Product {
   updatedAt       DateTime            @updatedAt
 
   @@unique([createdById, name])
+  @@index([organizationId, name])
+}
+
+model Organization {
+  id          String               @id @default(cuid())
+  name        String               @unique
+  memberships OrganizationMember[]
+  products    Product[]
+  authTokens  AuthToken[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model OrganizationMember {
+  organizationId String
+  userId         String
+  role           OrganizationRole
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@id([organizationId, userId])
+  @@index([userId, role])
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId, expiresAt])
+}
+
+model AuthToken {
+  id             String        @id @default(cuid())
+  userId         String
+  organizationId String?
+  kind           AuthTokenKind
+  tokenHash      String        @unique
+  expiresAt      DateTime
+  usedAt         DateTime?
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+
+  @@index([userId, kind, expiresAt])
 }
 
 model ProductMembership {
