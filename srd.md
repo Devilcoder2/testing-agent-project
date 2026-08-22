@@ -202,6 +202,14 @@ Completed Run evidence, including screenshots, network, console, storage, captur
 
 When optional Jira returns HTTP 429, Sentinel retries once after a valid `Retry-After` delay capped at 60 seconds. It records the same safe final-failure state if the retry fails; Jira delivery never changes Run, evidence, Release, or notification truth.
 
+### F12. Organization roles and administration
+
+Phase 12 replaces seeded development identity with built-in multi-organization accounts. A controlled bootstrap creates the first demo organization and Admin, then organization Admins invite users through one-time 24-hour setup links delivered through the local Mailpit adapter. Active users may request a neutral-response, one-time 24-hour password-reset link. Passwords are securely hashed; sessions are server-side, expire after eight hours, and are revoked immediately when the user is disabled or their effective access changes.
+
+Every Product belongs to exactly one organization. Admins have all access within their organization. Managers require Product membership and may manage QA work in assigned Products: Products, Test Cases, Test Data, Runs, Releases, Jira configuration, and change-proposal decisions. Testers require Product membership, may create/edit only their own Tests and Test Data, may execute any assigned Product Test, and may view shared safe operational data. Testers cannot manage Releases, Jira, approvals, ownership, organization membership, or another user's Tests/Test Data. Admins alone manage organization members, roles, Product memberships, and ownership transfer. A manager or Admin may approve/reject a Phase 9 proposal for an assigned Product; Test Case ownership remains attribution, not approval authority.
+
+Disabling a user preserves history and memberships but removes all effective access and revokes every session. Sentinel must not disable, demote, or remove the final active Admin. All existing access paths—including APIs, workers, evidence links, notifications, Jira, diagnostics, and ownership transfer—re-check active organization, role, and Product membership and deny access by default. Credentials, tokens, raw Test Data, variable values, and evidence bodies never appear in administration screens or responses.
+
 ## 7. Cross-cutting requirements
 
 ### Security and privacy
