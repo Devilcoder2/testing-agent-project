@@ -1,4 +1,4 @@
-import { NotificationType, RunOutcome } from "@prisma/client";
+import { NotificationType, OrganizationRole, RunOutcome } from "@prisma/client";
 import { prisma } from "./prisma";
 
 export type CompletedRun = {
@@ -87,9 +87,11 @@ export function dailyRunTrend(productId: string | undefined, runs: CompletedRun[
   return [...buckets.values()];
 }
 
-export async function dashboardForUser(userId: string, selectedProductId?: string, now = new Date()) {
+export async function dashboardForUser(userId: string, selectedProductId?: string, now = new Date(), organizationId?: string, role?: OrganizationRole) {
+  const membership = organizationId && role ? { organizationId, role } : await prisma.organizationMember.findFirst({ where: { userId }, orderBy: { createdAt: "asc" } });
+  if (!membership) return { window: dashboardWindow(now), products: [], overview: [], selected: null, needsAttention: [] };
   const products = await prisma.product.findMany({
-    where: { memberships: { some: { userId } } },
+    where: { organizationId: membership.organizationId, ...(membership.role === OrganizationRole.ADMIN ? {} : { memberships: { some: { userId } } }) },
     select: { id: true, name: true },
     orderBy: { name: "asc" }
   });
