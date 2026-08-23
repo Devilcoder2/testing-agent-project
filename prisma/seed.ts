@@ -26,6 +26,19 @@ async function main() {
   const demoProduct = await prisma.product.upsert({ where: { createdById_name: { createdById: ava.id, name: "Demo CRM" } }, update: { organizationId: organization.id }, create: { name: "Demo CRM", createdById: ava.id, organizationId: organization.id } });
   const privateProduct = await prisma.product.upsert({ where: { createdById_name: { createdById: ben.id, name: "Ben's Sandbox" } }, update: { organizationId: organization.id }, create: { name: "Ben's Sandbox", createdById: ben.id, organizationId: organization.id } });
   await prisma.productMembership.createMany({ data: [{ userId: ava.id, productId: demoProduct.id }, { userId: ben.id, productId: privateProduct.id }], skipDuplicates: true });
+
+  // Controlled local bootstrap: bring pilot history under one organization without deleting it.
+  const pilotUsers = await prisma.user.findMany({ select: { id: true } });
+  for (const pilotUser of pilotUsers) {
+    await prisma.user.update({ where: { id: pilotUser.id }, data: { passwordHash, accountStatus: "ACTIVE" } });
+    await prisma.organizationMember.upsert({ where: { organizationId_userId: { organizationId: organization.id, userId: pilotUser.id } }, update: {}, create: { organizationId: organization.id, userId: pilotUser.id, role: OrganizationRole.TESTER } });
+  }
+  await prisma.product.updateMany({ where: { organizationId: null }, data: { organizationId: organization.id } });
+  const organizationProducts = await prisma.product.findMany({ where: { organizationId: organization.id }, select: { id: true, createdById: true } });
+  await prisma.productMembership.createMany({ data: organizationProducts.map((product) => ({ userId: product.createdById, productId: product.id })), skipDuplicates: true });
+  for (const product of organizationProducts) {
+    await prisma.testDataSet.updateMany({ where: { productId: product.id, ownerId: null }, data: { ownerId: product.createdById } });
+  }
 }
 
 main().then(() => prisma.$disconnect()).catch(async (error: unknown) => { console.error(error); await prisma.$disconnect(); process.exit(1); });
