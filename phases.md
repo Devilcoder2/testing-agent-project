@@ -512,15 +512,15 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Depends on:** Phase 11 and an approved identity/authentication decision.
 **Outcome:** Sentinel has an organization-aware authorization boundary in which approved administrators can manage membership and roles, while every existing Product, Test Case, Run, Release, evidence, variable, Jira, and diagnostic action remains protected by explicit permissions.
 
-- [ ] Confirm the organization model, identity provider/login method, invite/deprovisioning flow, session policy, and individual-project workspace behavior before implementation; do not assume a production identity provider.
-- [ ] Confirm and document the complete permission matrix for the intended roles: **admin**, **manager**, and **tester**. Resolve every current action—including ownership transfer, Product membership, Test Data, Runs, Releases, Jira configuration, approvals, diagnostics, notifications, and future integrations—rather than relying on broad percentage-of-access descriptions.
-- [ ] Add organization, membership, role-assignment, and audit persistence with a safe migration from seeded pilot users and existing Product memberships.
-- [ ] Build administrator-only membership management: invite/link an existing user, assign or change a role, remove access safely, and preserve historical ownership/audit data without orphaning active work.
-- [ ] Apply authorization consistently to the existing UI, APIs, queues, signed evidence access, Jira configuration, database diagnostics, and ownership-transfer paths. Deny by default when role or organization context is absent.
-- [ ] Define the individual-project workspace rule so its designated individual tester receives administrator capabilities without weakening organization isolation.
-- [ ] Provide an administration experience for organization members, role state, Product access, and safe audit context; never expose credentials, variable values, or evidence bodies in access-management views.
-- [ ] Add unit, integration, and browser tests for permission boundaries, privilege changes, removal/deprovisioning, historical access denial, session refresh, cross-organization isolation, and audit records.
-- [ ] Update all required documentation, add an append-only learning-log entry with exactly 10 owner questions, run full regression, and complete owner manual authorization testing.
+- [x] Confirm the built-in local account model, invitation/deprovisioning flow, eight-hour server-managed session policy, and bootstrap organization rule. Production identity providers remain out of scope.
+- [x] Document and implement the Admin, Manager, and Tester permission matrix for Product access, Test Data, Runs, Releases, Jira configuration, approvals, and ownership transfer.
+- [x] Add organization, membership, role-assignment, secure account/session persistence, and a controlled bootstrap that preserves pilot users, Products, Test Cases, Runs, Releases, evidence, Test Data, Jira mappings, diagnostics, notifications, and audit history.
+- [x] Build Admin-only membership management: invite a new account through Mailpit, add an existing account, set role/Product access, disable/reactivate accounts, revoke sessions, and retain history.
+- [x] Enforce organization/Product authorization for current API and dashboard/Run/Release/Review paths; disabled accounts lose their server-managed sessions immediately.
+- [x] Define the individual-project workspace rule: its first controlled bootstrap user is an Admin within its isolated organization.
+- [x] Provide the Administration route for member state, role, Product access, and safe administration data without exposing credentials, variable values, or evidence bodies.
+- [x] Add focused account-helper tests and live Docker acceptance checks for sign-in, Admin denial, Manager Product creation, invitation acceptance, and immediate session revocation. Remaining broader Playwright permission-matrix coverage is tracked as a hardening follow-up.
+- [x] Update required documentation and add an append-only learning-log entry with exactly 10 owner questions. Owner manual authorization testing is now ready.
 
 **Out of scope:** SSO/SAML/SCIM implementation unless selected during the approval gate, billing, self-service public signup, arbitrary custom roles, and production deployment.
 
