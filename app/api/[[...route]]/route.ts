@@ -442,7 +442,7 @@ async function route(request: Request, context: Context) {
     }
     if (request.method === "GET" && path.join("/") === "dashboard") {
       const productId = new URL(request.url).searchParams.get("productId") ?? undefined;
-      return json(await dashboardForUser(user.id, productId));
+      return json(await dashboardForUser(user.id, productId, new Date(), user.organizationId, user.role));
     }
     if (request.method === "GET" && path.join("/") === "pilot-readiness") {
       return json(await pilotReadiness());
@@ -982,6 +982,7 @@ async function route(request: Request, context: Context) {
       return json(permitted);
     }
     if (request.method === "POST" && path.join("/") === "releases") {
+      if (user.role === OrganizationRole.TESTER) return json({ error: "Only Admins and assigned Managers can manage Releases." }, 403);
       const name = typeof body.name === "string" ? body.name.trim() : "";
       const testCaseIds = Array.isArray(body.testCaseIds) && (body.testCaseIds as unknown[]).every((id: unknown) => typeof id === "string") ? body.testCaseIds as string[] : [];
       if (!name || name.length > 120 || testCaseIds.length === 0) return json({ error: "A Release needs a name and at least one Test Case." }, 400);
@@ -1036,6 +1037,7 @@ async function route(request: Request, context: Context) {
       return json(updated);
     }
     if (request.method === "PATCH" && path[0] === "releases" && path[1] && path[2] === "tests") {
+      if (user.role === OrganizationRole.TESTER) return json({ error: "Only Admins and assigned Managers can manage Releases." }, 403);
       const release = await assertReleaseMember(user.id, path[1]);
       if (!release) return json({ error: "Release not found." }, 404);
       const testCaseIds = Array.isArray(body.testCaseIds) && (body.testCaseIds as unknown[]).every((id: unknown) => typeof id === "string") ? body.testCaseIds as string[] : [];
@@ -1049,6 +1051,7 @@ async function route(request: Request, context: Context) {
       return json(updated);
     }
     if (request.method === "POST" && path[0] === "releases" && path[1] && path[2] === "runs") {
+      if (user.role === OrganizationRole.TESTER) return json({ error: "Only Admins and assigned Managers can manage Releases." }, 403);
       const accessible = await assertReleaseMember(user.id, path[1]);
       if (!accessible) return json({ error: "Release not found." }, 404);
       const created = await prisma.$transaction(async (tx) => {
@@ -1348,7 +1351,7 @@ async function route(request: Request, context: Context) {
       const proposal = await prisma.changeProposal.findUnique({ where: { id: path[1] }, include: { testCase: { include: { versions: { include: { steps: { orderBy: { order: "asc" } }, variables: true } } } }, changes: true } });
       if (!proposal) return json({ error: "Change proposal not found." }, 404);
       await assertProductMember(user.id, proposal.productId);
-      if (proposal.ownerId !== user.id || proposal.status !== ChangeProposalStatus.SUBMITTED) return json({ error: "Only the original Test Case owner can decide this submitted proposal." }, 403);
+      if (user.role === OrganizationRole.TESTER || proposal.status !== ChangeProposalStatus.SUBMITTED) return json({ error: "Only an Admin or assigned Manager can decide this submitted proposal." }, 403);
       const note = typeof body.note === "string" ? body.note.trim().slice(0, 1000) || null : null;
       if (proposal.testCase.currentVersion !== proposal.testCase.versions.find((version) => version.id === proposal.sourceVersionId)?.version) {
         const stale = await prisma.$transaction(async (tx) => {
@@ -1388,12 +1391,12 @@ async function route(request: Request, context: Context) {
       return json(approved);
     }
     if (request.method === "GET" && path.join("/") === "change-proposals") {
-      const proposals = await prisma.changeProposal.findMany({ where: { product: { memberships: { some: { userId: user.id } } } }, include: { testCase: { select: { name: true } }, run: { select: { id: true } }, sourceVersion: { select: { version: true, steps: { select: { id: true, order: true, description: true, expectedOutcome: true } } } }, createdBy: { select: { displayName: true } }, owner: { select: { displayName: true } }, changes: true }, orderBy: { createdAt: "desc" } });
-      return json(proposals.map((proposal) => ({ ...proposal, canDecide: proposal.ownerId === user.id, canEdit: proposal.createdById === user.id && proposal.status === ChangeProposalStatus.DRAFT })));
+      const proposals = await prisma.changeProposal.findMany({ where: { product: { organizationId: user.organizationId, ...(user.role === OrganizationRole.ADMIN ? {} : { memberships: { some: { userId: user.id } } }) } }, include: { testCase: { select: { name: true } }, run: { select: { id: true } }, sourceVersion: { select: { version: true, steps: { select: { id: true, order: true, description: true, expectedOutcome: true } } } }, createdBy: { select: { displayName: true } }, owner: { select: { displayName: true } }, changes: true }, orderBy: { createdAt: "desc" } });
+      return json(proposals.map((proposal) => ({ ...proposal, canDecide: user.role === OrganizationRole.ADMIN || user.role === OrganizationRole.MANAGER, canEdit: proposal.createdById === user.id && proposal.status === ChangeProposalStatus.DRAFT })));
     }
     if (request.method === "GET" && path.join("/") === "runs") {
       const runs = await prisma.run.findMany({
-        where: { product: { memberships: { some: { userId: user.id } } } },
+        where: { product: { organizationId: user.organizationId, ...(user.role === OrganizationRole.ADMIN ? {} : { memberships: { some: { userId: user.id } } }) } },
         include: { product: true, testCase: { select: { id: true, name: true } }, initiatedBy: { select: { displayName: true } }, stepResults: { select: { status: true } }, attempts: { select: { id: true, attemptNumber: true, status: true, failureReason: true, activeDurationMs: true }, orderBy: { attemptNumber: "asc" } } },
         orderBy: { createdAt: "desc" }
       });
