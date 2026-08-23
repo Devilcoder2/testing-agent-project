@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { readSession, signSession } from "../lib/auth";
+import { tokenHash, validPassword } from "../lib/auth";
 
-describe("development sessions", () => {
-  it("round-trips a named user through a signed session", () => {
-    process.env.SESSION_SECRET = "test-secret";
-    const user = { id: "user-1", email: "ava@example.test", displayName: "Ava" };
-    expect(readSession(signSession(user))).toEqual(user);
+describe("account credential helpers", () => {
+  it("requires a reasonably strong password for account setup", () => {
+    expect(validPassword("short")).toBe(false);
+    expect(validPassword("a-safe-local-password")).toBe(true);
   });
 
-  it("rejects a modified session token", () => {
-    process.env.SESSION_SECRET = "test-secret";
-    expect(readSession(`${signSession({ id: "user-1", email: "ava@example.test", displayName: "Ava" })}x`)).toBeNull();
+  it("creates a stable non-reversible token lookup hash", () => {
+    expect(tokenHash("one-time-token")).toMatch(/^[a-f0-9]{64}$/);
+    expect(tokenHash("one-time-token")).toBe(tokenHash("one-time-token"));
+    expect(tokenHash("one-time-token")).not.toBe("one-time-token");
   });
 });
