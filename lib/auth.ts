@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import { AccountStatus, AuthTokenKind, OrganizationRole } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "./prisma";
 
 const scrypt = promisify(crypto.scrypt);
 const SESSION_HOURS = 8;
