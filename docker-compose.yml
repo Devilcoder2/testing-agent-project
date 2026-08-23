@@ -118,6 +118,9 @@ services:
       SMTP_PORT: "1025"
       EMAIL_FROM: Sentinel <noreply@sentinel.local>
       SENTINEL_APP_URL: http://localhost:3001
+      BOOTSTRAP_ORGANIZATION_NAME: ${BOOTSTRAP_ORGANIZATION_NAME:-Sentinel Demo}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-ava.tester@example.test}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-sentinel-dev}
       JIRA_CLOUD_URL: ${JIRA_CLOUD_URL:-}
       JIRA_SERVICE_EMAIL: ${JIRA_SERVICE_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
@@ -163,6 +166,9 @@ services:
       SMTP_PORT: "1025"
       EMAIL_FROM: Sentinel <noreply@sentinel.local>
       SENTINEL_APP_URL: http://localhost:3001
+      BOOTSTRAP_ORGANIZATION_NAME: ${BOOTSTRAP_ORGANIZATION_NAME:-Sentinel Demo}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-ava.tester@example.test}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-sentinel-dev}
       JIRA_CLOUD_URL: ${JIRA_CLOUD_URL:-}
       JIRA_SERVICE_EMAIL: ${JIRA_SERVICE_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
