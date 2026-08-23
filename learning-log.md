@@ -1578,3 +1578,36 @@ The relevant files are `prisma/schema.prisma`, `prisma/migrations/20260820180000
     **Owner answer:** Pending follow-up.
 
 **Learning status:** Pending. The owner explicitly deferred Phase 11 answers; revisit these ten questions and the earlier outstanding phase questions before calling Sentinel fully understood.
+
+## Phase 12 — Organization roles and administration
+
+Phase 12 replaces the earlier seeded-password browser identity with local organization accounts. A successful login checks an scrypt password hash, creates a random opaque session token, stores only its SHA-256 hash in PostgreSQL, and sets an eight-hour HTTP-only cookie. Each request resolves that stored session, active account state, organization membership, and role again; this lets an Admin disable a person or remove access and make their existing sessions stop working immediately.
+
+The controlled Docker bootstrap creates one `Sentinel Demo` organization, migrates the existing pilot Products and their history into it, gives the configured bootstrap account the Admin role, and gives remaining pilot users Tester access. Admins can use **Administration** to invite a new person, assign their role and Product access, alter those permissions, or disable/reactivate them. New invitations and password resets use a 24-hour, one-time hashed token and are sent only to local Mailpit. Admins see every Product in their organization; Managers and Testers must have an explicit Product membership. Managers manage QA work in their assigned Products; Testers contribute their own Tests/Test Data and can run shared Tests, but cannot manage organization access, Releases, Jira, approvals, or ownership.
+
+The important implementation files are `prisma/schema.prisma`, `prisma/seed.ts`, `lib/auth.ts`, `lib/account-email.ts`, `app/api/[[...route]]/route.ts`, `components/admin-views.tsx`, `components/account-views.tsx`, and `docker-compose.yml`. The main tradeoff is intentional: this is secure enough for a local controlled pilot, but it is not a production identity service. SSO, real email, rate-limit persistence, custom roles, and a complete browser permission-matrix suite remain future hardening work.
+
+### Ten-question understanding check
+
+1. Why does Sentinel store a hash of the opaque session token rather than the token itself, and how does that help when the database is inspected?
+   **Owner answer:** Pending follow-up.
+2. What information is checked again on every authenticated request, and why does that make disable or access removal take effect immediately?
+   **Owner answer:** Pending follow-up.
+3. What is the difference between organization membership and Product membership, and which role can bypass the Product-membership requirement?
+   **Owner answer:** Pending follow-up.
+4. Which actions can a Manager perform that a Tester cannot, and why are both still restricted to assigned Products?
+   **Owner answer:** Pending follow-up.
+5. Why are invitation and password-reset tokens hashed, single-use, and limited to 24 hours?
+   **Owner answer:** Pending follow-up.
+6. What happens to historic Test Cases, Runs, evidence, and audit records when their owner is disabled?
+   **Owner answer:** Pending follow-up.
+7. What guard prevents an organization from losing its final active Admin, and why is that guard important?
+   **Owner answer:** Pending follow-up.
+8. Which files perform password hashing, session lookup, and local Mailpit delivery respectively?
+   **Owner answer:** Pending follow-up.
+9. How does the controlled bootstrap preserve the existing pilot history while placing it under one organization?
+   **Owner answer:** Pending follow-up.
+10. What additional safeguards would be required before replacing this local account system with a production identity service?
+    **Owner answer:** Pending follow-up.
+
+**Learning status:** Pending owner review. The Phase 12 account and role flow is ready for manual testing, but the ten answers and the broader browser permission-matrix hardening remain follow-up work.
