@@ -49,7 +49,7 @@ export function SignInView() {
     setSubmitting(true);
     setMessage("");
     try {
-      await request("auth/dev-login", "POST", { email: form.get("email"), password: form.get("password") });
+      await request("auth/login", "POST", { email: form.get("email"), password: form.get("password") });
       router.replace("/dashboard");
     } catch (error) {
       setMessage(errorMessage(error, "Sign in failed."));
@@ -67,12 +67,13 @@ export function SignInView() {
     </section>
     <section className="auth-page__form-wrap">
       <Card className="auth-card">
-        <div className="auth-card__header"><p className="eyebrow">Development access</p><h2>Sign in to Sentinel</h2><p>Use a seeded named development account to access the local recording workspace.</p></div>
+        <div className="auth-card__header"><p className="eyebrow">Organization access</p><h2>Sign in to Sentinel</h2><p>Use your organization account to access the local quality workspace.</p></div>
         <form className="auth-form" onSubmit={login}>
           <Field label="Email"><TextInput name="email" defaultValue="ava.tester@example.test" type="email" autoComplete="email" required /></Field>
           <Field label="Password"><TextInput name="password" defaultValue="sentinel-dev" type="password" autoComplete="current-password" required /></Field>
           {message && <Feedback tone="danger">{message}</Feedback>}
           <Button type="submit" disabled={submitting}>{submitting ? "Signing in…" : "Sign in"}<span aria-hidden="true">→</span></Button>
+          <Link href="/forgot-password" className="button button--secondary">Forgot password?</Link>
         </form>
       </Card>
     </section>
