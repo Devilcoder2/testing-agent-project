@@ -14,7 +14,8 @@ const navigation = [
   { href: "/runs", label: "Runs", glyph: "▶" },
   { href: "/releases", label: "Releases", glyph: "▣" },
   { href: "/notifications", label: "Notifications", glyph: "◉" },
-  { href: "/review", label: "Review", glyph: "◇" }
+  { href: "/review", label: "Review", glyph: "◇" },
+  { href: "/admin", label: "Administration", glyph: "⚙" }
 ];
 const sidebarPreferenceKey = "sentinel-sidebar-collapsed";
 
@@ -37,6 +38,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     });
   }
 
+  async function signOut() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.assign("/");
+  }
+
   return <div className={`app-shell ${sidebarCollapsed ? "app-shell--sidebar-collapsed" : ""}`}>
     <aside className={`sidebar ${menuOpen ? "sidebar--open" : ""}`} aria-label="Primary navigation">
       <Link href="/dashboard" className="sidebar__brand" aria-label="Sentinel dashboard" onClick={() => setMenuOpen(false)}><SentinelMark /></Link>
@@ -47,7 +53,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           return <Link key={item.href} href={item.href} className={`sidebar__link ${active ? "sidebar__link--active" : ""}`} aria-label={item.label} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}><span aria-hidden="true">{item.glyph}</span><span className="sidebar__link-label">{item.label}</span></Link>;
         })}
       </nav>
-      <div className="sidebar__footer"><span className="sidebar__status" aria-hidden="true" /><div><strong>Development workspace</strong><small>Local Phase 6</small></div></div>
+      <div className="sidebar__footer"><span className="sidebar__status" aria-hidden="true" /><div><strong>Organization workspace</strong><small>Local Phase 12</small></div><button className="button button--ghost" type="button" onClick={signOut}>Sign out</button></div>
     </aside>
     {menuOpen && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
     <div className="app-shell__main">
