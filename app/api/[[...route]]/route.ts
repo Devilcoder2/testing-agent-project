@@ -331,7 +331,7 @@ async function route(request: Request, context: Context) {
     if (user && user.accountStatus === AccountStatus.ACTIVE) {
       const token = await issueAuthToken(user.id, AuthTokenKind.PASSWORD_RESET);
       await prisma.auditEvent.create({ data: { actorId: user.id, action: "PASSWORD_RESET_REQUESTED", entityType: "User", entityId: user.id } });
-      console.info(`Sentinel password reset link: ${(process.env.SENTINEL_APP_URL ?? "http://localhost:3001")}/reset-password?token=${token}`);
+      await sendAccountLink({ to: user.email, kind: "reset", token });
     }
     return json({ message: "If the account exists, a password reset link has been sent." });
   }
