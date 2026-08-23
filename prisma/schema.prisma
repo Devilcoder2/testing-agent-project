@@ -230,6 +230,7 @@ model User {
   proposedChanges      ChangeProposal[]    @relation("ChangeProposalCreator")
   approvalRequests     ChangeProposal[]    @relation("ChangeProposalOwner")
   databaseDiagnostics  DatabaseDiagnostic[] @relation("DatabaseDiagnosticRequester")
+  ownedTestDataSets    TestDataSet[]        @relation("TestDataSetOwner")
   auditEvents          AuditEvent[]        @relation("AuditActor")
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
@@ -268,6 +269,7 @@ model Organization {
   memberships OrganizationMember[]
   products    Product[]
   authTokens  AuthToken[]
+  sessions    UserSession[]
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 }
@@ -288,12 +290,15 @@ model OrganizationMember {
 model UserSession {
   id        String   @id @default(cuid())
   userId    String
+  organizationId String
   tokenHash String   @unique
   expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@index([userId, expiresAt])
+  @@index([organizationId, expiresAt])
 }
 
 model AuthToken {
@@ -564,6 +569,7 @@ model ReleaseRunItem {
 model TestDataSet {
   id              String               @id @default(cuid())
   productId       String
+  ownerId         String?
   name            String
   fieldNames      String[]
   encryptedFields String
@@ -571,6 +577,7 @@ model TestDataSet {
   reusePolicy     TestDataReusePolicy  @default(REUSABLE)
   reservedByRunId String?
   product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  owner           User?                @relation("TestDataSetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   reservedByRun   Run?                 @relation("ReservedDataSet", fields: [reservedByRunId], references: [id], onDelete: SetNull)
   bindings        RunVariableBinding[]
   createdAt       DateTime             @default(now())
@@ -579,6 +586,7 @@ model TestDataSet {
   @@unique([productId, name])
   @@index([productId, status])
   @@index([reservedByRunId])
+  @@index([ownerId])
 }
 
 model Run {
