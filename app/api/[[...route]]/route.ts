@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
-import { ChangeProposalStatus, DatabaseDiagnosticKind, DatabaseDiagnosticStatus, EvidenceKind, JiraFilingStatus, Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
+import { AccountStatus, AuthTokenKind, ChangeProposalStatus, DatabaseDiagnosticKind, DatabaseDiagnosticStatus, EvidenceKind, JiraFilingStatus, OrganizationRole, Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { readSession, signSession, type SessionUser } from "@/lib/auth";
+import { consumeAuthToken, createSession, hashPassword, issueAuthToken, readSession, revokeUserSessions, validPassword, verifyPassword, type SessionUser } from "@/lib/auth";
 import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordingBrowser, launchRunBrowser, replayGuidedRunStep } from "@/lib/browser";
 import { dashboardForUser } from "@/lib/dashboard";
 import { customerEmailForDiagnostic, customerLookupByEmail } from "@/lib/database-diagnostics";
@@ -15,6 +15,7 @@ import { enqueueAutoRun, enqueueJiraFiling } from "@/lib/queue";
 import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, variablePlaceholder } from "@/lib/variables";
 import { markReleaseRunItemQueueFailure, refreshReleaseRun, syncReleaseRunItemForRun } from "@/lib/releases";
 import { proposedValueIsSafe, suggestionsForSteps, type SuggestionKind } from "@/lib/suggestions";
+import { sendAccountLink } from "@/lib/account-email";
 
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
@@ -51,7 +52,7 @@ const recorderJson = (body: unknown, status = 200) => NextResponse.json(body, {
 });
 
 async function currentUser(): Promise<SessionUser | null> {
-  return readSession((await cookies()).get("sentinel_session")?.value);
+  return await readSession((await cookies()).get("sentinel_session")?.value);
 }
 
 async function requireUser() {
@@ -61,14 +62,21 @@ async function requireUser() {
 }
 
 async function assertProductMember(userId: string, productId: string) {
+  const product = await prisma.product.findUnique({ where: { id: productId }, select: { organizationId: true } });
+  if (!product?.organizationId) throw new Error("FORBIDDEN");
+  const organizationMembership = await prisma.organizationMember.findUnique({ where: { organizationId_userId: { organizationId: product.organizationId, userId } } });
+  if (!organizationMembership) throw new Error("FORBIDDEN");
+  if (organizationMembership.role === OrganizationRole.ADMIN) return;
   const membership = await prisma.productMembership.findUnique({ where: { userId_productId: { userId, productId } } });
   if (!membership) throw new Error("FORBIDDEN");
 }
 
 async function assertProductCreator(userId: string, productId: string) {
-  const product = await prisma.product.findUnique({ where: { id: productId } });
+  const product = await prisma.product.findUnique({ where: { id: productId }, select: { id: true, createdById: true, organizationId: true } });
   if (!product) return null;
-  if (product.createdById !== userId) throw new Error("FORBIDDEN");
+  if (!product.organizationId) throw new Error("FORBIDDEN");
+  const membership = await prisma.organizationMember.findUnique({ where: { organizationId_userId: { organizationId: product.organizationId, userId } } });
+  if (membership?.role !== OrganizationRole.ADMIN) throw new Error("FORBIDDEN");
   return product;
 }
 
@@ -293,12 +301,57 @@ async function route(request: Request, context: Context) {
 
   if (request.method === "OPTIONS" && path.join("/") === "internal/events") return recorderJson({});
 
-  if (request.method === "POST" && path.join("/") === "auth/dev-login") {
-    const user = await prisma.user.findUnique({ where: { email: body.email } });
-    if (!user || user.devPassword !== body.password) return json({ error: "Invalid development credentials." }, 401);
-    const response = json({ user: { id: user.id, email: user.email, displayName: user.displayName } });
-    response.cookies.set("sentinel_session", signSession(user), { httpOnly: true, sameSite: "lax", path: "/" });
+  if (request.method === "POST" && (path.join("/") === "auth/login" || path.join("/") === "auth/dev-login")) {
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    const user = email ? await prisma.user.findUnique({ where: { email } }) : null;
+    if (!user || user.accountStatus !== AccountStatus.ACTIVE || !(await verifyPassword(password, user.passwordHash))) return json({ error: "Invalid email or password." }, 401);
+    const memberships = await prisma.organizationMember.findMany({ where: { userId: user.id }, include: { organization: { select: { id: true, name: true } } }, orderBy: { organization: { name: "asc" } } });
+    const requestedOrganizationId = typeof body.organizationId === "string" ? body.organizationId : memberships[0]?.organizationId;
+    const membership = memberships.find((item) => item.organizationId === requestedOrganizationId);
+    if (!membership) return json({ error: "This account has no active organization access." }, 403);
+    const token = await createSession(user.id, membership.organizationId);
+    const response = json({ user: { id: user.id, email: user.email, displayName: user.displayName, role: membership.role, organization: membership.organization }, organizations: memberships.map((item) => ({ ...item.organization, role: item.role })) });
+    response.cookies.set("sentinel_session", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 8 });
     return response;
+  }
+
+  if (request.method === "POST" && path.join("/") === "auth/logout") {
+    const raw = (await cookies()).get("sentinel_session")?.value;
+    const user = await currentUser();
+    if (user && raw) await prisma.userSession.deleteMany({ where: { userId: user.id, tokenHash: hash(raw) } });
+    const response = json({ signedOut: true });
+    response.cookies.set("sentinel_session", "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
+    return response;
+  }
+
+  if (request.method === "POST" && path.join("/") === "auth/password-reset/request") {
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const user = email ? await prisma.user.findUnique({ where: { email } }) : null;
+    if (user && user.accountStatus === AccountStatus.ACTIVE) {
+      const token = await issueAuthToken(user.id, AuthTokenKind.PASSWORD_RESET);
+      await prisma.auditEvent.create({ data: { actorId: user.id, action: "PASSWORD_RESET_REQUESTED", entityType: "User", entityId: user.id } });
+      console.info(`Sentinel password reset link: ${(process.env.SENTINEL_APP_URL ?? "http://localhost:3001")}/reset-password?token=${token}`);
+    }
+    return json({ message: "If the account exists, a password reset link has been sent." });
+  }
+
+  if (request.method === "POST" && path.join("/") === "auth/password-reset/complete") {
+    const token = typeof body.token === "string" ? body.token : "";
+    if (!validPassword(body.password)) return json({ error: "Use a password of at least 12 characters." }, 400);
+    const reset = await consumeAuthToken(token, AuthTokenKind.PASSWORD_RESET);
+    if (!reset) return json({ error: "This password reset link is invalid or has expired." }, 400);
+    await prisma.$transaction([prisma.user.update({ where: { id: reset.userId }, data: { passwordHash: await hashPassword(body.password) } }), prisma.userSession.deleteMany({ where: { userId: reset.userId } }), prisma.auditEvent.create({ data: { actorId: reset.userId, action: "PASSWORD_RESET_COMPLETED", entityType: "User", entityId: reset.userId } })]);
+    return json({ reset: true });
+  }
+
+  if (request.method === "POST" && path.join("/") === "auth/invitations/accept") {
+    const token = typeof body.token === "string" ? body.token : "";
+    if (!validPassword(body.password)) return json({ error: "Use a password of at least 12 characters." }, 400);
+    const invite = await consumeAuthToken(token, AuthTokenKind.INVITE);
+    if (!invite?.organizationId) return json({ error: "This invitation link is invalid or has expired." }, 400);
+    await prisma.$transaction([prisma.user.update({ where: { id: invite.userId }, data: { passwordHash: await hashPassword(body.password), accountStatus: AccountStatus.ACTIVE } }), prisma.auditEvent.create({ data: { actorId: invite.userId, action: "INVITATION_ACCEPTED", entityType: "Organization", entityId: invite.organizationId } })]);
+    return json({ accepted: true });
   }
 
   if (request.method === "POST" && path.join("/") === "internal/events") {
@@ -326,6 +379,67 @@ async function route(request: Request, context: Context) {
 
   try {
     const user = await requireUser();
+    if (request.method === "GET" && path.join("/") === "auth/me") {
+      return json({ user: { id: user.id, email: user.email, displayName: user.displayName, role: user.role, organizationId: user.organizationId } });
+    }
+    if (path[0] === "admin") {
+      if (user.role !== OrganizationRole.ADMIN) return json({ error: "Organization administration is restricted to Admins." }, 403);
+      if (request.method === "GET" && path[1] === "members") {
+        const members = await prisma.organizationMember.findMany({
+          where: { organizationId: user.organizationId },
+          include: { user: { select: { id: true, email: true, displayName: true, accountStatus: true, createdAt: true } } },
+          orderBy: { user: { displayName: "asc" } }
+        });
+        const productMemberships = await prisma.productMembership.findMany({ where: { product: { organizationId: user.organizationId } }, include: { product: { select: { id: true, name: true } } } });
+        return json(members.map((member) => ({ ...member.user, role: member.role, products: productMemberships.filter((item) => item.userId === member.userId).map((item) => item.product) })));
+      }
+      if (request.method === "POST" && path[1] === "members") {
+        const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+        const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+        const role = Object.values(OrganizationRole).includes(body.role) ? body.role as OrganizationRole : null;
+        const productIds = Array.isArray(body.productIds) ? body.productIds.filter((id: unknown): id is string => typeof id === "string") : [];
+        if (!email || !displayName || !role) return json({ error: "Name, email, and role are required." }, 400);
+        const products = await prisma.product.findMany({ where: { id: { in: productIds }, organizationId: user.organizationId }, select: { id: true } });
+        if (products.length !== productIds.length) return json({ error: "Choose Products in this organization only." }, 400);
+        const result = await prisma.$transaction(async (tx) => {
+          const existing = await tx.user.findUnique({ where: { email } });
+          const account = existing ?? await tx.user.create({ data: { email, displayName, accountStatus: AccountStatus.DISABLED } });
+          await tx.organizationMember.upsert({ where: { organizationId_userId: { organizationId: user.organizationId, userId: account.id } }, update: { role }, create: { organizationId: user.organizationId, userId: account.id, role } });
+          await tx.productMembership.createMany({ data: products.map((product) => ({ userId: account.id, productId: product.id })), skipDuplicates: true });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: existing ? "ORGANIZATION_MEMBER_GRANTED" : "ORGANIZATION_INVITED", entityType: "User", entityId: account.id, details: { organizationId: user.organizationId, role, productIds } } });
+          return { account, existing: Boolean(existing) };
+        });
+        if (!result.existing) {
+          const token = await issueAuthToken(result.account.id, AuthTokenKind.INVITE, user.organizationId);
+          await sendAccountLink({ to: result.account.email, kind: "invite", token, organizationName: (await prisma.organization.findUnique({ where: { id: user.organizationId }, select: { name: true } }))?.name });
+        }
+        return json({ id: result.account.id, existingAccount: result.existing }, 201);
+      }
+      if (request.method === "PATCH" && path[1] === "members" && path[2]) {
+        const member = await prisma.organizationMember.findUnique({ where: { organizationId_userId: { organizationId: user.organizationId, userId: path[2] } }, include: { user: true } });
+        if (!member) return json({ error: "Organization member not found." }, 404);
+        const wantsRole = Object.values(OrganizationRole).includes(body.role) ? body.role as OrganizationRole : undefined;
+        const wantsStatus = Object.values(AccountStatus).includes(body.accountStatus) ? body.accountStatus as AccountStatus : undefined;
+        if (wantsRole === OrganizationRole.ADMIN || wantsStatus === AccountStatus.DISABLED) {
+          const activeAdmins = await prisma.organizationMember.count({ where: { organizationId: user.organizationId, role: OrganizationRole.ADMIN, user: { accountStatus: AccountStatus.ACTIVE } } });
+          if (member.role === OrganizationRole.ADMIN && member.user.accountStatus === AccountStatus.ACTIVE && activeAdmins <= 1 && (wantsRole && wantsRole !== OrganizationRole.ADMIN || wantsStatus === AccountStatus.DISABLED)) return json({ error: "An organization must retain one active Admin." }, 409);
+        }
+        await prisma.$transaction(async (tx) => {
+          if (wantsRole) await tx.organizationMember.update({ where: { organizationId_userId: { organizationId: user.organizationId, userId: member.userId } }, data: { role: wantsRole } });
+          if (wantsStatus) await tx.user.update({ where: { id: member.userId }, data: { accountStatus: wantsStatus } });
+          if (Array.isArray(body.productIds)) {
+            const ids = body.productIds.filter((id: unknown): id is string => typeof id === "string");
+            const products = await tx.product.findMany({ where: { id: { in: ids }, organizationId: user.organizationId }, select: { id: true } });
+            if (products.length !== ids.length) throw new Error("PRODUCT_SCOPE_INVALID");
+            await tx.productMembership.deleteMany({ where: { userId: member.userId, product: { organizationId: user.organizationId } } });
+            await tx.productMembership.createMany({ data: ids.map((productId: string) => ({ userId: member.userId, productId })) });
+          }
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "ORGANIZATION_MEMBER_UPDATED", entityType: "User", entityId: member.userId, details: { role: wantsRole, accountStatus: wantsStatus, productIds: body.productIds } } });
+        });
+        if (wantsStatus === AccountStatus.DISABLED || wantsRole || Array.isArray(body.productIds)) await revokeUserSessions(member.userId);
+        return json({ updated: true });
+      }
+    }
     if (request.method === "GET" && path.join("/") === "dashboard") {
       const productId = new URL(request.url).searchParams.get("productId") ?? undefined;
       return json(await dashboardForUser(user.id, productId));
@@ -390,13 +504,14 @@ async function route(request: Request, context: Context) {
       return json({ count: permittedIds.length });
     }
     if (request.method === "GET" && path.join("/") === "products") {
-      return json(await prisma.product.findMany({ where: { memberships: { some: { userId: user.id } } }, orderBy: { name: "asc" } }));
+      return json(await prisma.product.findMany({ where: { organizationId: user.organizationId, ...(user.role === OrganizationRole.ADMIN ? {} : { memberships: { some: { userId: user.id } } }) }, orderBy: { name: "asc" } }));
     }
     if (request.method === "POST" && path.join("/") === "products") {
+      if (user.role === OrganizationRole.TESTER) return json({ error: "Only Admins and Managers can create Products." }, 403);
       const name = typeof body.name === "string" ? body.name.trim() : "";
       if (!name) return json({ error: "Product name is required." }, 400);
       try {
-        const product = await prisma.product.create({ data: { name, createdById: user.id, memberships: { create: { userId: user.id } } } });
+        const product = await prisma.product.create({ data: { name, createdById: user.id, organizationId: user.organizationId, memberships: { create: { userId: user.id } } } });
         return json(product, 201);
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -410,10 +525,10 @@ async function route(request: Request, context: Context) {
       if (!product) return json({ error: "Product not found." }, 404);
       await assertProductMember(user.id, product.id);
       if (request.method === "GET") {
-        return json({ projectKey: product.jiraConfig?.projectKey ?? null, validatedAt: product.jiraConfig?.validatedAt ?? null, canConfigure: product.createdById === user.id, available: jiraCloudIsConfigured() });
+        return json({ projectKey: product.jiraConfig?.projectKey ?? null, validatedAt: product.jiraConfig?.validatedAt ?? null, canConfigure: user.role === OrganizationRole.ADMIN || user.role === OrganizationRole.MANAGER, available: jiraCloudIsConfigured() });
       }
       if (request.method === "PUT") {
-        if (product.createdById !== user.id) return json({ error: "Only the Product creator can configure Jira." }, 403);
+        if (user.role === OrganizationRole.TESTER) return json({ error: "Only Admins and assigned Managers can configure Jira." }, 403);
         const projectKey = typeof body.projectKey === "string" ? body.projectKey : "";
         const normalized = normalizeJiraProjectKey(projectKey);
         await validateJiraProject(normalized);
@@ -422,7 +537,7 @@ async function route(request: Request, context: Context) {
         return json({ projectKey: config.projectKey, validatedAt: config.validatedAt, canConfigure: true, available: true });
       }
       if (request.method === "DELETE") {
-        if (product.createdById !== user.id) return json({ error: "Only the Product creator can remove Jira configuration." }, 403);
+        if (user.role === OrganizationRole.TESTER) return json({ error: "Only Admins and assigned Managers can remove Jira configuration." }, 403);
         await prisma.$transaction([
           prisma.jiraProjectConfig.deleteMany({ where: { productId: product.id } }),
           prisma.auditEvent.create({ data: { actorId: user.id, action: "JIRA_PROJECT_REMOVED", entityType: "Product", entityId: product.id } })
@@ -434,7 +549,7 @@ async function route(request: Request, context: Context) {
       const product = await prisma.product.findUnique({ where: { id: path[1] }, include: { memberships: { include: { user: { select: { id: true, displayName: true, email: true } } }, orderBy: { user: { displayName: "asc" } } } } });
       if (!product) return json({ error: "Product not found." }, 404);
       await assertProductMember(user.id, product.id);
-      return json({ canTransfer: product.createdById === user.id, members: product.memberships.map((membership) => membership.user) });
+      return json({ canTransfer: user.role === OrganizationRole.ADMIN, members: product.memberships.map((membership) => membership.user) });
     }
     if (request.method === "PATCH" && path[0] === "products" && path[1] && path[2] === "owner") {
       const product = await assertProductCreator(user.id, path[1]);
@@ -454,7 +569,7 @@ async function route(request: Request, context: Context) {
       const product = await prisma.product.findUnique({ where: { id: path[1] } });
       if (!product) return json({ error: "Product not found." }, 404);
       await assertProductMember(user.id, product.id);
-      if (product.createdById !== user.id) return json({ error: "Only the Product creator can edit its name." }, 403);
+      if (user.role === OrganizationRole.TESTER) return json({ error: "Only Admins and assigned Managers can edit a Product name." }, 403);
       const name = typeof body.name === "string" ? body.name.trim() : "";
       if (!name) return json({ error: "Product name is required." }, 400);
       try {
@@ -475,7 +590,7 @@ async function route(request: Request, context: Context) {
     }
     if (request.method === "GET" && path.join("/") === "test-cases") {
       const testCases = await prisma.testCase.findMany({
-        where: { product: { memberships: { some: { userId: user.id } } } },
+        where: { product: { organizationId: user.organizationId, ...(user.role === OrganizationRole.ADMIN ? {} : { memberships: { some: { userId: user.id } } }) } },
         include: { product: true, owner: { select: { displayName: true } }, featureLabels: { include: { featureLabel: true }, orderBy: { featureLabel: { name: "asc" } } } },
         orderBy: { updatedAt: "desc" }
       });
@@ -829,7 +944,7 @@ async function route(request: Request, context: Context) {
         }
         if (!name || Object.keys(fields).length === 0) return json({ error: "A Test Data Set needs a name and at least one field." }, 400);
         try {
-          const created = await prisma.testDataSet.create({ data: { productId: path[1], name, fieldNames: Object.keys(fields).sort(), encryptedFields: encryptVariableValue(JSON.stringify(fields)), reusePolicy }, select: { id: true, name: true, fieldNames: true, status: true, reusePolicy: true, createdAt: true } });
+          const created = await prisma.testDataSet.create({ data: { productId: path[1], ownerId: user.id, name, fieldNames: Object.keys(fields).sort(), encryptedFields: encryptVariableValue(JSON.stringify(fields)), reusePolicy }, select: { id: true, name: true, fieldNames: true, status: true, reusePolicy: true, createdAt: true } });
           await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_CREATED", entityType: "TestDataSet", entityId: created.id, details: { productId: path[1], fieldNames: created.fieldNames, reusePolicy } } });
           return json(created, 201);
         } catch (error) {
@@ -838,7 +953,7 @@ async function route(request: Request, context: Context) {
         }
       }
       if (request.method === "POST" && path[3] && path[4] === "invalidate") {
-        const dataSet = await prisma.testDataSet.findFirst({ where: { id: path[3], productId: path[1] } });
+        const dataSet = await prisma.testDataSet.findFirst({ where: { id: path[3], productId: path[1], ...(user.role === OrganizationRole.TESTER ? { ownerId: user.id } : {}) } });
         if (!dataSet) return json({ error: "Test Data Set not found." }, 404);
         if (dataSet.status !== TestDataStatus.SAFE) return json({ error: "Only safe Test Data Sets can be invalidated. Create a replacement instead." }, 409);
         const invalidated = await prisma.testDataSet.update({ where: { id: dataSet.id }, data: { status: TestDataStatus.INVALID }, select: { id: true, name: true, fieldNames: true, status: true, reusePolicy: true } });
