@@ -1904,3 +1904,90 @@ Relevant files: `docker-compose.yml`, `decisions-log.md` D-040, and this learnin
 - Owner answers pending.
 
 **Learning status:** The runtime repair and recurrence verification are complete. Owner answers remain required before this repair is considered fully understood.
+
+## Phase 17 — Global authorized command search
+
+### What changed and what problem it solves
+
+Phase 17 adds one search field to Sentinel's authenticated command masthead. A user can type the beginning of a remembered name and see authorized Products, Test Cases, Test Data Sets, Runs, Releases, Review items, notifications, and—only for an Admin—organization members together. The current route's category appears first, so searching from Products favors Product results while searching from Runs favors Runs. This avoids eight separate search implementations and gives every protected page one consistent discovery path.
+
+The feature uses case-insensitive prefix matching after trimming the query. The browser waits 250 milliseconds before requesting results and aborts an older request when the query changes. Results are capped at five per category, grouped by section, and selectable by pointer, Arrow Up/Down plus Enter, or `Ctrl+K`/`Cmd+K` followed by typing. Escape closes the panel. Loading, no-result, error, result-count, focus, reduced-motion, mobile-width, light-theme, and dark-theme states are explicit.
+
+### End-to-end flow and safety boundary
+
+1. `components/global-search.tsx` derives the current section from the route, normalizes local input, waits 250 milliseconds, and requests `/api/search` with the query and current section. An `AbortController` and monotonically increasing request sequence prevent stale responses from replacing newer results.
+2. `app/api/[[...route]]/route.ts` requires a valid signed-in user, rejects blank queries and queries longer than 80 characters, validates the optional section, and delegates to `lib/global-search.ts`.
+3. `lib/global-search.ts` runs capped Prisma queries in parallel. Every category applies its normal organization, Product membership, Release-Test, notification-recipient, or Admin-role boundary. It selects only approved display fields. Test Data values, encrypted fields, variables, evidence, source, payloads, secrets, and logs are neither searched nor serialized.
+4. The server returns non-empty groups with the current category first and the remaining categories in a stable order. A result contains only its category, identifier, safe title/context, icon name, and protected destination.
+5. Selecting a result uses the existing route and existing page behavior. Test Data honors the Product identifier in its destination, and Review honors the Suggestions or Change Proposals queue. No search action changes records, starts Runs, marks notifications read, approves work, or bypasses destination authorization.
+
+### Technologies, choices, alternatives, and tradeoffs
+
+- The existing Next.js route handler, Prisma client, React state, internal icon set, and CSS token system were reused. No search service, UI package, debounce package, or animation dependency was introduced.
+- Server-side authorization was chosen over fetching all page inventories into the browser. This keeps inaccessible titles out of client memory and centralizes the security boundary, but each new searchable category must deliberately add its own safe select and access predicate.
+- Prefix matching was chosen because the requested behavior is predictable and can use bounded database queries. Fuzzy or semantic ranking was deferred because it introduces ambiguous ordering, more infrastructure, and a broader privacy/cost surface.
+- Results are capped per category rather than globally. This prevents a large Product set from hiding every Test Case or Run, but the panel is a discovery shortcut rather than an exhaustive inventory.
+- Current-section priority reorders groups, not individual authorization or persisted relevance. This is simple and explainable; future usage-based ranking would require separately approved analytics and privacy decisions.
+- The Test Data Product and Review queue URL handoffs were added to existing views. They only select the relevant existing context and do not change API contracts or business behavior.
+
+Relevant files: `lib/global-search.ts`, `app/api/[[...route]]/route.ts`, `components/global-search.tsx`, `components/app-shell.tsx`, `components/ui.tsx`, `app/globals.css`, `components/review-views.tsx`, `components/sentinel-views.tsx`, `app/test-data/page.tsx`, `tests/global-search.test.ts`, and `tests/global-search.spec.ts`. The approved behavior is recorded in `problem-brief.md`, `srd.md` F14, `architecture.md` section 12, `phases.md` Phase 17, `techstack.md`, `DESIGN.md`, `frontend.md`, and `decisions-log.md` D-041.
+
+### Verification evidence
+
+```text
+npm run lint && npm run typecheck && npm run build
+> eslint .
+> tsc --noEmit
+✓ Compiled successfully
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T sentinel npx vitest run tests/global-search.test.ts
+Test Files  1 passed (1)
+Tests  2 passed (2)
+
+docker compose exec -T sentinel npx playwright test tests/global-search.spec.ts --reporter=line
+1 passed (11.1s)
+
+docker compose exec -T sentinel npx playwright test --reporter=line --grep-invert "starts, refreshes, and completes a strict guided Run"
+14 passed (1.3m)
+
+docker compose exec -T sentinel npm test
+Test Files  1 failed | 17 passed (18)
+Tests  2 failed | 50 passed (52)
+The two existing Guided Run assertions expected HTTP 201 and received HTTP 409 because a user-owned Guided Run still holds the single live-browser boundary.
+```
+
+The live browser review confirmed a grouped cross-section result panel in dark mode, stable query text after switching to light mode, clear focus treatment, result-count announcement, safe context labels, and no secret Test Data values. The automated browser test separately verified the 390-pixel viewport bounds.
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | What changed, risk, and owner action |
+|---|---|---|
+| Highest — understand now | `lib/global-search.ts` (`searchWorkspace`, category queries, access predicates, safe selects); `app/api/[[...route]]/route.ts` (`GET /api/search`); `components/global-search.tsx` (debounce, cancellation, keyboard state, navigation) | These files define the data-exposure boundary and the complete interaction state machine. Read now. A missing predicate or unsafe selected field could expose metadata, while stale-response or active-index mistakes could navigate to the wrong result. |
+| Medium — understand next | `components/app-shell.tsx`; `components/review-views.tsx`; `components/sentinel-views.tsx` (`TestDataView` URL selection); `app/test-data/page.tsx`; `app/globals.css`; `tests/global-search.test.ts`; `tests/global-search.spec.ts` | These integrate search into every protected page, preserve the intended destination context, establish responsive presentation, and encode the security/interaction regression contract. Review the URL-to-existing-state handoffs and both authorization tests. |
+| Lower — skim or defer | `components/ui.tsx` search icon and the Phase 17 project/design document updates | These are a small visual primitive and documentation-only changes. Skim now and use the documents to prevent later search-scope drift. |
+
+### Ten-question understanding check
+
+1. Why does Sentinel search through one protected server endpoint instead of downloading every page inventory and filtering it in the browser?
+2. Which fields may represent a Test Data result, and which stored Test Data information must never be searched or returned?
+3. How do organization role, Product membership, Release contents, notification recipient, and Admin status affect the eight result categories?
+4. How do the 250-millisecond timer, `AbortController`, and request sequence work together when a user types quickly?
+5. What exactly does current-section priority change, and what security or database behavior does it not change?
+6. Why is the five-result limit applied per category rather than once across the whole response?
+7. How do `Ctrl+K` or `Cmd+K`, Arrow Up/Down, Enter, Escape, focus visibility, and live status text make the combobox usable without a pointer?
+8. Why do Test Data and Change Proposal results carry Product or queue context in their URLs, and how do their existing views apply it safely?
+9. Which focused tests prove prefix behavior, result caps, authorization isolation, safe serialization, debounce, mobile bounds, and destination navigation?
+10. What changes would be required to add fuzzy or semantic search safely, and why is that outside the current approved scope?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the highest-priority files before Phase 17 is considered fully understood.
+- Resolve the existing active Guided Run through the normal application workflow, then rerun the two state-blocked Guided Run assertions.
+
+**Learning status:** Implementation, production build, focused search verification, applicable browser regression, visual review, and priority diff review are complete. Owner answers and the unrelated state-blocked Guided Run assertions remain open.
