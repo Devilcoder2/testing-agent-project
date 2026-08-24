@@ -8,7 +8,8 @@ test.setTimeout(45_000);
 
 async function createSavedTest(name: string) {
   const ava = await prisma.user.findUniqueOrThrow({ where: { email: "ava.tester@example.test" } });
-  const product = await prisma.product.create({ data: { name: `Run browser ${Date.now()}`, createdById: ava.id, memberships: { create: { userId: ava.id } } } });
+  const organization = await prisma.organizationMember.findFirstOrThrow({ where: { userId: ava.id } });
+  const product = await prisma.product.create({ data: { name: `Run browser ${Date.now()}`, organizationId: organization.organizationId, createdById: ava.id, memberships: { create: { userId: ava.id } } } });
   const recording = await prisma.recordingSession.create({ data: { productId: product.id, ownerId: ava.id, testName: name, targetUrl: "http://demo-target", tokenHash: `playwright-run-${Date.now()}`, status: RecordingStatus.SAVED } });
   const testCase = await prisma.testCase.create({
     data: {
