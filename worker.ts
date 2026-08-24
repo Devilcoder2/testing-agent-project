@@ -6,10 +6,12 @@ import { deliverJiraFiling, JiraAdapterError } from "./lib/jira";
 import { deliverNotification, notifyAutoRunCheckpoint, notifyRunFailure } from "./lib/notifications";
 import { runEvidenceRetention } from "./lib/maintenance";
 import { prisma } from "./lib/prisma";
-import { AUTO_RUN_QUEUE, JIRA_FILING_QUEUE, NOTIFICATION_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData, type JiraFilingJobData, type NotificationJobData } from "./lib/queue";
+import { GITHUB_DELIVERY_QUEUE, JIRA_FILING_QUEUE, NOTIFICATION_QUEUE, SOURCE_ANALYSIS_QUEUE, AUTO_RUN_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData, type GitHubDeliveryJobData, type JiraFilingJobData, type NotificationJobData, type SourceAnalysisJobData } from "./lib/queue";
 import { canRetryAutoRun, initialReplayState, ReplayError, replayStep, type ReplayStep } from "./lib/replay";
 import { decryptVariableValue } from "./lib/variables";
 import { markReleaseRunItemRunning, syncReleaseRunItemForRun } from "./lib/releases";
+import { processGitHubDelivery, requestAutomaticSourceAnalysis } from "./lib/github-runs";
+import { processSourceAnalysis } from "./lib/source-analysis";
 
 const CHECKPOINT_TIMEOUT_MS = 10 * 60 * 1000;
 const MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -146,7 +148,10 @@ async function completeRun(runId: string, attemptId: string, outcome: RunOutcome
   }
   await prisma.auditEvent.create({ data: { actorId: run.initiatedById, action: outcome === RunOutcome.PASSED ? "AUTO_RUN_PASSED" : outcome === RunOutcome.FAILED ? "AUTO_RUN_FAILED" : "AUTO_RUN_INTERRUPTED", entityType: "Run", entityId: run.id, details: reason ? { reason } : undefined } });
   await syncReleaseRunItemForRun(run.id, outcome);
-  if (outcome === RunOutcome.FAILED) await notifyRunFailure(run.id);
+  if (outcome === RunOutcome.FAILED) {
+    await notifyRunFailure(run.id);
+    await requestAutomaticSourceAnalysis(run.id);
+  }
 }
 
 async function retryRun(runId: string, attemptId: string, activeDurationMs: number, reason: RunFailureReason) {
@@ -264,6 +269,8 @@ const jiraFilingWorker = new Worker<JiraFilingJobData>(JIRA_FILING_QUEUE, async 
     backoffStrategy: (_attemptsMade, type, error) => type === "sentinel-jira" && error instanceof JiraAdapterError ? error.retryAfterMs ?? 1_000 : 1_000
   }
 });
+const githubDeliveryWorker = new Worker<GitHubDeliveryJobData>(GITHUB_DELIVERY_QUEUE, async (job) => processGitHubDelivery(job.data.deliveryId), { connection: createRedisConnection(), concurrency: 2 });
+const sourceAnalysisWorker = new Worker<SourceAnalysisJobData>(SOURCE_ANALYSIS_QUEUE, async (job) => processSourceAnalysis(job.data.analysisId), { connection: createRedisConnection(), concurrency: 1 });
 const heartbeatConnection = createRedisConnection();
 
 async function refreshWorkerHeartbeat() {
@@ -281,11 +288,15 @@ notificationWorker.on("failed", (job, error) => console.error("Sentinel notifica
 notificationWorker.on("error", (error) => console.error("Sentinel notification worker error", error));
 jiraFilingWorker.on("failed", (job, error) => console.error("Sentinel Jira filing worker job failed", job?.id, error));
 jiraFilingWorker.on("error", (error) => console.error("Sentinel Jira filing worker error", error));
+githubDeliveryWorker.on("failed", (job, error) => console.error("Sentinel GitHub delivery worker job failed", job?.id, error));
+githubDeliveryWorker.on("error", (error) => console.error("Sentinel GitHub delivery worker error", error));
+sourceAnalysisWorker.on("failed", (job, error) => console.error("Sentinel source-analysis worker job failed", job?.id, error));
+sourceAnalysisWorker.on("error", (error) => console.error("Sentinel source-analysis worker error", error));
 
 async function shutdown() {
   clearInterval(maintenanceTimer);
   clearInterval(heartbeatTimer);
-  await Promise.all([autoRunWorker.close(), notificationWorker.close(), jiraFilingWorker.close()]);
+  await Promise.all([autoRunWorker.close(), notificationWorker.close(), jiraFilingWorker.close(), githubDeliveryWorker.close(), sourceAnalysisWorker.close()]);
   await heartbeatConnection.quit();
   await prisma.$disconnect();
 }
