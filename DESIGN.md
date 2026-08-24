@@ -104,7 +104,7 @@ Use local system fonts only; do not add a network dependency.
 
 The prior persistent sidebar is replaced with a two-level top workspace system.
 
-1. A 64px **command masthead** contains the Sentinel identity, current workspace context, theme control, notification access, New recording action, and account menu.
+1. A 64px **command masthead** contains the Sentinel identity, global search, current workspace context, theme control, notification access, New recording action, and account menu.
 2. A 44px **section navigator** groups routes by intent:
    - Overview: Dashboard
    - Build: Products, Test Cases, Test Data
@@ -114,6 +114,15 @@ The prior persistent sidebar is replaced with a two-level top workspace system.
 3. Main content uses a 1440px maximum canvas with 32–48px horizontal gutters.
 4. A page heading may use a two-column composition: narrative/context on the left, decisive action on the right.
 5. Dense detail screens may introduce a sticky local index below the section navigator; global navigation never becomes a third permanent column.
+
+### Global command search
+
+- The search field sits at the visual center of the masthead and may expand toward available horizontal space without displacing the primary New recording action.
+- Its default prompt is “Search workspace”; a compact `⌘K`/`Ctrl K` hint teaches keyboard access without becoming required instruction.
+- Results open in a flat, hairline-bounded command panel below the field. Groups use the same section labels as navigation, with the current route's group first and a maximum of five rows per group.
+- Each result shows a section icon, safe title, concise context, and destination cue. Highlighting uses the cobalt soft surface plus a left trace, not elevation.
+- Loading, no matches, and safe failure appear inside the same panel and are announced politely. Escape closes the panel; Arrow keys and Enter operate the active row.
+- At tablet and mobile widths, search moves to a full-width row below the masthead identity/actions. Its result panel remains viewport-bounded and touch rows retain 44px targets.
 
 ### Tablet and mobile
 
