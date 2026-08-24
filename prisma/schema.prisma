@@ -207,6 +207,55 @@ enum AuthTokenKind {
   PASSWORD_RESET
 }
 
+enum GitHubInstallationStatus {
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum GitHubRepositoryConnectionStatus {
+  ACTIVE
+  PAUSED
+  DISCONNECTED
+}
+
+enum GitHubDeliveryStatus {
+  RECEIVED
+  QUEUED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+enum GitHubDeliveryTargetStatus {
+  QUEUED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+enum SourceAnalysisTrigger {
+  GITHUB_FAILURE
+  MANUAL_REQUEST
+}
+
+enum SourceAnalysisStatus {
+  QUEUED
+  ANALYZING
+  COMPLETED
+  BLOCKED_SENSITIVE_CONTEXT
+  UNAVAILABLE
+  FAILED
+  EXPIRED
+}
+
+enum SourceAnalysisConfidence {
+  HIGH
+  MEDIUM
+  LOW
+  NONE
+}
+
 model User {
   id                   String              @id @default(cuid())
   email                String              @unique
@@ -231,6 +280,7 @@ model User {
   approvalRequests     ChangeProposal[]    @relation("ChangeProposalOwner")
   databaseDiagnostics  DatabaseDiagnostic[] @relation("DatabaseDiagnosticRequester")
   ownedTestDataSets    TestDataSet[]        @relation("TestDataSetOwner")
+  requestedSourceAnalyses SourceAnalysis[]  @relation("SourceAnalysisRequester")
   auditEvents          AuditEvent[]        @relation("AuditActor")
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
@@ -256,6 +306,7 @@ model Product {
   jiraIssues      JiraIssue[]
   jiraFilings     JiraFiling[]
   changeProposals ChangeProposal[]
+  githubRepositoryConnections ProductRepositoryConnection[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -270,6 +321,7 @@ model Organization {
   products    Product[]
   authTokens  AuthToken[]
   sessions    UserSession[]
+  githubInstallations GitHubInstallation[]
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 }
@@ -394,6 +446,7 @@ model TestCase {
   approvedSuggestions TestSuggestion[]       @relation("SuggestionApprovedTestCase")
   jiraIssues          JiraIssue[]
   changeProposals     ChangeProposal[]
+  repositoryLinks     TestCaseRepositoryLink[]
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
 }
@@ -625,6 +678,8 @@ model Run {
   jiraFiling         JiraFiling?
   changeProposal     ChangeProposal?
   databaseDiagnostics DatabaseDiagnostic[]
+  githubRunLink      GitHubRunLink?
+  sourceAnalyses     SourceAnalysis[]
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
@@ -659,6 +714,7 @@ model MaintenanceRun {
   deletedEvidenceCount     Int               @default(0)
   deletedScreenshotCount   Int               @default(0)
   deletedDiagnosticCount   Int               @default(0)
+  deletedSourceAnalysisCount Int             @default(0)
   errorCode                String?
   startedAt                DateTime          @default(now())
   completedAt              DateTime?
@@ -877,4 +933,150 @@ model JiraFiling {
 
   @@index([productId, createdAt])
   @@index([jiraIssueId, createdAt])
+}
+
+model GitHubInstallation {
+  id             String                   @id @default(cuid())
+  organizationId String
+  installationId String                   @unique
+  accountLogin   String
+  accountType    String?
+  status         GitHubInstallationStatus @default(ACTIVE)
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  connections    ProductRepositoryConnection[]
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@index([organizationId, status])
+}
+
+model ProductRepositoryConnection {
+  id                 String                           @id @default(cuid())
+  productId          String
+  installationId     String
+  repositoryId       String
+  repositoryFullName String
+  label              String
+  defaultBranch      String
+  branchAllowlist    String[]
+  status             GitHubRepositoryConnectionStatus @default(ACTIVE)
+  analysisEnabled    Boolean                          @default(true)
+  product            Product                          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  installation       GitHubInstallation               @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  testCaseLinks      TestCaseRepositoryLink[]
+  deliveryTargets    GitHubDeliveryTarget[]
+  runLinks           GitHubRunLink[]
+  analyses           SourceAnalysis[]
+  createdAt          DateTime                         @default(now())
+  updatedAt          DateTime                         @updatedAt
+
+  @@unique([productId, repositoryId])
+  @@index([installationId, repositoryId, status])
+  @@index([productId, status])
+}
+
+model TestCaseRepositoryLink {
+  testCaseId   String
+  connectionId String
+  testCase     TestCase                    @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  connection   ProductRepositoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                    @default(now())
+
+  @@id([testCaseId, connectionId])
+  @@index([connectionId])
+}
+
+model GitHubDelivery {
+  id                 String               @id @default(cuid())
+  deliveryId         String               @unique
+  event              String
+  installationNumber String?
+  repositoryId       String?
+  repositoryFullName String?
+  ref                String?
+  branch             String?
+  beforeSha          String?
+  afterSha           String?
+  status             GitHubDeliveryStatus @default(RECEIVED)
+  safeError          String?
+  receivedAt         DateTime             @default(now())
+  processedAt        DateTime?
+  targets            GitHubDeliveryTarget[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([repositoryId, branch, receivedAt])
+  @@index([installationNumber, receivedAt])
+}
+
+model GitHubDeliveryTarget {
+  id             String                     @id @default(cuid())
+  deliveryId     String
+  connectionId   String
+  status         GitHubDeliveryTargetStatus @default(QUEUED)
+  decisionReason String?
+  queuedRunCount Int                        @default(0)
+  excludedTests  Json?
+  delivery       GitHubDelivery             @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  connection     ProductRepositoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  runLinks       GitHubRunLink[]
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  @@unique([deliveryId, connectionId])
+  @@index([connectionId, createdAt])
+}
+
+model GitHubRunLink {
+  id                 String                     @id @default(cuid())
+  runId              String                     @unique
+  connectionId       String
+  deliveryTargetId   String?
+  repositoryFullName String
+  branch             String
+  commitSha          String
+  parentSha          String?
+  run                Run                        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  connection         ProductRepositoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  deliveryTarget     GitHubDeliveryTarget?      @relation(fields: [deliveryTargetId], references: [id], onDelete: SetNull)
+  createdAt          DateTime                   @default(now())
+
+  @@index([connectionId, commitSha])
+  @@index([deliveryTargetId])
+}
+
+model SourceAnalysis {
+  id                String                     @id @default(cuid())
+  runId             String
+  connectionId      String
+  requestedById     String?
+  trigger           SourceAnalysisTrigger
+  commitSha         String
+  parentSha         String?
+  status            SourceAnalysisStatus      @default(QUEUED)
+  confidence        SourceAnalysisConfidence  @default(NONE)
+  provider          String?
+  model             String?
+  attemptCount      Int                        @default(0)
+  observations      Json?
+  hypotheses        Json?
+  likelyCause       String?
+  remediation       String?
+  suggestedPatch    String?
+  sourceReferences  Json?
+  limitations       String?
+  errorCode         String?
+  queuedAt          DateTime                   @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  expiresAt         DateTime
+  run               Run                        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  connection        ProductRepositoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  requestedBy       User?                      @relation("SourceAnalysisRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  @@unique([runId, connectionId, commitSha])
+  @@index([runId, createdAt])
+  @@index([status, expiresAt])
 }
