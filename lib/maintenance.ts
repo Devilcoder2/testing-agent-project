@@ -1,4 +1,4 @@
-import { MaintenanceKind, MaintenanceStatus, RunStatus } from "@prisma/client";
+import { MaintenanceKind, MaintenanceStatus, RunStatus, SourceAnalysisStatus } from "@prisma/client";
 import { deleteEvidenceObject } from "./evidence";
 import { prisma } from "./prisma";
 
@@ -33,9 +33,10 @@ export async function runEvidenceRetention(now = new Date()) {
         objectFailure = true;
       }
     }
-    const [removedEvidence, removedDiagnostics] = await prisma.$transaction([
+    const [removedEvidence, removedDiagnostics, removedSourceAnalyses] = await prisma.$transaction([
       prisma.evidenceItem.deleteMany({ where: { id: { in: removableIds } } }),
-      prisma.databaseDiagnostic.deleteMany({ where: { completedAt: { lt: cutoff }, run: { status: RunStatus.COMPLETED } } })
+      prisma.databaseDiagnostic.deleteMany({ where: { completedAt: { lt: cutoff }, run: { status: RunStatus.COMPLETED } } }),
+      prisma.sourceAnalysis.deleteMany({ where: { expiresAt: { lt: now }, status: { notIn: [SourceAnalysisStatus.QUEUED, SourceAnalysisStatus.ANALYZING] } } })
     ]);
     return prisma.maintenanceRun.update({
       where: { id: maintenance.id },
@@ -44,6 +45,7 @@ export async function runEvidenceRetention(now = new Date()) {
         deletedEvidenceCount: removedEvidence.count,
         deletedScreenshotCount,
         deletedDiagnosticCount: removedDiagnostics.count,
+        deletedSourceAnalysisCount: removedSourceAnalyses.count,
         errorCode: objectFailure ? "EVIDENCE_OBJECT_DELETE_FAILED" : null,
         completedAt: new Date()
       }
