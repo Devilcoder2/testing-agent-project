@@ -7,7 +7,8 @@ const baseUrl = process.env.SENTINEL_BASE_URL ?? "http://localhost:3000";
 
 async function createHealthFixture() {
   const owner = await prisma.user.findUniqueOrThrow({ where: { email: "ava.tester@example.test" } });
-  const product = await prisma.product.create({ data: { name: `Health UI ${Date.now()}`, createdById: owner.id, memberships: { create: { userId: owner.id } } } });
+  const organization = await prisma.organizationMember.findFirstOrThrow({ where: { userId: owner.id }, orderBy: { organization: { name: "asc" } } });
+  const product = await prisma.product.create({ data: { name: `Health UI ${Date.now()}`, organizationId: organization.organizationId, createdById: owner.id, memberships: { create: { userId: owner.id } } } });
   const recording = await prisma.recordingSession.create({ data: { productId: product.id, ownerId: owner.id, testName: "Dashboard failed journey", targetUrl: "http://demo-target", tokenHash: `health-ui-${Date.now()}`, status: RecordingStatus.SAVED } });
   const testCase = await prisma.testCase.create({ data: { productId: product.id, ownerId: owner.id, recordingSessionId: recording.id, name: "Dashboard failed journey", versions: { create: { version: 1, steps: { create: { order: 1, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: "http://demo-target" } } } } } }, include: { versions: true } });
   const run = await prisma.run.create({ data: { testCaseId: testCase.id, testCaseVersionId: testCase.versions[0].id, productId: product.id, initiatedById: owner.id, targetUrl: "http://demo-target", mode: RunMode.GUIDED, status: RunStatus.COMPLETED, outcome: RunOutcome.FAILED, completedAt: new Date() } });
@@ -45,10 +46,11 @@ test("shows an authorized health drill-down and lets the tester read a failure n
 
     await page.locator(".sidebar").getByRole("link", { name: "Notifications" }).click();
     await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
-    await expect(page.getByText("Run failed · Dashboard failed journey", { exact: true })).toBeVisible();
-    await expect(page.getByText("sent", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Mark read" }).click();
-    await expect(page.getByRole("heading", { name: "All caught up" })).toBeVisible();
+    const failureNotification = page.locator("article").filter({ hasText: "Run failed · Dashboard failed journey" });
+    await expect(failureNotification).toBeVisible();
+    await expect(failureNotification.getByText("sent", { exact: true })).toBeVisible();
+    await failureNotification.getByRole("button", { name: "Mark read" }).click();
+    await expect(failureNotification).toHaveCount(0);
     await page.getByRole("button", { name: "All", exact: true }).click();
     await expect(page.getByText("Run failed · Dashboard failed journey", { exact: true })).toBeVisible();
   } finally {
