@@ -49,6 +49,7 @@ test("creates masked Test Data and binds it to a checkpointed Auto Run", async (
     await page.getByLabel("Email").fill("ava.tester@example.test");
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
 
     await page.getByRole("link", { name: "Test Data" }).click();
     await page.locator(".inventory-toolbar").getByLabel("Product").selectOption(created.productId);
@@ -92,6 +93,7 @@ test("reuses a reusable Test Data Set after a passed Auto Run", async ({ page })
     await page.getByLabel("Email").fill("ava.tester@example.test");
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
 
     await page.getByRole("link", { name: "Test Data" }).click();
     await page.locator(".inventory-toolbar").getByLabel("Product").selectOption(created.productId);
