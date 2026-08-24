@@ -633,3 +633,19 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Implementation verification (2026-08-24):** Lint, type-check, and the 18-route production build pass. Focused Vitest passes 2/2 global-search assertions, including safe-field and authorization isolation. The focused Playwright journey passes debounce, current-section priority, cross-section discovery, keyboard and pointer navigation, no-result/Escape behavior, mobile panel bounds, Test Data Product context, Review queue context, and protected Run navigation. All 14 browser journeys that do not require a second live Guided Run pass. Live browser review confirmed the grouped dark-theme panel and stable light-theme switch. The complete API suite passes 50/52 assertions; the same two Guided Run assertions remain blocked by the existing user-owned active Run and correctly receive HTTP 409. The priority diff review and exactly ten questions are recorded in `learning-log.md`; owner answers remain pending, so the final learning checkbox stays open.
 
 **Out of scope:** Fuzzy/semantic search, full-text indexing, saved/recent queries, search analytics, external providers, secret/evidence/source-content search, or separate per-page search fields.
+
+## Phase 18 — Recording workspace focus controls
+
+**Depends on:** The delivered standalone desktop Recording Workspace and its locked noVNC browser boundary.
+
+**Outcome:** A tester can reclaim recording-browser width by collapsing the Step Log and can focus entirely on the remote browser through a reversible, accessible application-level full-screen mode.
+
+- [x] Define the collapse/full-screen behavior, browser/security boundary, desktop policy, keyboard semantics, and no-new-dependency decision in the project documents.
+- [ ] Add a labelled collapse/expand Step Log control that retains a narrow restore rail and does not alter recording data or browser state.
+- [ ] Add a labelled full-screen/minimize control that hides and restores only the recording session bar and Step Log while preserving the user’s rail state.
+- [ ] Keep noVNC controls hidden and leave browser target policy, recording events, save/discard behavior, authorization, redaction, and persistence unchanged.
+- [ ] Add browser coverage for the collapsed layout, full-screen transition, minimize restoration, keyboard-accessible controls, and supported-width guidance.
+- [ ] Run lint, type-check, production build, focused recording regression, and live visual review. Record exact output and distinguish the known active Guided Run blocker.
+- [ ] Review the actual diff in learning priority order and add one append-only learning entry with exactly ten owner questions before closing the learning gate.
+
+**Out of scope:** Browser-native Fullscreen API permission, noVNC toolbar exposure, remote browser/Chromium-policy changes, Guided Run changes, persisted layout preferences, native mobile recording, or any API/database change.
