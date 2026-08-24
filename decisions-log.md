@@ -302,7 +302,15 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Impact:** Existing seeded data migrates into one demo organization. Product creators remain historical attribution, while role policy replaces creator-only Jira, ownership, and change-approval authority. Disabled users preserve history but lose effective access and sessions immediately.
 - **Status:** Confirmed by project owner; implementation pending.
 
-## D-037 — Begin the product-wide UI/UX revamp on the delivered Phase 12 surface
+## D-037 — Phase 13 multi-repository, source-aware failure analysis
+
+- **Date:** 2026-08-24
+- **Decision:** Extend optional Phase 13 so a Product can connect more than one GitHub repository, such as separate frontend and backend repositories. Associate every source-triggered Run and any diagnosis with one exact repository, branch, and commit. After a completed failed Run, an authorized user may request an advisory source-aware analysis. Use Repomix only in an isolated worker to package a selected read-only checkout with remote configuration disabled; persist safe findings and source references, never raw packed code.
+- **Reason:** A realistic Product often spans frontend and backend codebases. A Run failure is more useful when Sentinel can relate redacted Run evidence to the exact source revision that triggered it, but indiscriminately packaging or retaining whole repositories would create an unacceptable secret, privacy, and cost boundary.
+- **Impact:** GitHub App read-only repository access, webhook verification, commit pinning, explicit analysis requests, bounded context selection, secret scanning, and provider/retention decisions become Phase 13 requirements. Findings may provide an explained likely cause, recommended fix, file path, and line range, but never automatically alter code, Tests, Jira, or pull requests. Full source code, Repomix output, provider prompts/responses, and GitHub tokens remain ephemeral.
+- **Status:** Approved for Phase 13 planning; implementation requires GitHub App and AI-provider decisions.
+
+## D-038 — Begin the product-wide UI/UX revamp on the delivered Phase 12 surface
 
 - **Date:** 2026-08-24
 - **Decision:** Begin Phase 15 against every currently implemented Phase 12 route before the optional GitHub and conversational-integration phases. Retain the dark operations identity, local system typography, semantic status palette, and custom React/CSS approach; add an internal SVG icon set and reusable accessible interaction primitives without adding a frontend framework or changing API contracts.
