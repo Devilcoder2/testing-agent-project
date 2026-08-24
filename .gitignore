@@ -9,6 +9,7 @@ dist/
 build/
 .next/
 coverage/
+test-results/
 *.tsbuildinfo
 
 # macOS and editor files
