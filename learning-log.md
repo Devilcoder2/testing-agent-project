@@ -1758,3 +1758,94 @@ Relevant implementation and verification files: `prisma/schema.prisma`, `prisma/
     **Owner answer:** Pending follow-up.
 
 **Learning status:** Pending owner review. The implementation and focused local verification are ready, but the owner must answer these ten questions and complete a disposable two-repository GitHub App/OpenAI sandbox check before Phase 13 is treated as fully understood or externally accepted.
+
+## Phase 16 — Clean-sheet dual-theme frontend rebuild
+
+### What changed and what problem it solves
+
+Phase 16 replaces the previous sidebar-led dark interface with the new Signal Canvas design system while preserving Sentinel's delivered workflows. The user now enters through a split editorial sign-in screen, works within a compact command masthead and grouped section navigator, and can switch between equally supported light and dark themes. Warm paper-like surfaces, restrained cobalt actions, hairline ledgers, trace-inspired identity marks, consistent typography, and denser information hierarchy make the product feel like one purpose-built QA workspace rather than a collection of independently styled screens.
+
+The functional flow did not change. Authentication still creates the same server session. Navigation still opens the same protected routes. New recording still invokes the existing recording dialog and API. Dashboard, Product, Test Case, Test Data, Run, Release, Review, notification, administration, repository, webhook, and source-analysis interactions still use their existing React state, server endpoints, authorization rules, persistence, queues, and safety boundaries. Phase 16 changes presentation composition, semantic tokens, responsive navigation, theme state, and presentation-facing browser selectors only.
+
+### End-to-end theme and shell flow
+
+1. Before React paints the page, `app/layout.tsx` reads the locally saved `sentinel-theme` value. If there is no explicit choice, it uses the operating-system colour preference; if browser storage is unavailable, it safely uses light mode. Applying `data-theme` before paint avoids a bright or dark flash during hydration.
+2. `app/styles/tokens.css` supplies complete light and dark values through the same semantic roles, including canvas, surface, text, borders, focus, actions, and status colours. Components consume roles rather than choosing theme-specific colours themselves.
+3. `components/theme-control.tsx` updates the root theme, persists the explicit choice, and exposes the next action and current state to assistive technology. It is available on authentication/account screens, in the desktop masthead, and in the mobile navigation sheet.
+4. `components/app-shell.tsx` derives the current section from the URL, groups routes as Overview, Build, Operate, Decide, and Manage, and retains the existing notification, New recording, and sign-out actions. On narrower screens the same links move into an Escape-dismissible sheet; recording and live Guided Run keep their explicit desktop-only policy.
+5. Route components retain their existing data and event logic. The rebuilt `app/globals.css` recomposes their shared class vocabulary into flat ledgers, metric strips, responsive grids, viewport-safe dialogs, evidence treatments, and dedicated recording/Run workspaces in both themes.
+
+### Technologies, choices, alternatives, and tradeoffs
+
+- The implementation keeps React 19, Next.js App Router, TypeScript, existing internal SVG icons, and plain CSS variables. A UI framework, theme package, font dependency, and animation library were considered unnecessary because they would add migration and supply-chain cost without improving the preserved workflows.
+- Theme selection is local to the browser rather than tied to a user database record. This makes the preference immediate and avoids changing account/API schemas, but it does not synchronize between browsers or devices.
+- A small inline bootstrap script is intentionally used before hydration. It prevents theme flash and keeps the server render generic, but it means a future strict Content Security Policy must provide an approved nonce or move the bootstrap to an allowed early-loading strategy.
+- The shell uses semantic route groups rather than retaining the old collapsible sidebar. This improves orientation and returns horizontal space to content on wide screens; smaller screens use a navigation sheet because all groups cannot remain legible in one row.
+- The stylesheet was rebuilt as one coherent compatibility layer over existing route class names. This avoids rewriting business-heavy components solely for styling, but the large global file should be split by primitive and workspace only in a separately reviewed refactor that preserves cascade order.
+- Motion remains CSS-only and purposeful. Focus, hover, sheet, dialog, disclosure, and status transitions use shared timing tokens, while `prefers-reduced-motion` removes non-essential duration.
+
+### Limitations, risks, and future improvements
+
+- Automated browser acceptance covers route navigation, mobile navigation, persisted themes, reduced motion, recording viewport policy, and the major functional workflows. Owner review at 200% zoom and representative tablet/mobile devices is still required before the visual acceptance gate is closed.
+- The existing active user-owned Guided Run continues to block attempts to create another live browser session. This is expected safety behavior, not a redesign regression; it must be resolved through the normal product workflow before the two affected integration assertions can pass.
+- Theme persistence currently follows an explicit preference forever. A future approved control could add a third “System” choice, but doing so was not required and would change the simple two-state control.
+- The clean-sheet CSS continues to style existing semantic class names so route functionality remains isolated from visual work. Future components should follow `DESIGN.md` rather than copying route-specific selectors.
+- No business logic, API route, database schema, queue, evidence retention, GitHub/Jira behavior, or authorization policy changed in this phase.
+
+Relevant files: `DESIGN.md`, `frontend.md`, `app/styles/tokens.css`, `app/layout.tsx`, `app/globals.css`, `components/theme-control.tsx`, `components/app-shell.tsx`, `components/ui.tsx`, `components/sentinel-views.tsx`, `components/account-views.tsx`, and the updated Playwright specifications. See `phases.md` Phase 16 and `decisions-log.md` D-039.
+
+### Verification evidence and priority-based diff review
+
+```text
+npm run lint
+> eslint .
+exit 0
+
+npm run typecheck
+> tsc --noEmit
+exit 0
+
+npm run build
+✓ Compiled successfully
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T sentinel npx playwright test --reporter=line --grep-invert "starts, refreshes, and completes a strict guided Run"
+13 passed (59.7s)
+
+docker compose exec -T sentinel npm test
+Test Files  1 failed | 16 passed (17)
+Tests  2 failed | 48 passed (50)
+Both failures expected HTTP 201 but received HTTP 409 because the existing user-owned Guided Run still holds the single live-browser boundary.
+```
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `components/app-shell.tsx` (`navigationGroups`, `isActive`, responsive sheet, recording/sign-out actions); `app/layout.tsx` (`themeBootstrap`); `components/theme-control.tsx` (`currentTheme`, `toggleTheme`); `app/globals.css` | These define global route access presentation, pre-paint theme behavior, persistent client preference, focus/navigation behavior, and the responsive appearance of every workflow. Read now, especially the boundary between presentation actions and unchanged APIs. |
+| Medium — understand next | `app/styles/tokens.css`; `components/ui.tsx` (`SentinelMark`, shared page/empty structure); `components/sentinel-views.tsx` and `components/account-views.tsx` theme/identity integration; Playwright specifications | These encode the semantic palette, shared identity, authentication composition, and acceptance contract. Review how both themes share roles and how selectors now follow semantic navigation. |
+| Lower — skim or defer | `DESIGN.md`, `frontend.md`, `architecture.md`, `techstack.md`, `phases.md`, and `decisions-log.md` | These contain no runtime behavior. They are the design rationale and project control record and should be used to prevent future visual drift. |
+
+### Ten-question understanding check
+
+1. Which application behaviors were deliberately preserved during Phase 16, and which changed files provide evidence that the work stayed presentation-focused?
+2. How does the pre-paint theme bootstrap choose among a saved preference, the operating-system preference, and the safe fallback, and what visual problem does it prevent?
+3. Why do components consume semantic colour roles from `tokens.css` instead of selecting separate hard-coded light and dark colours?
+4. How does `ThemeControl` persist a choice and communicate both its current state and next action to a screen-reader user?
+5. How does `AppShell` determine the active route, and what changes when the grouped desktop section navigator becomes the mobile navigation sheet?
+6. Which recording and Guided Run responsive restriction remains intentionally unchanged, and why would forcing those workspaces into a narrow mobile layout be misleading?
+7. Why was a new component/theme/animation library not introduced, and what maintenance tradeoff follows from owning the CSS and accessible interactions locally?
+8. What does the reduced-motion rule remove, and which navigation, dialog, disclosure, and theme interactions must remain fully operable with zero-duration transitions?
+9. Why do the two Guided Run unit assertions receive HTTP 409, and why must a maintainer not delete or mutate the existing Run merely to produce a green test report?
+10. If a future strict Content Security Policy blocks inline scripts, how could the no-flash theme bootstrap be adapted without regressing first paint or changing application functionality?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the highest-priority files before Phase 16 is considered fully understood.
+- Complete owner visual/usability checks in both themes at desktop, tablet, mobile, 200% zoom, keyboard-only, and reduced-motion settings.
+- Resolve the existing active Guided Run through the normal application workflow, then rerun all 50 Vitest assertions and the complete 14-test browser suite.
+
+**Learning status:** Implementation and automated redesign verification are recorded. Owner answers, final viewport/usability acceptance, and the state-blocked Guided Run regression remain open.
