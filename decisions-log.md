@@ -341,3 +341,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Users should be able to find a remembered item without first knowing its section. Duplicating search controls and data-fetch logic across eight pages would create inconsistent behavior, repeated work, and more places for authorization mistakes.
 - **Impact:** Products, Test Cases, Test Data, Runs, Releases, Review items, notifications, and Admin-only organization members share one result contract and retain their existing access rules. Test Data values, variables, evidence, source code, payloads, secrets, and raw logs are never searched or returned. No search service, persistence, analytics, or third-party dependency is added.
 - **Status:** Implemented and pushed on 2026-08-24. Lint, type-check, the 18-route production build, two focused server-search assertions, the focused browser journey, and all 14 applicable browser regressions pass. The full API suite passes 50/52 assertions; the two unrelated Guided Run assertions remain state-blocked by the existing user-owned live session. Owner answers to the Phase 17 learning check remain pending.
+
+## D-042 — Client-only recording workspace focus controls
+
+- **Date:** 2026-08-24
+- **Decision:** Add a collapsible Step Log rail and a reversible application-level full-screen mode to the standalone Recording Workspace. Full screen hides Sentinel's recording session bar and Step Log, keeps an in-stage minimize control, and restores the prior rail state. Do not use the browser Fullscreen API or persist either layout preference.
+- **Reason:** Recording is a browser-first task. The existing workspace preserves a useful editable Step Log, but a tester needs an immediate way to reclaim its width or temporarily devote the whole viewport to the approved remote browser.
+- **Impact:** The change stays entirely in the recording view and CSS. It cannot create or close a remote browser, show noVNC controls, change Chromium policy, alter recording events, or bypass save/discard and authorization behavior. Buttons remain labelled and keyboard accessible, the existing narrow-screen guidance remains authoritative, and no new library or server contract is needed.
+- **Status:** Owner-approved through the feature request; implementation pending.
