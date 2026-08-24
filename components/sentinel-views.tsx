@@ -13,6 +13,9 @@ type TestCaseSummary = { id: string; name: string; ownerId: string; currentVersi
 type VersionVariable = { name: string; hasStaticDefault: boolean; maskedValue: string | null };
 type SavedTestCase = TestCaseSummary & { versions: Array<{ version: number; steps: Step[]; variables?: VersionVariable[]; runs?: Array<{ id: string; mode: string; outcome?: string | null; createdAt: string }> }> };
 type TestDataSet = { id: string; name: string; fieldNames: string[]; status: "SAFE" | "RESERVED" | "CONSUMED" | "INVALID"; reusePolicy: "REUSABLE" | "SINGLE_USE"; createdAt?: string };
+type GitHubConnection = { id: string; label: string; repositoryFullName: string; repositoryId?: string; defaultBranch: string; branchAllowlist: string[]; status: "ACTIVE" | "PAUSED" | "DISCONNECTED"; analysisEnabled: boolean; linked?: boolean; linkedTestCaseCount?: number; installation?: { accountLogin: string; accountType: string | null; status: string }; createdAt?: string; updatedAt?: string };
+type GitHubProductSettings = { available: boolean; canConfigure: boolean; connections: GitHubConnection[] };
+type GitHubSourceAnalysis = { id: string; trigger: "GITHUB_FAILURE" | "MANUAL_REQUEST"; commitSha: string; parentSha?: string | null; status: "QUEUED" | "ANALYZING" | "COMPLETED" | "BLOCKED_SENSITIVE_CONTEXT" | "UNAVAILABLE" | "FAILED" | "EXPIRED"; confidence: "HIGH" | "MEDIUM" | "LOW" | "NONE"; provider?: string | null; model?: string | null; observations?: string[] | null; hypotheses?: string[] | null; likelyCause?: string | null; remediation?: string | null; suggestedPatch?: string | null; sourceReferences?: Array<{ path: string; startLine: number; endLine: number; rationale: string }> | null; limitations?: string | null; errorCode?: string | null; completedAt?: string | null; expiresAt?: string; connection: { id: string; label: string; repositoryFullName: string } };
 type RecordingContext = { id: string; token: string; testName: string };
 
 const recordingStorageKey = (id: string) => `sentinel-recording:${id}`;
@@ -228,9 +231,123 @@ export function ProductsView() {
   return <div className="dashboard-grid">
     <PageHeader eyebrow="Product configuration" title="Products" detail="Create and manage the Product contexts available for guided Test Case recording." actions={<Button className="product-create-action" type="button" onClick={() => openProductModal()}>New product <span aria-hidden="true">+</span></Button>} />
     {error && <Feedback tone="danger">{error}</Feedback>}{productMessage && !isCreateProductOpen && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}
-    <section className="products-layout products-layout--single"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Accessible Products</p><h2>Your Product contexts</h2><p>Products are private to their members and persist between sessions.</p></div><StatusBadge tone="info">{products.length} total</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading Products</StatusBadge> : products.length === 0 ? <EmptyState title="No Products yet" detail="Create your first Product to start a guided recording." /> : <div className="product-list">{products.map((product) => { const testCount = testCases.filter((testCase) => testCase.product.id === product.id).length; return <article className="product-list__item" key={product.id}><div><h3>{product.name}</h3><p>{testCount} saved Test Case{testCount === 1 ? "" : "s"}</p></div><div className="product-list__actions"><JiraProjectSettings product={product} /><Button type="button" variant="secondary" onClick={() => openProductModal(product)}>Edit</Button>{product.createdById && <OwnershipTransfer label="Product" currentOwnerId={product.createdById} membersPath={`products/${product.id}/members`} transferPath={`products/${product.id}/owner`} onTransferred={() => window.location.reload()} />}<Link className="button button--secondary" href={`/test-cases?productId=${product.id}`}>View Test Cases</Link></div></article>; })}</div>}</Card></section>
+    <section className="products-layout products-layout--single"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Accessible Products</p><h2>Your Product contexts</h2><p>Products are private to their members and persist between sessions.</p></div><StatusBadge tone="info">{products.length} total</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading Products</StatusBadge> : products.length === 0 ? <EmptyState title="No Products yet" detail="Create your first Product to start a guided recording." /> : <div className="product-list">{products.map((product) => { const testCount = testCases.filter((testCase) => testCase.product.id === product.id).length; return <article className="product-list__item" key={product.id}><div><h3>{product.name}</h3><p>{testCount} saved Test Case{testCount === 1 ? "" : "s"}</p></div><div className="product-list__actions"><GitHubProjectSettings product={product} /><JiraProjectSettings product={product} /><Button type="button" variant="secondary" onClick={() => openProductModal(product)}>Edit</Button>{product.createdById && <OwnershipTransfer label="Product" currentOwnerId={product.createdById} membersPath={`products/${product.id}/members`} transferPath={`products/${product.id}/owner`} onTransferred={() => window.location.reload()} />}<Link className="button button--secondary" href={`/test-cases?productId=${product.id}`}>View Test Cases</Link></div></article>; })}</div>}</Card></section>
     {isCreateProductOpen && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title"><div className="modal__header"><div><p className="eyebrow">{isEditing ? "Product settings" : "New Product"}</p><h2 id="product-modal-title">{isEditing ? "Edit Product" : "Create new Product"}</h2><p>{isEditing ? "Update the Product name used to organize your Test Cases." : "A Product needs a name and is immediately available for your next recording."}</p></div><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Close</Button></div><form className="form-stack" onSubmit={saveProduct}><Field label="Product name"><TextInput value={newProductName} onChange={(event) => setNewProductName(event.target.value)} placeholder="e.g. Billing Portal" autoFocus required /></Field>{productMessage && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}<div className="modal__actions"><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Cancel</Button><Button type="submit">{isEditing ? "Save changes" : "Create Product"} <span aria-hidden="true">{isEditing ? "→" : "+"}</span></Button></div></form></section></div>}
   </div>;
+}
+
+function GitHubProjectSettings({ product }: { product: Product }) {
+  const [open, setOpen] = useState(false);
+  const [settings, setSettings] = useState<GitHubProductSettings | null>(null);
+  const [activity, setActivity] = useState<Array<{ id: string; status: string; decisionReason?: string | null; queuedRunCount: number; excludedTests?: Array<{ name: string; reason: string }> | null; delivery: { branch?: string | null; afterSha?: string | null; receivedAt: string }; connection: { label: string; repositoryFullName: string }; runs: Array<{ id: string; status: string; outcome?: string | null; testCaseName: string; sourceAnalysisStatus?: string | null }> }>>([]);
+  const [label, setLabel] = useState("");
+  const [repositoryFullName, setRepositoryFullName] = useState("");
+  const [branches, setBranches] = useState("main");
+  const [editingConnection, setEditingConnection] = useState<GitHubConnection | null>(null);
+  const [editingLabel, setEditingLabel] = useState("");
+  const [editingDefaultBranch, setEditingDefaultBranch] = useState("");
+  const [editingBranches, setEditingBranches] = useState("");
+  const [editingAnalysisEnabled, setEditingAnalysisEnabled] = useState(true);
+  const [message, setMessage] = useState("");
+  const [working, setWorking] = useState(false);
+
+  const load = async () => {
+    try {
+      const [nextSettings, nextActivity] = await Promise.all([request(`products/${product.id}/github`) as Promise<GitHubProductSettings>, request(`products/${product.id}/github/activity`) as Promise<typeof activity>]);
+      setSettings(nextSettings);
+      setActivity(nextActivity);
+    } catch (error) {
+      setMessage(errorMessage(error, "Could not load GitHub repository settings."));
+    }
+  };
+
+  useEffect(() => { if (open) void load(); }, [open, product.id]);
+
+  async function connect(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setWorking(true);
+    setMessage("");
+    try {
+      await request(`products/${product.id}/github/connections`, "POST", { label, repositoryFullName, branchAllowlist: branches.split(",").map((branch) => branch.trim()).filter(Boolean) });
+      setLabel("");
+      setRepositoryFullName("");
+      setBranches("main");
+      setMessage("GitHub repository connected. Link saved Test Cases to let allowed pushes queue Auto Runs.");
+      await load();
+    } catch (error) {
+      setMessage(errorMessage(error, "Could not connect the GitHub repository."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function changeConnection(connection: GitHubConnection, body: Record<string, unknown>) {
+    setWorking(true);
+    setMessage("");
+    try {
+      await request(`products/${product.id}/github/connections/${connection.id}`, "PATCH", body);
+      setMessage("Repository settings updated.");
+      setEditingConnection(null);
+      await load();
+    } catch (error) {
+      setMessage(errorMessage(error, "Could not update the GitHub repository connection."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function beginEdit(connection: GitHubConnection) {
+    setMessage("");
+    setEditingConnection(connection);
+    setEditingLabel(connection.label);
+    setEditingDefaultBranch(connection.defaultBranch);
+    setEditingBranches(connection.branchAllowlist.join(", "));
+    setEditingAnalysisEnabled(connection.analysisEnabled);
+  }
+
+  async function saveConnection(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingConnection) return;
+    await changeConnection(editingConnection, {
+      label: editingLabel,
+      defaultBranch: editingDefaultBranch,
+      branchAllowlist: editingBranches.split(",").map((branch) => branch.trim()).filter(Boolean),
+      analysisEnabled: editingAnalysisEnabled
+    });
+  }
+
+  async function disconnect(connection: GitHubConnection) {
+    setWorking(true);
+    setMessage("");
+    try {
+      await request(`products/${product.id}/github/connections/${connection.id}`, "DELETE");
+      setMessage("Repository disconnected. Historical Runs and analyses remain available to authorized members.");
+      await load();
+    } catch (error) {
+      setMessage(errorMessage(error, "Could not disconnect the GitHub repository."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return <>
+    <Button type="button" variant="secondary" onClick={() => setOpen(true)}>GitHub</Button>
+    {open && <div className="modal-backdrop" role="presentation">
+      <section className="modal github-settings-modal" role="dialog" aria-modal="true" aria-labelledby={`github-settings-${product.id}`}>
+        <div className="modal__header"><div><p className="eyebrow">Optional source automation</p><h2 id={`github-settings-${product.id}`}>GitHub repositories</h2><p>Connect frontend, backend, or other repositories separately. GitHub App credentials and source content remain server-side.</p></div><Button type="button" variant="ghost" onClick={() => setOpen(false)}>Close</Button></div>
+        {message && <Feedback tone={message.startsWith("GitHub repository") || message.startsWith("Repository disconnected") || message.startsWith("Repository settings") ? "success" : "danger"}>{message}</Feedback>}
+        {!settings ? <Skeleton lines={4} /> : !settings.available ? <EmptyState title="GitHub App is not configured" detail="Add the server-only GitHub App settings before connecting a disposable sandbox repository." /> : <div className="form-stack">
+          <section className="github-settings__section">
+            <div className="panel-card__head"><div><p className="eyebrow">Connected repositories</p><h3>{settings.connections.length} connection{settings.connections.length === 1 ? "" : "s"}</h3></div><StatusBadge tone="info">Product-scoped</StatusBadge></div>
+            {settings.connections.length === 0 ? <p className="health-empty-copy">No repository is connected yet. Existing Product workflows remain unchanged.</p> : <div className="run-list">{settings.connections.map((connection) => <article className="run-list__item" key={connection.id}><div><div className="run-list__head"><h3>{connection.label}</h3><StatusBadge tone={connection.status === "ACTIVE" ? "success" : connection.status === "PAUSED" ? "warning" : "neutral"}>{connection.status.toLowerCase()}</StatusBadge><StatusBadge tone={connection.analysisEnabled ? "info" : "neutral"}>{connection.analysisEnabled ? "analysis on" : "analysis off"}</StatusBadge></div><p><code>{connection.repositoryFullName}</code> · default {connection.defaultBranch} · allowed {connection.branchAllowlist.join(", ")} · {connection.linkedTestCaseCount ?? 0} linked Test Cases</p></div>{settings.canConfigure && connection.status !== "DISCONNECTED" && <div className="run-step__actions"><Button type="button" variant="secondary" onClick={() => beginEdit(connection)} disabled={working}>Edit</Button><Button type="button" variant="secondary" onClick={() => void changeConnection(connection, { status: connection.status === "ACTIVE" ? "PAUSED" : "ACTIVE" })} disabled={working}>{connection.status === "ACTIVE" ? "Pause" : "Resume"}</Button><Button type="button" variant="danger" onClick={() => void disconnect(connection)} disabled={working}>Disconnect</Button></div>}</article>)}</div>}
+          </section>
+          {editingConnection && <form className="form-stack github-settings__section" onSubmit={saveConnection}><div className="panel-card__head"><div><p className="eyebrow">Edit connection</p><h3>{editingConnection.repositoryFullName}</h3><p>Changes affect future webhook routing only. Existing Run history is unchanged.</p></div><Button type="button" variant="ghost" onClick={() => setEditingConnection(null)}>Close</Button></div><Field label="Connection label"><TextInput value={editingLabel} onChange={(event) => setEditingLabel(event.target.value)} maxLength={64} required /></Field><Field label="Default branch"><TextInput value={editingDefaultBranch} onChange={(event) => setEditingDefaultBranch(event.target.value)} placeholder="main" required /></Field><Field label="Allowed branches" hint="Separate literal branch names with commas. Use * only to allow every branch."><TextInput value={editingBranches} onChange={(event) => setEditingBranches(event.target.value)} placeholder="main, release-2026" required /></Field><label className="github-settings__checkbox"><input type="checkbox" checked={editingAnalysisEnabled} onChange={(event) => setEditingAnalysisEnabled(event.target.checked)} /> Enable automatic failure analysis for GitHub-triggered failed Runs</label><Button type="submit" disabled={working}>{working ? "Saving…" : "Save repository settings"}</Button></form>}
+          {settings.canConfigure && <form className="form-stack github-settings__section" onSubmit={connect}><div><p className="eyebrow">Connect repository</p><h3>Use a GitHub App-installed repository</h3><p>Sentinel verifies the repository through the server-only App. No token belongs in this form.</p></div><Field label="Connection label"><TextInput value={label} onChange={(event) => setLabel(event.target.value)} placeholder="e.g. Frontend" maxLength={64} required /></Field><Field label="Repository"><TextInput value={repositoryFullName} onChange={(event) => setRepositoryFullName(event.target.value)} placeholder="organization/repository" required /></Field><Field label="Allowed branches" hint="Separate literal branch names with commas. Use * only to allow every branch."><TextInput value={branches} onChange={(event) => setBranches(event.target.value)} placeholder="main, release-2026" required /></Field><Button type="submit" disabled={working}>{working ? "Verifying…" : "Connect repository"}</Button></form>}
+          <section className="github-settings__section"><div><p className="eyebrow">GitHub activity</p><h3>Recent delivery decisions</h3><p>Only safe routing metadata is retained; webhook payloads and source code are never displayed.</p></div>{activity.length === 0 ? <p className="health-empty-copy">No signed push deliveries have reached this Product yet.</p> : <div className="run-list">{activity.map((item) => <article className="run-list__item" key={item.id}><div><div className="run-list__head"><h3>{item.connection.label}</h3><StatusBadge tone={item.status === "PROCESSED" ? "success" : item.status === "IGNORED" ? "neutral" : "warning"}>{item.status.toLowerCase()}</StatusBadge></div><p><code>{item.delivery.branch ?? "unknown branch"}</code> · {(item.delivery.afterSha ?? "unknown").slice(0, 12)} · {item.queuedRunCount} queued · {item.excludedTests?.length ?? 0} excluded</p>{item.decisionReason && <p>{item.decisionReason.replaceAll("_", " ").toLowerCase()}</p>}{item.runs.map((run) => <Link key={run.id} href={`/runs/${run.id}`}>{run.testCaseName} · {run.outcome?.toLowerCase() ?? run.status.toLowerCase()}{run.sourceAnalysisStatus ? ` · diagnosis ${run.sourceAnalysisStatus.toLowerCase()}` : ""}</Link>)}</div></article>)}</div>}</section>
+        </div>}
+      </section>
+    </div>}
+  </>;
 }
 
 function JiraProjectSettings({ product }: { product: Product }) {
@@ -357,7 +474,7 @@ export function TestCaseDetailView({ testCaseId }: { testCaseId: string }) {
   const steps = testCaseSteps(testCase);
   const variables = testCase.versions.find((version) => version.version === testCase.currentVersion)?.variables ?? [];
   const begin = (mode: "GUIDED" | "AUTO") => variables.length ? setBindingMode(mode) : void startRun(mode);
-  return <div className="dashboard-grid"><div className="breadcrumbs"><Link href="/dashboard">Dashboard</Link><span aria-hidden="true">/</span><Link href="/test-cases">Test Cases</Link><span aria-hidden="true">/</span><span>{testCase.name}</span></div>{message && <Feedback tone={message.startsWith("Suggestions generated") ? "success" : "danger"}>{message}</Feedback>}<Card className="detail-card"><PageHeader eyebrow="Saved Test Case" title={testCase.name} detail="This current version is read-only. Start a guided evidence session or a separate autonomous replay." actions={<><StatusBadge tone="success">Version {testCase.currentVersion}</StatusBadge><Button variant="secondary" onClick={() => begin("GUIDED")} disabled={Boolean(startingRun) || steps.length === 0}>{startingRun === "GUIDED" ? "Starting Run…" : "Guided Run"}</Button><Button onClick={() => begin("AUTO")} disabled={Boolean(startingRun) || steps.length === 0}>{startingRun === "AUTO" ? "Queueing Auto Run…" : "Auto Run"}</Button><details className="action-menu"><summary className="button button--secondary">More actions</summary><div><Link href={`/test-cases/${testCase.id}/edit`}>Edit Test</Link><Button variant="ghost" onClick={() => void generateSuggestions()} disabled={generatingSuggestions || steps.length === 0}>{generatingSuggestions ? "Generating…" : "Generate suggestions"}</Button><Link href={`/review?testCaseId=${testCase.id}`}>Open Review</Link><OwnershipTransfer label="Test Case" currentOwnerId={testCase.ownerId} membersPath={`products/${testCase.product.id}/members`} transferPath={`test-cases/${testCase.id}/owner`} onTransferred={() => window.location.reload()} /></div></details></>} /><div className="detail-meta"><span>{testCase.product.name}</span><span aria-hidden="true">•</span><span>Owner: {testCase.owner.displayName}</span><span aria-hidden="true">•</span><span>{steps.length} recorded step{steps.length === 1 ? "" : "s"}</span>{testCase.featureLabels?.map((item) => <StatusBadge key={item.featureLabel.id} tone="info">{item.featureLabel.name}</StatusBadge>)}</div></Card>{variables.length > 0 && <Card className="detail-card"><div className="panel-card__head"><div><p className="eyebrow">Variable configuration</p><h2>Variables</h2><p>Static defaults are encrypted. Stored values are never shown after entry.</p></div></div><div className="run-evidence__list">{variables.map((variable) => <article key={variable.name}><div><strong>{variable.name}</strong><small>{steps.filter((step) => step.variableName === variable.name).map((step) => `Step ${step.order}`).join(" · ")} · {variable.maskedValue ?? "No static default"}</small></div><StaticVariableEditor testCaseId={testCase.id} variable={variable} onSaved={(updated) => setTestCase((current) => current ? { ...current, versions: current.versions.map((version) => version.version === current.currentVersion ? { ...version, variables: (version.variables ?? []).map((item) => item.name === updated.name ? updated : item) } : version) } : current)} /></article>)}</div></Card>}<Card className="detail-card"><div className="panel-card__head"><div><p className="eyebrow">Current version timeline</p><h2>Recorded steps</h2><p>Descriptions, outcomes, variables, and checkpoints are persisted from recording.</p></div></div>{steps.length === 0 ? <EmptyState title="No recorded steps" detail="This Test Case was saved without recorded browser activity." /> : <div className="timeline">{steps.map((step) => <StepTimelineItem key={step.id} step={step} />)}</div>}</Card><Card className="detail-card"><div className="panel-card__head"><div><p className="eyebrow">Immutable history</p><h2>Version history</h2><p>Earlier versions and their Run summaries stay read-only.</p></div></div><div className="run-list">{testCase.versions.map((version) => <article className="run-list__item" key={version.version}><div><div className="run-list__head"><h2>Version {version.version}</h2><StatusBadge tone={version.version === testCase.currentVersion ? "success" : "neutral"}>{version.version === testCase.currentVersion ? "current" : "historical"}</StatusBadge></div><p>{version.steps.length} saved step{version.steps.length === 1 ? "" : "s"} · {version.runs?.length ?? 0} linked Run{(version.runs?.length ?? 0) === 1 ? "" : "s"}</p></div></article>)}</div></Card>{bindingMode && <VariableBindingDialog mode={bindingMode} productId={testCase.product.id} variables={variables} onClose={() => setBindingMode(null)} onStart={async (bindings) => { setBindingMode(null); await startRun(bindingMode, bindings); }} />}</div>;
+  return <div className="dashboard-grid"><div className="breadcrumbs"><Link href="/dashboard">Dashboard</Link><span aria-hidden="true">/</span><Link href="/test-cases">Test Cases</Link><span aria-hidden="true">/</span><span>{testCase.name}</span></div>{message && <Feedback tone={message.startsWith("Suggestions generated") ? "success" : "danger"}>{message}</Feedback>}<Card className="detail-card"><PageHeader eyebrow="Saved Test Case" title={testCase.name} detail="This current version is read-only. Start a guided evidence session or a separate autonomous replay." actions={<><StatusBadge tone="success">Version {testCase.currentVersion}</StatusBadge><Button variant="secondary" onClick={() => begin("GUIDED")} disabled={Boolean(startingRun) || steps.length === 0}>{startingRun === "GUIDED" ? "Starting Run…" : "Guided Run"}</Button><Button onClick={() => begin("AUTO")} disabled={Boolean(startingRun) || steps.length === 0}>{startingRun === "AUTO" ? "Queueing Auto Run…" : "Auto Run"}</Button><details className="action-menu"><summary className="button button--secondary">More actions</summary><div><Link href={`/test-cases/${testCase.id}/edit`}>Edit Test</Link><Button variant="ghost" onClick={() => void generateSuggestions()} disabled={generatingSuggestions || steps.length === 0}>{generatingSuggestions ? "Generating…" : "Generate suggestions"}</Button><Link href={`/review?testCaseId=${testCase.id}`}>Open Review</Link><OwnershipTransfer label="Test Case" currentOwnerId={testCase.ownerId} membersPath={`products/${testCase.product.id}/members`} transferPath={`test-cases/${testCase.id}/owner`} onTransferred={() => window.location.reload()} /></div></details></>} /><div className="detail-meta"><span>{testCase.product.name}</span><span aria-hidden="true">•</span><span>Owner: {testCase.owner.displayName}</span><span aria-hidden="true">•</span><span>{steps.length} recorded step{steps.length === 1 ? "" : "s"}</span>{testCase.featureLabels?.map((item) => <StatusBadge key={item.featureLabel.id} tone="info">{item.featureLabel.name}</StatusBadge>)}</div></Card>{variables.length > 0 && <Card className="detail-card"><div className="panel-card__head"><div><p className="eyebrow">Variable configuration</p><h2>Variables</h2><p>Static defaults are encrypted. Stored values are never shown after entry.</p></div></div><div className="run-evidence__list">{variables.map((variable) => <article key={variable.name}><div><strong>{variable.name}</strong><small>{steps.filter((step) => step.variableName === variable.name).map((step) => `Step ${step.order}`).join(" · ")} · {variable.maskedValue ?? "No static default"}</small></div><StaticVariableEditor testCaseId={testCase.id} variable={variable} onSaved={(updated) => setTestCase((current) => current ? { ...current, versions: current.versions.map((version) => version.version === current.currentVersion ? { ...version, variables: (version.variables ?? []).map((item) => item.name === updated.name ? updated : item) } : version) } : current)} /></article>)}</div></Card>}<RepositoryRouting testCaseId={testCase.id} /><Card className="detail-card"><div className="panel-card__head"><div><p className="eyebrow">Current version timeline</p><h2>Recorded steps</h2><p>Descriptions, outcomes, variables, and checkpoints are persisted from recording.</p></div></div>{steps.length === 0 ? <EmptyState title="No recorded steps" detail="This Test Case was saved without recorded browser activity." /> : <div className="timeline">{steps.map((step) => <StepTimelineItem key={step.id} step={step} />)}</div>}</Card><Card className="detail-card"><div className="panel-card__head"><div><p className="eyebrow">Immutable history</p><h2>Version history</h2><p>Earlier versions and their Run summaries stay read-only.</p></div></div><div className="run-list">{testCase.versions.map((version) => <article className="run-list__item" key={version.version}><div><div className="run-list__head"><h2>Version {version.version}</h2><StatusBadge tone={version.version === testCase.currentVersion ? "success" : "neutral"}>{version.version === testCase.currentVersion ? "current" : "historical"}</StatusBadge></div><p>{version.steps.length} saved step{version.steps.length === 1 ? "" : "s"} · {version.runs?.length ?? 0} linked Run{(version.runs?.length ?? 0) === 1 ? "" : "s"}</p></div></article>)}</div></Card>{bindingMode && <VariableBindingDialog mode={bindingMode} productId={testCase.product.id} variables={variables} onClose={() => setBindingMode(null)} onStart={async (bindings) => { setBindingMode(null); await startRun(bindingMode, bindings); }} />}</div>;
 }
 
 function StaticVariableEditor({ testCaseId, variable, onSaved }: { testCaseId: string; variable: VersionVariable; onSaved: (variable: VersionVariable) => void }) {
@@ -370,6 +487,50 @@ function StaticVariableEditor({ testCaseId, variable, onSaved }: { testCaseId: s
   }
   if (!editing) return <Button variant="secondary" onClick={() => setEditing(true)}>{variable.hasStaticDefault ? "Replace default" : "Set default"}</Button>;
   return <div className="form-stack"><TextInput aria-label={`Static value for ${variable.name}`} value={value} onChange={(event) => setValue(event.target.value)} placeholder="Enter encrypted static value" type="password" /><Button onClick={() => void save()}>Save default</Button>{message && <Feedback tone="danger">{message}</Feedback>}</div>;
+}
+
+function RepositoryRouting({ testCaseId }: { testCaseId: string }) {
+  const [routing, setRouting] = useState<{ available: boolean; canEdit: boolean; connections: GitHubConnection[] } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    request(`test-cases/${testCaseId}/github`).then((result) => {
+      const settings = result as { available: boolean; canEdit: boolean; connections: GitHubConnection[] };
+      setRouting(settings);
+      setSelectedIds(settings.connections.filter((connection) => connection.linked).map((connection) => connection.id));
+    }).catch((error) => setMessage(errorMessage(error, "Could not load GitHub routing.")));
+  }, [testCaseId]);
+
+  function toggleConnection(connectionId: string, checked: boolean) {
+    setSelectedIds((current) => checked ? [...new Set([...current, connectionId])] : current.filter((id) => id !== connectionId));
+  }
+
+  async function save() {
+    setSaving(true);
+    setMessage("");
+    try {
+      await request(`test-cases/${testCaseId}/github`, "PATCH", { connectionIds: selectedIds });
+      setMessage("GitHub routing saved. Only future allowed pushes can queue this Test Case.");
+    } catch (error) {
+      setMessage(errorMessage(error, "Could not save GitHub routing."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!routing) return <Card className="detail-card github-routing"><Skeleton lines={2} /></Card>;
+  const activeConnections = routing.connections.filter((connection) => connection.status === "ACTIVE");
+  return <Card className="detail-card github-routing">
+    <div className="panel-card__head"><div><p className="eyebrow">Optional GitHub automation</p><h2>Repository routing</h2><p>Link this Test Case to one or more Product repositories. A matching allowed push may queue its existing safe Auto Run.</p></div><StatusBadge tone={selectedIds.length ? "info" : "neutral"}>{selectedIds.length} linked</StatusBadge></div>
+    {!routing.available ? <EmptyState title="GitHub App unavailable" detail="This deployment has no GitHub App configuration. Manual and ordinary Auto Runs remain unchanged." action={<Link className="button button--secondary" href="/products">Open Products</Link>} /> : activeConnections.length === 0 ? <EmptyState title="No active Product repositories" detail="An Admin or assigned Manager must connect and activate a Product repository before this Test Case can be triggered by a GitHub push." action={<Link className="button button--secondary" href="/products">Open Products</Link>} /> : <div className="form-stack">
+      <div className="github-routing__list">{activeConnections.map((connection) => <label className="github-routing__item" key={connection.id}><input type="checkbox" checked={selectedIds.includes(connection.id)} onChange={(event) => toggleConnection(connection.id, event.target.checked)} disabled={!routing.canEdit || saving} /><span><strong>{connection.label}</strong><small><code>{connection.repositoryFullName}</code> · allowed {connection.branchAllowlist.join(", ")}</small></span></label>)}</div>
+      {!routing.canEdit && <Feedback tone="warning">Your role can view routing, but only a Manager, Admin, or this Test Case’s Tester owner can change it.</Feedback>}
+      {message && <Feedback tone={message.startsWith("GitHub routing saved") ? "success" : "danger"}>{message}</Feedback>}
+      {routing.canEdit && <div><Button type="button" onClick={() => void save()} disabled={saving}>{saving ? "Saving…" : "Save GitHub routing"}</Button></div>}
+    </div>}
+  </Card>;
 }
 
 function VariableBindingDialog({ mode, productId, variables, onClose, onStart }: { mode: "GUIDED" | "AUTO"; productId: string; variables: VersionVariable[]; onClose: () => void; onStart: (bindings: Record<string, unknown>) => Promise<void> }) {
@@ -394,7 +555,7 @@ type RunSummary = { id: string; mode: "GUIDED" | "AUTO"; status: "QUEUED" | "RUN
 type JiraFiling = { id: string; status: "DRAFT" | "QUEUED" | "FILED" | "FAILED"; action: "CREATE" | "COMMENT" | null; summary: string; description: string; priority: "Lowest" | "Low" | "Medium" | "High" | "Highest"; attemptCount: number; deliveryError: string | null; jiraIssue: { key: string; url: string; isOpen: boolean } | null };
 type ChangeProposal = { id: string; status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "STALE"; context: string; appliedVersion?: number | null; changes: Array<{ sourceStepId: string; order: number; proposedDescription: string | null; proposedExpectedOutcome: string | null }> };
 type DatabaseDiagnostic = { id: string; kind: "CUSTOMER_LOOKUP_BY_EMAIL"; status: "COMPLETE" | "INCOMPLETE" | "UNAVAILABLE"; safeMetadata: unknown; errorCode: string | null; completedAt: string | null };
-type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; checkpointDeadline?: string | null; failureReason?: string | null; activeDurationMs?: number | null; benchmarkMedianMs?: number | null; durationDeltaMs?: number | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; attempts: RunAttempt[]; evidence: EvidenceItem[]; variableBindings?: Array<{ name: string; source: "STATIC" | "POOL" | "MANUAL"; dataSetId?: string | null }>; jiraFiling?: JiraFiling | null; changeProposal?: ChangeProposal | null; databaseDiagnostics?: DatabaseDiagnostic[]; viewerUrl?: string | null };
+type RunDetail = Omit<RunSummary, "stepResults"> & { activeStepOrder?: number | null; startedAt?: string | null; completedAt?: string | null; checkpointDeadline?: string | null; failureReason?: string | null; activeDurationMs?: number | null; benchmarkMedianMs?: number | null; durationDeltaMs?: number | null; testCaseVersion: { version: number }; stepResults: RunStepResult[]; attempts: RunAttempt[]; evidence: EvidenceItem[]; variableBindings?: Array<{ name: string; source: "STATIC" | "POOL" | "MANUAL"; dataSetId?: string | null }>; jiraFiling?: JiraFiling | null; changeProposal?: ChangeProposal | null; databaseDiagnostics?: DatabaseDiagnostic[]; githubRunLink?: { repositoryFullName: string; branch: string; commitSha: string; parentSha?: string | null; connection: { id: string; label: string; repositoryFullName: string; defaultBranch: string } } | null; sourceAnalyses?: GitHubSourceAnalysis[]; viewerUrl?: string | null };
 
 function runOutcomeTone(run: Pick<RunSummary, "status" | "outcome">) {
   if (run.status === "RUNNING") return "info" as const;
@@ -541,8 +702,69 @@ function RunEvidenceDetail({ screenshots, evidence, onOpenEvidence }: { screensh
       });
       return <section key={kind}><h3>{kind.replace("_", " ").toLowerCase()}</h3>{items.length === 0 ? <p>No {kind.toLowerCase().replace("_", " ")} evidence at this Run boundary.</p> : <>{kind === "NETWORK" && entries.length > 0 && <div className="evidence-table-wrap"><table className="evidence-table"><thead><tr><th>Method</th><th>Status</th><th>Request</th><th>Duration</th></tr></thead><tbody>{entries.map((entry, index) => <tr key={index}><td>{String(entry.method ?? "—")}</td><td>{String(entry.status ?? "—")}</td><td><code>{String(entry.url ?? "Unknown request")}</code></td><td>{entry.durationMs === undefined ? "—" : `${String(entry.durationMs)} ms`}</td></tr>)}</tbody></table></div>}{kind !== "NETWORK" && <p>{items.length} captured {kind.toLowerCase().replace("_", " ")} boundar{items.length === 1 ? "y" : "ies"}. Open raw data only when the summary is insufficient.</p>}<div className="run-evidence__metadata">{items.map((item, index) => <details className="raw-evidence" key={item.id}><summary>{item.captureError ? "Capture error" : `${kind.replace("_", " ").toLowerCase()} boundary ${index + 1}`} · View raw data</summary><pre>{item.captureError ?? JSON.stringify(item.metadata, null, 2)}</pre></details>)}</div></>}</section>;
     })}
-    <section className="follow-up-actions"><div><p className="eyebrow">After a failed Run</p><h3>Follow-up actions</h3><p>Diagnostics, external filing, and intentional-change review remain explicit and independently authorized.</p></div><JiraFilingPanel /><ChangeProposalPanel /><RunDiagnosticPanel /></section>
+    <section className="follow-up-actions"><div><p className="eyebrow">After a failed Run</p><h3>Follow-up actions</h3><p>Diagnostics, external filing, intentional-change review, and source analysis remain explicit and independently authorized.</p></div><SourceAnalysisPanel /><JiraFilingPanel /><ChangeProposalPanel /><RunDiagnosticPanel /></section>
   </div>;
+}
+
+function sourceAnalysisTone(status: GitHubSourceAnalysis["status"]) {
+  if (status === "COMPLETED") return "success" as const;
+  if (status === "QUEUED" || status === "ANALYZING") return "info" as const;
+  if (status === "BLOCKED_SENSITIVE_CONTEXT" || status === "UNAVAILABLE") return "warning" as const;
+  return "danger" as const;
+}
+
+function SourceAnalysisPanel() {
+  const [run, setRun] = useState<RunDetail | null>(null);
+  const [connections, setConnections] = useState<GitHubConnection[]>([]);
+  const [connectionId, setConnectionId] = useState("");
+  const [commitSha, setCommitSha] = useState("");
+  const [parentSha, setParentSha] = useState("");
+  const [message, setMessage] = useState("");
+  const [working, setWorking] = useState(false);
+
+  useEffect(() => {
+    const runId = window.location.pathname.split("/").filter(Boolean).at(-1);
+    if (!runId) return;
+    request(`runs/${runId}`).then(async (result) => {
+      const detail = result as RunDetail;
+      setRun(detail);
+      if (detail.githubRunLink) {
+        setConnectionId(detail.githubRunLink.connection.id);
+        setCommitSha(detail.githubRunLink.commitSha);
+        setParentSha(detail.githubRunLink.parentSha ?? "");
+      }
+      const settings = await request(`products/${detail.product.id}/github`) as GitHubProductSettings;
+      setConnections(settings.connections.filter((connection) => connection.status === "ACTIVE" && connection.analysisEnabled));
+    }).catch((error) => setMessage(errorMessage(error, "Could not load source-analysis controls.")));
+  }, []);
+
+  if (!run || run.status !== "COMPLETED" || run.outcome !== "FAILED") return null;
+  const failedRun = run;
+  const analyses = failedRun.sourceAnalyses ?? [];
+  const isGitHubTriggered = Boolean(failedRun.githubRunLink);
+
+  async function requestAnalysis(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setWorking(true);
+    setMessage("");
+    try {
+      await request(`runs/${failedRun.id}/source-analysis`, "POST", { connectionId, commitSha, parentSha: parentSha || undefined });
+      const refreshed = await request(`runs/${failedRun.id}`) as RunDetail;
+      setRun(refreshed);
+      setMessage("Source analysis queued. Sentinel will keep only its safe structured diagnosis.");
+    } catch (error) {
+      setMessage(errorMessage(error, "Could not queue source analysis."));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return <section className="source-analysis"><div><p className="eyebrow">Advisory source diagnosis</p><h3>Analyze failure</h3><p>Sentinel checks one explicit commit in one connected repository. It never writes source code, changes the Test Case, opens a pull request, or files Jira automatically.</p></div>
+    {isGitHubTriggered && run.githubRunLink && <div className="source-analysis__commit"><StatusBadge tone="info">GitHub-triggered Run</StatusBadge><p><code>{run.githubRunLink.repositoryFullName}</code> · <code>{run.githubRunLink.branch}</code> · <a href={`https://github.com/${run.githubRunLink.repositoryFullName}/commit/${run.githubRunLink.commitSha}`} target="_blank" rel="noreferrer">{run.githubRunLink.commitSha.slice(0, 12)}</a></p></div>}
+    {analyses.map((analysis) => <article className="source-analysis__result" key={analysis.id}><div className="run-list__head"><h3>{analysis.connection.label}</h3><StatusBadge tone={sourceAnalysisTone(analysis.status)}>{analysis.status.replaceAll("_", " ").toLowerCase()}</StatusBadge><StatusBadge tone={analysis.confidence === "HIGH" ? "success" : analysis.confidence === "MEDIUM" ? "warning" : "neutral"}>{analysis.confidence.toLowerCase()} confidence</StatusBadge></div><p><code>{analysis.connection.repositoryFullName}</code> · <a href={`https://github.com/${analysis.connection.repositoryFullName}/commit/${analysis.commitSha}`} target="_blank" rel="noreferrer">{analysis.commitSha.slice(0, 12)}</a> · {analysis.trigger === "GITHUB_FAILURE" ? "automatic GitHub failure" : "explicit manual request"}</p>{analysis.status === "QUEUED" || analysis.status === "ANALYZING" ? <p>Analysis is running in the isolated worker. Refresh this Run Detail shortly for a safe result.</p> : <div className="source-analysis__findings">{analysis.likelyCause && <div><strong>Likely cause</strong><p>{analysis.likelyCause}</p></div>}{analysis.observations?.length ? <div><strong>Evidence-backed observations</strong><ul>{analysis.observations.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}{analysis.hypotheses?.length ? <div><strong>Hypotheses</strong><ul>{analysis.hypotheses.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}{analysis.remediation && <div><strong>Suggested remediation</strong><p>{analysis.remediation}</p></div>}{analysis.sourceReferences?.length ? <div><strong>Commit-pinned references</strong><ul>{analysis.sourceReferences.map((reference) => <li key={`${reference.path}:${reference.startLine}:${reference.endLine}`}><a href={`https://github.com/${analysis.connection.repositoryFullName}/blob/${analysis.commitSha}/${reference.path}#L${reference.startLine}-L${reference.endLine}`} target="_blank" rel="noreferrer"><code>{reference.path}:L{reference.startLine}–L{reference.endLine}</code></a> · {reference.rationale}</li>)}</ul></div> : null}{analysis.suggestedPatch && <details className="raw-evidence"><summary>Review-only patch fragment</summary><pre>{analysis.suggestedPatch}</pre></details>}{analysis.limitations && <div><strong>Limitations</strong><p>{analysis.limitations}</p></div>}{analysis.errorCode && <p>Safe analysis state: {analysis.errorCode.replaceAll("_", " ").toLowerCase()}.</p>}</div>}</article>)}
+    {!isGitHubTriggered && <p className="health-empty-copy">This was a manual or other non-GitHub Run. Select a Product repository and paste a full immutable commit SHA; Sentinel will not infer the newest code.</p>}
+    {connections.length === 0 ? <p className="health-empty-copy">No active Product repository has source analysis enabled. An Admin or assigned Manager can configure this in Products.</p> : <form className="form-stack source-analysis__form" onSubmit={requestAnalysis}><Field label="Repository"><SelectInput value={connectionId} onChange={(event) => setConnectionId(event.target.value)} required><option value="">Choose repository</option>{connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label} · {connection.repositoryFullName}</option>)}</SelectInput></Field><Field label="Commit SHA" hint="Use the full 40-character immutable Git SHA, not a branch name or short SHA."><TextInput value={commitSha} onChange={(event) => setCommitSha(event.target.value.trim())} minLength={40} maxLength={40} pattern="[A-Fa-f0-9]{40}" placeholder="40-character commit SHA" required /></Field><Field label="Parent SHA (optional)" hint="Provides a bounded changed-file comparison when known."><TextInput value={parentSha} onChange={(event) => setParentSha(event.target.value.trim())} minLength={40} maxLength={40} pattern="[A-Fa-f0-9]{40}" placeholder="40-character parent SHA" /></Field>{message && <Feedback tone={message.startsWith("Source analysis queued") ? "success" : "danger"}>{message}</Feedback>}<Button type="submit" disabled={working || !connectionId || commitSha.length !== 40}>{working ? "Queueing…" : analyses.length ? "Request another explicit analysis" : "Analyze failure"}</Button></form>}
+  </section>;
 }
 
 function RunDiagnosticPanel() {
