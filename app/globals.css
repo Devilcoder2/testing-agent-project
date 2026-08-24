@@ -272,6 +272,8 @@ body { background: radial-gradient(circle at 82% -10%, rgb(59 130 246 / 10%), tr
 .member-card__actions { margin-top: auto; }
 .checkbox-grid { display: grid; max-height: 18rem; gap: var(--space-2); overflow: auto; margin: 0; border: 0; padding: 0; }
 .checkbox-grid legend { margin-bottom: var(--space-2); color: var(--color-text); font-size: var(--text-sm); font-weight: 700; }
+.release-selection { display: grid; max-height: 22rem; gap: var(--space-2); overflow: auto; margin: 0; border: 0; padding: 0 var(--space-2) 0 0; }
+.release-selection legend { position: sticky; z-index: 1; top: 0; width: 100%; padding: var(--space-2) 0; background: var(--color-surface); }
 
 @media (max-width: 64rem) {
   .app-main { padding: var(--space-6); }
