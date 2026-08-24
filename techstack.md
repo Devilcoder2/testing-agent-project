@@ -30,6 +30,9 @@
 | Negative-test suggestions | Deterministic TypeScript rule module | Node 22 built-in runtime; no model/API dependency | Phase 7 derives conservative drafts from recorded validation metadata in a repeatable, reviewable way without sending Test data to an LLM or external provider. |
 | Jira Cloud integration | Jira REST API v3 through a server/worker adapter | Native `fetch`; no browser-side Jira SDK | Phase 8 creates or comments on reviewed Bugs asynchronously without exposing Jira credentials or operational evidence to the client. |
 | QA diagnostic adapter | `pg` with a dedicated PostgreSQL role | `pg` 8.x | Phase 10 performs one parameterized, read-only customer-state lookup against an isolated QA fixture without sharing Sentinel application-database credentials. |
+| GitHub automation | GitHub App with Octokit authentication/webhook helpers | Current compatible `@octokit/auth-app`, `@octokit/webhooks`, and `@octokit/rest` | Phase 13 needs installation-scoped, short-lived read-only repository access and verified push deliveries; the browser never receives GitHub credentials. |
+| Source packaging | Repomix in a worker-only local-checkout mode | Current compatible `repomix` CLI | Phase 13 creates bounded, line-numbered source context from a selected checkout without trusting remote configuration or retaining the packed output. |
+| Source diagnosis | OpenAI Node SDK and Responses API structured output | Current compatible `openai` SDK | Phase 13 generates advisory, schema-validated diagnosis only after secret scanning and bounded context selection; prompts use `store: false`. |
 
 ## 3. Integrations
 
@@ -37,6 +40,8 @@
 - **Jira Cloud:** REST API v3 through a server/worker adapter. `JIRA_CLOUD_URL`, `JIRA_SERVICE_EMAIL`, and `JIRA_API_TOKEN` are server-only configuration. Each Product stores only its non-secret Jira project key; the adapter queues reviewed requests, retries one transient failure, checks whether the Test Case's linked issue is still open, and sends only safe text plus protected Sentinel links.
 - **Notifications:** A Nodemailer SMTP adapter sends Phase 6 local messages to Mailpit. It persists notification delivery state before queueing through BullMQ, retries one transient SMTP failure, and never makes delivery outcome part of Run or Release truth. Slack remains deferred.
 - **QA PostgreSQL:** Phase 10 Docker development uses a distinct `qa-postgres` PostgreSQL 16 service and a small `qa-fixture` Node API that receives Demo CRM customer writes. Sentinel uses `QA_DATABASE_URL` only with the separate `qa_diagnostic` role. The adapter has one parameterized customer lookup with a 1.5-second timeout, one-row limit, read-only transaction, safe result/error metadata, and audit logging.
+- **GitHub:** Phase 13 uses a GitHub App configured with only repository metadata/content read access and `push` webhook delivery. `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET`, `GITHUB_APP_SLUG`, and `SENTINEL_PUBLIC_WEBHOOK_URL` remain server/worker-only. A Docker `cloudflared` profile may expose the signed webhook route locally; normal services remain bound to localhost. GitHub App installation tokens are short-lived, never stored, and never exposed to the UI.
+- **OpenAI source diagnosis:** Phase 13 uses `OPENAI_API_KEY` and `OPENAI_MODEL` only in Sentinel server/worker processes. The worker sends a bounded, secret-screened local source package and safe Run metadata to the Responses API with response storage disabled. It keeps only safe structured results for 30 days; raw source, prompt, and provider output are ephemeral.
 
 ## 4. Development and operations
 
@@ -58,6 +63,7 @@
 - Phase 11 adds no external provider or service. The existing worker writes a short-lived Redis heartbeat and executes startup/daily 30-day evidence retention. Docker binds the app, Demo CRM, and noVNC only to localhost for the controlled pilot. `EVIDENCE_RETENTION_DAYS` defaults to 30; a real deployment needs identity, role management, managed storage lifecycle, and provider credentials before exposing Sentinel beyond a local machine.
 - Phase 1.5 uses local system typography, CSS custom properties, and custom React/CSS primitives; it does not add external fonts, icon packs, Tailwind, shadcn, or a component library.
 - Phase 15 extends the same dependency-free frontend approach with internal SVG icons and React primitives for dialogs, menus, tabs, pagination, structured evidence, skeletons, and responsive inventory rows. It adds no client state library, chart package, CSS framework, or design-system dependency; existing React state, native URL state, and CSS remain sufficient for the ten-user pilot.
+- Phase 13 adds `git`, Repomix, GitHub App helpers, and OpenAI SDK support to the worker image. The normal Compose stack remains localhost-only; `docker compose --profile github-tunnel up cloudflared` is optional and only forwards the signed GitHub webhook endpoint for a local sandbox App. Every queued GitHub delivery and source analysis retries once only for approved transient infrastructure/provider failures.
 - CI should run formatting/lint checks, unit tests, type checks, and browser smoke tests.
 - Structured logs should include correlation IDs for a Test Case, Run, job, evidence event, and external integration request.
 
@@ -76,6 +82,7 @@
 - Phase 8 must never expose Jira API credentials or send evidence binaries, direct signed object URLs, raw network/console/storage data, variables, cookies, tokens, or credentials to Jira. Jira drafts, mappings, issue links, and queue states require current Product membership; mapping writes require the Product creator.
 - Phase 10 diagnostic credentials must be a distinct least-privilege role. Query values, raw rows, SQL text, connection strings, and database credentials must never appear in browser responses, Evidence, audit data, logs, emails, or Jira. Permit only audited allowlisted queries with parameterization, row limits, read-only transactions, and timeouts.
 - Phase 11 retention deletes object-store screenshots before removing their detailed Evidence metadata and never purges active Runs. A cleanup failure leaves metadata intact for later retry. Jira rate-limit handling may use only a validated `Retry-After` delay capped at 60 seconds; provider bodies, credentials, and untrusted headers are never surfaced to users.
+- Phase 13 GitHub tokens, webhook bodies, repository checkouts, Repomix output, prompts, and OpenAI responses are never persisted. Before packaging or calling OpenAI, Sentinel excludes environmental files, credentials, private keys, certificates, dependency/vendor/build directories, binary files, and detected secret-like text. It blocks the request instead of attempting redaction when suspicious source is found. Safe diagnosis metadata expires after 30 days and cannot change factual Run or repository state.
 
 ## 6. Compatibility checks before coding
 
