@@ -4,6 +4,8 @@ import IORedis from "ioredis";
 export const AUTO_RUN_QUEUE = "sentinel-auto-runs";
 export const NOTIFICATION_QUEUE = "sentinel-notifications";
 export const JIRA_FILING_QUEUE = "sentinel-jira-filings";
+export const GITHUB_DELIVERY_QUEUE = "sentinel-github-deliveries";
+export const SOURCE_ANALYSIS_QUEUE = "sentinel-source-analysis";
 
 export type AutoRunJobData = {
   runId: string;
@@ -18,6 +20,14 @@ export type JiraFilingJobData = {
   filingId: string;
 };
 
+export type GitHubDeliveryJobData = {
+  deliveryId: string;
+};
+
+export type SourceAnalysisJobData = {
+  analysisId: string;
+};
+
 function redisUrl() {
   return process.env.REDIS_URL ?? "redis://redis:6379";
 }
@@ -29,6 +39,8 @@ export function createRedisConnection() {
 let queue: Queue<AutoRunJobData> | undefined;
 let notificationQueueInstance: Queue<NotificationJobData> | undefined;
 let jiraFilingQueueInstance: Queue<JiraFilingJobData> | undefined;
+let githubDeliveryQueueInstance: Queue<GitHubDeliveryJobData> | undefined;
+let sourceAnalysisQueueInstance: Queue<SourceAnalysisJobData> | undefined;
 
 export function autoRunQueue() {
   if (!queue) queue = new Queue<AutoRunJobData>(AUTO_RUN_QUEUE, { connection: createRedisConnection() });
@@ -70,6 +82,38 @@ export async function enqueueJiraFiling(data: JiraFilingJobData) {
     jobId: `jira-filing-${data.filingId}`,
     attempts: 2,
     backoff: { type: "sentinel-jira", delay: 1_000 },
+    removeOnComplete: 100,
+    removeOnFail: 100
+  });
+  return String(job.id);
+}
+
+export function githubDeliveryQueue() {
+  if (!githubDeliveryQueueInstance) githubDeliveryQueueInstance = new Queue<GitHubDeliveryJobData>(GITHUB_DELIVERY_QUEUE, { connection: createRedisConnection() });
+  return githubDeliveryQueueInstance;
+}
+
+export async function enqueueGitHubDelivery(data: GitHubDeliveryJobData) {
+  const job = await githubDeliveryQueue().add("process", data, {
+    jobId: `github-delivery-${data.deliveryId}`,
+    attempts: 2,
+    backoff: { type: "fixed", delay: 1_000 },
+    removeOnComplete: 100,
+    removeOnFail: 100
+  });
+  return String(job.id);
+}
+
+export function sourceAnalysisQueue() {
+  if (!sourceAnalysisQueueInstance) sourceAnalysisQueueInstance = new Queue<SourceAnalysisJobData>(SOURCE_ANALYSIS_QUEUE, { connection: createRedisConnection() });
+  return sourceAnalysisQueueInstance;
+}
+
+export async function enqueueSourceAnalysis(data: SourceAnalysisJobData) {
+  const job = await sourceAnalysisQueue().add("analyze", data, {
+    jobId: `source-analysis-${data.analysisId}`,
+    attempts: 2,
+    backoff: { type: "fixed", delay: 1_000 },
     removeOnComplete: 100,
     removeOnFail: 100
   });
