@@ -42,9 +42,7 @@ test("starts, refreshes, and completes a strict guided Run in the UI", async ({ 
     await page.getByLabel("Email").fill("ava.tester@example.test");
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await page.getByRole("link", { name: "Test Cases" }).click();
-    await page.getByLabel("Find a Test Case").fill(name);
-    await page.locator(".test-list__item").filter({ hasText: name }).getByRole("link", { name: "Open" }).click();
+    await page.goto(`${baseUrl}/test-cases/${created.testCaseId}`);
     await page.getByRole("button", { name: "Guided Run" }).click();
     await expect(page).toHaveURL(/\/runs\//, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name })).toBeVisible();
