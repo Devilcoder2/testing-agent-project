@@ -1612,6 +1612,7 @@ The important implementation files are `prisma/schema.prisma`, `prisma/seed.ts`,
 
 **Learning status:** Pending owner review. The Phase 12 account and role flow is ready for manual testing, but the ten answers and the broader browser permission-matrix hardening remain follow-up work.
 
+
 ## Phase 15 — Product-wide UI/UX redesign
 
 ### What changed and why
@@ -1690,3 +1691,70 @@ The serial Vitest run passed 43 of 45 tests. Both remaining assertions are the G
 - The owner answers all ten questions and reviews the highest-priority files before Phase 15 is considered fully understood.
 - Conduct representative owner usability checks on Dashboard, Test Case search/edit, Run evidence, Release creation, Review confirmation, Administration access editing, tablet navigation, and the explicit narrow-screen recording boundary.
 - Resolve the existing active Guided Run through the normal product workflow, then rerun the two blocked Guided Run integration assertions and the complete serial suite.
+
+## Phase 13 — Optional multi-repository GitHub automation and source-aware failure analysis
+
+Phase 13 lets an organization optionally connect more than one GitHub repository to a Product—for example, separate frontend and backend repositories. It solves two related problems: a team can automatically start the right existing Auto Runs after an approved branch push, and a failed GitHub-triggered Run can receive a bounded source-aware explanation instead of leaving a tester to search an entire codebase manually. The feature remains optional: a Product with no GitHub connection retains the exact existing Sentinel workflow.
+
+### End-to-end flow and system boundary
+
+1. An Admin or assigned Manager opens a Product’s **GitHub** settings, provides a repository identifier, installation reference, branch rules, optional role label, and analysis-enabled choice. The API re-checks organization role and Product access, uses the server-only GitHub App to verify read access, and persists only safe connection metadata. No App private key, installation token, clone URL, or source content reaches the browser or database response.
+2. An authorized Product member links a saved Test Case to one or more active Product repository connections. This explicit routing prevents an unrelated repository push from starting every Test Case in the Product.
+3. GitHub sends a `push` event to Sentinel’s raw webhook route. Sentinel verifies the HMAC signature before parsing it, records a deduplicated safe delivery, and queues a delivery processor. The processor matches only an active connection with the exact installation, repository, and allowed branch. It creates a GitHub-linked Auto Run only when the linked Test Case still satisfies existing Auto Run rules; checkpoints, unsafe variables, Test Data requirements, authorization, target allowlists, and worker limits are not bypassed. Exclusions remain visible with a safe reason.
+4. A GitHub-triggered Auto Run stores its repository, branch, full commit SHA, parent SHA, and delivery relationship. It keeps normal Auto Run retries, evidence redaction, notifications, and factual Run outcome. If the Auto Run fails, the worker creates one source-analysis request. A manually started failed Run instead needs an authorized person to select a connected repository and a full immutable SHA explicitly.
+5. The source-analysis worker obtains a short-lived installation token only for the requested job, checks out that exact commit into a unique temporary directory, and removes the directory in `finally`. It derives bounded changed-file metadata, excludes unsafe paths and binary/dependency/build content, screens file content for secret-like material, and invokes Repomix only against the local checkout with an explicit empty configuration. Remote repository Repomix configuration is never trusted.
+6. When the safe context passes all limits, the worker sends the bounded package plus redacted Run/evidence context to the OpenAI Responses API with `store: false` and a strict JSON-schema response format. It deletes checkout files, packed content, prompt, provider response, and installation token after processing. PostgreSQL keeps only a safe structured diagnosis: state, model/provider metadata, observations, hypotheses, confidence, remediation, optional review-only patch fragment, file/line references, limitations, and a 30-day expiry. The Run Detail displays that safe result as advisory information only; it cannot alter source code, GitHub, Test Cases, Jira, evidence truth, Release readiness, or a Run outcome.
+
+### Technologies, patterns, and why they were chosen
+
+| Technology or pattern | Responsibility | Why it helps / tradeoff |
+| --- | --- | --- |
+| GitHub App with `@octokit/auth-app` and `@octokit/rest` | Creates short-lived installation tokens and verifies a repository connection. | It scopes read access to an installation and avoids a long-lived personal token. It needs one-time App setup and a public webhook route for live testing. |
+| Signed raw webhook and timing-safe HMAC check | Authenticates `push` deliveries before parsing their payload. | It prevents arbitrary callers from queuing Runs. It requires retaining the raw request only briefly and correctly configuring the shared webhook secret. |
+| Prisma delivery, routing, Run-link, and analysis records | Provides durable idempotency, commit pinning, audit relationships, and 30-day safe-result retention. | It makes a retry/reload inspectable, but requires migration and cleanup maintenance. |
+| BullMQ delivery and source-analysis queues | Separates webhook receipt and bounded source work from the web request. | The UI stays responsive and jobs can retry once; it adds Redis/worker operational dependencies. |
+| Git local checkout plus Repomix local mode | Builds line-numbered, compact source context only from a selected commit. | It is more useful than passing a Run alone, but requires strict path/content/size/time restrictions and never trusts remote configuration. |
+| OpenAI Responses API structured output with `store: false` | Produces a schema-constrained, advisory diagnosis. | The result is easier to render safely than unstructured prose, but it depends on optional provider configuration and may correctly return unavailable/blocked instead of guessing. |
+
+### Important implementation details
+
+- `lib/github.ts` validates repository names, full 40-character commit SHAs, exact or global-wildcard branch rules, GitHub App configuration, installation access, and webhook signatures. A pattern such as `release/*` is intentionally rejected; use a literal branch or `*`.
+- `lib/github-runs.ts` owns delivery routing, durable exclusion recording, Run creation, commit linkage, and explicit manual-analysis requests. It finds a currently authorized Admin or Manager only to initiate the existing server-side Auto Run path; the worker re-checks access before doing sensitive work.
+- `lib/source-analysis.ts` enforces bounded checkout, path, byte, token, and command-time policies. It blocks on secret-like content rather than trying to redact arbitrary source and potentially missing a secret. Its `finally` cleanup is a security requirement, not merely housekeeping.
+- `worker.ts` runs delivery processing and source analysis in dedicated queues alongside, not instead of, the existing two-concurrency Auto Run worker. `lib/maintenance.ts` removes expired safe analysis metadata after 30 days.
+- `app/api/[[...route]]/route.ts` keeps the webhook route raw until signature verification, exposes only protected Product/Test Case/Run interfaces, and serializes no raw source. `components/sentinel-views.tsx` presents connection settings, Test Case routing, activity, and the advisory Run Detail panel.
+
+### Tradeoffs, alternatives, limitations, and risks
+
+- A GitHub App was selected over a personal access token because it can be installed per repository with short-lived access tokens and least-privilege permissions. OAuth was rejected because it would create a more complex interactive identity/token lifecycle without helping the server-to-server webhook workflow.
+- Automatic diagnosis is limited to GitHub-triggered failed Auto Runs. Manual failures require a human-selected repository and full SHA, because automatically choosing “latest source” would make the diagnosis non-reproducible and potentially misleading.
+- A review-only patch fragment may appear in the diagnosis, but no auto-apply, commit, pull request, Test change, Jira filing, or workflow control is permitted. A diagnosis is a hypothesis overlay, not a source-of-truth deployment tool.
+- Real GitHub App and OpenAI sandbox credentials are intentionally not part of the repository. Until they are configured, the feature fails closed with a clear unavailable state. The complete external sandbox test remains required even though the local interface, routing, safety, and worker tests pass.
+- Secret detection is deliberately conservative. It can block a legitimate analysis rather than risk sending a possible credential to a provider. It also cannot prove that all proprietary source is safe to share; an organization must approve its provider/data policy before enabling analysis for real repositories.
+
+Relevant implementation and verification files: `prisma/schema.prisma`, `prisma/migrations/20260824090000_add_github_source_analysis/migration.sql`, `lib/github.ts`, `lib/github-runs.ts`, `lib/source-analysis.ts`, `lib/queue.ts`, `lib/maintenance.ts`, `worker.ts`, `app/api/[[...route]]/route.ts`, `components/sentinel-views.tsx`, `Dockerfile`, `docker-compose.yml`, `.env.example`, `tests/github-source-analysis.test.ts`, and `tests/phase-13-github.spec.ts`. See `srd.md` F13, `architecture.md` section 11, `techstack.md` sections 3–5, `phases.md` Phase 13, and D-037 in `decisions-log.md`.
+
+### Ten-question understanding check
+
+1. Why is a GitHub App safer for this feature than a personal access token, and which permissions must the App never receive?
+   **Owner answer:** Pending follow-up.
+2. What makes a GitHub webhook delivery authentic and idempotent before it can create any Run?
+   **Owner answer:** Pending follow-up.
+3. How do Product repository connections and explicit Test Case routing prevent a frontend push from accidentally running backend-only Tests?
+   **Owner answer:** Pending follow-up.
+4. Which existing Auto Run restrictions still apply to a GitHub-triggered Run, and why is retaining visible exclusion reasons important?
+   **Owner answer:** Pending follow-up.
+5. Why must a manual failed Run require an explicit connected repository and full immutable commit SHA rather than using the newest repository revision?
+   **Owner answer:** Pending follow-up.
+6. Which raw data is deliberately ephemeral during source analysis, which safe fields are retained, and when do those fields expire?
+   **Owner answer:** Pending follow-up.
+7. How do the checkout, path filtering, secret screening, Repomix configuration, and token/byte/time caps work together to reduce source-data risk?
+   **Owner answer:** Pending follow-up.
+8. Why does the OpenAI request use `store: false` and a strict JSON schema, and what should Sentinel do when the provider is unavailable or source screening blocks the request?
+   **Owner answer:** Pending follow-up.
+9. What distinguishes an evidence-backed observation from a source-analysis hypothesis, and why must the patch fragment stay review-only?
+   **Owner answer:** Pending follow-up.
+10. Which disposable GitHub sandbox checks are still needed before treating the external integration as accepted, and why is the user-owned active Guided Run not safe to clear just to make a regression test pass?
+    **Owner answer:** Pending follow-up.
+
+**Learning status:** Pending owner review. The implementation and focused local verification are ready, but the owner must answer these ten questions and complete a disposable two-repository GitHub App/OpenAI sandbox check before Phase 13 is treated as fully understood or externally accepted.
