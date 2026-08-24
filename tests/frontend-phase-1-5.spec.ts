@@ -33,7 +33,7 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   await expect(page.locator(".sidebar__link-label").first()).toBeHidden();
   await expect(page.getByLabel("Filter by Product")).toBeVisible();
   await expect(page.locator(".page-header").getByText(/\d+ \/ \d+ visible Test Cases?/)).toBeVisible();
-  await expect(page.locator(".inventory-toolbar")).toHaveCSS("margin-bottom", "24px");
+  await expect(page.locator(".inventory-toolbar")).toHaveCSS("margin-bottom", "20px");
   await navigationToggle.click();
   await expect(page.locator(".app-shell")).not.toHaveClass(/app-shell--sidebar-collapsed/);
   await expect(page.locator(".sidebar__link-label").first()).toBeVisible();
