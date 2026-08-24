@@ -524,22 +524,38 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Out of scope:** SSO/SAML/SCIM implementation unless selected during the approval gate, billing, self-service public signup, arbitrary custom roles, and production deployment.
 
-## Phase 13 — Optional GitHub connection and branch-triggered Runs
+## Phase 13 — Optional multi-repository GitHub automation and source-aware failure analysis
 
 **Depends on:** Phase 12 and an approved GitHub authentication model.
-**Outcome:** An authorized organization can optionally connect a Product to approved GitHub repositories and branches so qualifying pushes start only explicitly eligible Auto Runs, with safe traceability and no effect on unconnected Products.
+**Outcome:** An authorized organization can optionally connect multiple GitHub repositories—such as frontend and backend repositories—to one Product. Approved branch pushes start only eligible Auto Runs. When a linked Run fails, Sentinel can produce a guarded, commit-pinned source-aware diagnosis with a likely cause, safe remediation guidance, and precise repository file/line references. Unconnected Products remain unchanged.
 
-- [ ] Confirm GitHub App versus OAuth, repository-installation ownership, required GitHub permissions, webhook endpoint/deployment boundary, and disconnect/revocation behavior before implementation.
-- [ ] Let only the approved organization/Product authority create, view, pause, edit, or remove a connection. Store repository identifiers, selected branch rules, and safe connection state; never store GitHub tokens in browser-visible data or audit detail.
-- [ ] Verify webhook signatures, enforce repository and branch allowlists, reject replayed/stale events, and persist a de-duplicated delivery record before any Run is queued.
-- [ ] Define and display an explicit Test Case eligibility policy. At minimum, a source-control event must not bypass existing Auto Run safeguards for checkpoints, variable/Test Data bindings, Product authorization, concurrency, or browser-target allowlists.
-- [ ] Queue eligible Runs through the existing worker with bounded concurrency, link every queued Run to the GitHub delivery and commit metadata, and preserve normal retries, evidence redaction, outcomes, and notifications.
-- [ ] Provide a Product-level connection screen and a safe activity view showing branch, commit identifier, trigger decision, excluded Tests/reasons, queued Runs, pause state, and protected Run links; never display source code, tokens, or raw webhook payloads unnecessarily.
-- [ ] Define idempotent retry and failure behavior for webhook receipt and Run queueing. A failed webhook or worker delivery must not create duplicate Runs or grant access.
-- [ ] Add unit, integration, webhook-signature, queue, authorization, and browser tests for connected versus unconnected Products, branch filtering, duplicate delivery, pause/disconnect, ineligible Tests, and safe notifications/audit history.
-- [ ] Update all required documentation, add an append-only learning-log entry with exactly 10 owner questions, run full regression, and complete owner manual GitHub sandbox testing.
+### Repository and trigger model
 
-**Out of scope:** GitHub source-code analysis, automatic baseline/Test Case modification, arbitrary workflow automation, pull-request approval, automatic Jira filing, and connections to non-GitHub source-control providers.
+- [ ] Confirm GitHub App versus OAuth, installation ownership, webhook deployment boundary, disconnect/revocation behavior, and the AI analysis provider/data-processing boundary. The default proposal is a GitHub App with read-only repository contents/metadata and webhook permissions; Sentinel must never request repository write, pull-request approval, or workflow-control permissions.
+- [ ] Allow an Admin or authorized Manager to create, pause, edit, or remove multiple named repository connections per Product. Each connection records a safe repository identifier, default branch, branch allowlists, optional role label such as `frontend` or `backend`, installation reference, and connection state—never browser-visible GitHub tokens.
+- [ ] Verify webhook signatures, repository/branch allowlists, organization/Product ownership, and delivery freshness. Persist a deduplicated GitHub delivery before queueing; the same delivery must never create duplicate Runs or diagnoses.
+- [ ] Link every GitHub-triggered Run to the exact repository, commit SHA, branch, and delivery. A Product may receive independent triggers from its frontend and backend repositories; a failure diagnosis is always bound to one explicit repository and commit, never an inferred mixed-repository snapshot.
+- [ ] Define an explicit Test Case eligibility and repository-routing policy. A source event must not bypass Auto Run protections for checkpoints, variables/Test Data, Product authorization, concurrency, or browser-target allowlists. Items skipped because they are not eligible remain visible with a reason.
+- [ ] Queue eligible Runs through the existing worker, preserve normal retries, evidence redaction, outcomes, and notifications, and retain an audit-safe link to the triggering commit. A failed Run from a manual workflow may request analysis only after an authorized user explicitly selects a connected repository and pinned commit/branch; Sentinel must not silently analyze whatever code happens to be newest.
+
+### Source-aware failure analysis
+
+- [ ] Add an explicit **Analyze failure** action for a completed failed Run with an associated repository/commit. It creates a durable analysis request and never changes source code, Test Cases, baselines, Jira issues, or Run truth.
+- [ ] Use Repomix only inside an isolated worker workspace to package a deliberately selected, read-only checkout of the linked commit. Repomix is useful because it supports repository packing, compressed output, and line-numbered output; Sentinel will use local checkout mode rather than trusting remote repository configuration. Remote `repomix.config.*` files must never be trusted or executed.
+- [ ] Build the analysis context from the safe failed-Run summary, ordered recorded/replayed steps, redacted evidence metadata, changed-file metadata, and a bounded code selection. Prefer changed files plus declared dependency/configuration context; enforce file-count, byte, token, and execution-time caps. Do not send an entire repository by default.
+- [ ] Apply a strict code-context policy before and after packaging: use GitHub App read-only access, honor `.gitignore`, exclude `.env`, credentials, private keys, dependency/vendor/build directories and binary content, run Repomix's enabled secret scan, and block analysis on suspicious content rather than sending it to an AI provider. Raw code, Repomix output, GitHub tokens, prompts, and provider responses must be ephemeral and must not be saved in PostgreSQL, MinIO, emails, Jira, notifications, or chat.
+- [ ] Persist only a safe structured diagnosis: repository identifier, commit SHA, analysis state, model/provider metadata, confidence/limitations, likely cause summary, suggested remediation, and referenced file path plus line range. The protected Run Detail may display these references and a link to the exact GitHub commit; it must not render or expose whole source files by default.
+- [ ] Require the diagnosis to distinguish evidence-backed observations from hypotheses, cite the specific Run/evidence and source locations used, state uncertainty, and say when no safe conclusion is possible. Suggested remediation is advisory only; it must never auto-commit, apply a patch, alter a Test Case, create a pull request, or file Jira automatically.
+- [ ] Add per-Product analysis controls: enabled/disabled state, allowed repositories/branches, retention of safe diagnosis metadata, provider availability state, and a protected activity history containing trigger/run/diagnosis relationships without raw source or webhook payloads.
+
+### Interfaces, reliability, and verification
+
+- [ ] Provide a Product-level multi-repository connection screen and an activity view showing repository label, branch, commit identifier, trigger decision, excluded Tests/reasons, queued Runs, diagnosis status, protected Run links, and safe source references.
+- [ ] Define idempotent retry/failure behavior for webhook receipt, queueing, checkout, Repomix packaging, secret scanning, and analysis-provider calls. A source-analysis failure is reported as unavailable/partial and must never change a factual Run outcome, evidence status, Release readiness, or existing notification truth.
+- [ ] Add unit, integration, webhook-signature, authorization, worker, and browser tests for multiple repositories per Product; frontend/backend independent triggers; branch filtering; duplicate delivery; pause/disconnect; commit pinning; safe bounded Repomix packaging; secret-blocked analysis; source-reference authorization; analysis failure; and proof that no automatic code/Test/Jira mutation occurs.
+- [ ] Update all required documentation, add an append-only learning-log entry with exactly 10 owner questions, run full regression, and complete owner manual GitHub sandbox testing with at least one frontend and one backend repository.
+
+**Out of scope:** Source-code writes, automated patches or commits, pull-request approval, workflow modification, unrestricted full-repository prompting, automatic baseline/Test Case modification, automatic Jira filing, and connections to non-GitHub source-control providers.
 
 ## Phase 14 — Conversational agent integration
 
