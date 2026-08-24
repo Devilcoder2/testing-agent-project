@@ -621,13 +621,15 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Outcome:** A signed-in user can discover authorized items from one fast, accessible masthead search without visiting or searching each section independently.
 
 - [x] Confirm prefix matching, safe searchable fields, current-section priority, result caps, destination behavior, and the no-new-dependency boundary in the project documents.
-- [ ] Add one protected, read-only search endpoint and a reusable server module covering Products, Test Cases, Test Data, Runs, Releases, Review, notifications, and Admin-only organization members.
-- [ ] Apply the same organization, Product, Release, recipient, and Admin authorization rules as the destination routes; never return secrets, Test Data values, evidence, source, or raw payloads.
-- [ ] Add the command-masthead combobox with a 250 ms debounce, stale-request cancellation, current-section ordering, explicit loading/empty/error states, and responsive light/dark presentation.
-- [ ] Support `Ctrl+K`/`Cmd+K`, Arrow Up/Down, Enter, Escape, pointer selection, focus visibility, combobox/listbox semantics, and reduced motion.
-- [ ] Add focused unit/API coverage for normalization, caps, ordering, authorization denial, and safe response fields.
-- [ ] Add browser coverage for debounce, cross-section results, current-section priority, keyboard selection, empty results, mobile presentation, and protected navigation.
-- [ ] Run lint, type-check, production build, focused Vitest, critical Playwright regression, and live browser review with exact output.
+- [x] Add one protected, read-only search endpoint and a reusable server module covering Products, Test Cases, Test Data, Runs, Releases, Review, notifications, and Admin-only organization members.
+- [x] Apply the same organization, Product, Release, recipient, and Admin authorization rules as the destination routes; never return secrets, Test Data values, evidence, source, or raw payloads.
+- [x] Add the command-masthead combobox with a 250 ms debounce, stale-request cancellation, current-section ordering, explicit loading/empty/error states, and responsive light/dark presentation.
+- [x] Support `Ctrl+K`/`Cmd+K`, Arrow Up/Down, Enter, Escape, pointer selection, focus visibility, combobox/listbox semantics, and reduced motion.
+- [x] Add focused unit/API coverage for normalization, caps, ordering, authorization denial, and safe response fields.
+- [x] Add browser coverage for debounce, cross-section results, current-section priority, keyboard selection, empty results, mobile presentation, and protected navigation.
+- [x] Run lint, type-check, production build, focused Vitest, critical Playwright regression, and live browser review with exact output.
 - [ ] Review the actual diff in learning priority order and add one append-only learning entry with exactly ten owner questions before closing the learning gate.
+
+**Implementation verification (2026-08-24):** Lint, type-check, and the 18-route production build pass. Focused Vitest passes 2/2 global-search assertions, including safe-field and authorization isolation. The focused Playwright journey passes debounce, current-section priority, cross-section discovery, keyboard and pointer navigation, no-result/Escape behavior, mobile panel bounds, Test Data Product context, Review queue context, and protected Run navigation. All 14 browser journeys that do not require a second live Guided Run pass. Live browser review confirmed the grouped dark-theme panel and stable light-theme switch. The complete API suite passes 50/52 assertions; the same two Guided Run assertions remain blocked by the existing user-owned active Run and correctly receive HTTP 409. The priority diff review and exactly ten questions are recorded in `learning-log.md`; owner answers remain pending, so the final learning checkbox stays open.
 
 **Out of scope:** Fuzzy/semantic search, full-text indexing, saved/recent queries, search analytics, external providers, secret/evidence/source-content search, or separate per-page search fields.
