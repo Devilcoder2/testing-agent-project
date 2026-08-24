@@ -1991,3 +1991,83 @@ The live browser review confirmed a grouped cross-section result panel in dark m
 - Resolve the existing active Guided Run through the normal application workflow, then rerun the two state-blocked Guided Run assertions.
 
 **Learning status:** Implementation, production build, focused search verification, applicable browser regression, visual review, and priority diff review are complete. Owner answers and the unrelated state-blocked Guided Run assertions remain open.
+
+## Phase 18 — Recording workspace focus controls
+
+### What changed and what problem it solves
+
+The standalone Recording Workspace now gives the browser stage two ways to reclaim attention. **Collapse Step Log** reduces the editable timeline to a narrow restore rail, giving its horizontal space to the approved remote browser. **Full screen** hides Sentinel's recording session bar and Step Log so the browser stage fills the visible workspace. **Exit full screen** and Escape restore the regular workspace, including the Step Log's prior collapsed or expanded state.
+
+This is a layout-only improvement for a browser-first recording task. It does not create another Selenium session, invoke browser-native fullscreen permission, change the noVNC iframe, expose noVNC controls, modify locked Chromium target policy, persist a user preference, change a recorded step, or bypass Save Test and Discard.
+
+### End-to-end flow and implementation details
+
+1. `RecordingWorkspaceView` holds `isStepLogCollapsed` and `isBrowserFullscreen` as transient React state. The states begin in the normal expanded workspace and disappear on route exit or refresh, matching the decision not to persist layout preferences.
+2. The expanded Step Log remains mounted while hidden so its recorded items and local DOM scroll position are not discarded solely by toggling the rail. The collapsed rail retains one labelled **Expand Step Log** button and a safe recorded-step count.
+3. Full screen adds CSS classes to the existing Recording Workspace. The session bar is not rendered, the Step Log is removed from layout, and the browser stage becomes the only grid column. A Sentinel-owned **Exit full screen** button is positioned over the stage, so the user always has a visible way back before Save/Discard controls return.
+4. A document-level Escape listener is active only while this application-level fullscreen state is active. It exits the layout mode; it does not attempt to intercept keyboard events within the cross-document noVNC iframe or change browser policy.
+5. CSS reuses the existing workspace breakpoint and `prefers-reduced-motion` behavior. Below the supported desktop width, the existing guidance remains the only Recording Workspace presentation.
+
+### Choices, tradeoffs, and limitations
+
+- Application-level full screen was chosen instead of the browser Fullscreen API. It is deterministic in an embedded testing product, requires no permission prompt, keeps an obvious Sentinel exit control, and does not risk changing iframe/noVNC behavior. It is not operating-system or browser-chrome fullscreen.
+- The Step Log's collapsed state is preserved when entering and leaving full screen. This respects the user's temporary focus choice, though it intentionally does not survive a page refresh or another recording.
+- The rail uses a compact vertical labelled button rather than an unlabelled icon. It consumes very little width while retaining an accessible name and visible focus treatment.
+- Save, discard, browser launch, recording polling, API calls, and all security boundaries remain unchanged. A tester must exit full screen to reach Save/Discard, which keeps the focused browser state visually simple rather than duplicating consequential actions over the remote stage.
+- The user-requested change applies only to active Recording Workspace. Guided Run remains unchanged because it has its own progress/evidence controls and was not in scope.
+
+Relevant files: `components/sentinel-views.tsx`, `app/globals.css`, `tests/phase-1-recording.spec.ts`, `tests/frontend-phase-1-5.spec.ts`, `srd.md` F15, `architecture.md` section 13, `DESIGN.md`, `frontend.md`, `phases.md` Phase 18, and D-042 in `decisions-log.md`.
+
+### Verification evidence and priority-based diff review
+
+```text
+npm run lint && npm run typecheck && npm run build
+> eslint .
+> tsc --noEmit
+✓ Compiled successfully
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/phase-1-recording.spec.ts --reporter=line
+1 passed (11.0s)
+
+docker compose exec -T sentinel npx playwright test --reporter=line --grep-invert "starts, refreshes, and completes a strict guided Run"
+14 passed (1.4m)
+
+docker compose exec -T sentinel npm test
+Test Files  1 failed | 17 passed (18)
+Tests  2 failed | 50 passed (52)
+The two existing Guided Run assertions expected HTTP 201 and received HTTP 409 because a user-owned Guided Run still holds the single live-browser boundary.
+```
+
+Live browser review created an empty disposable Recording Workspace, collapsed the Step Log, entered full screen, confirmed that only the browser stage and Exit full screen button remained, minimized back to the preserved rail, then discarded the disposable draft through the normal workflow.
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `components/sentinel-views.tsx` (`RecordingWorkspaceView`, `isStepLogCollapsed`, `isBrowserFullscreen`, Escape listener) | This is the complete client state machine. Read now to understand why it is safe, transient, and isolated from recording APIs. |
+| Medium — understand next | `app/globals.css` (collapsed grid, fullscreen grid, rail, persistent exit control); `tests/phase-1-recording.spec.ts`; `tests/frontend-phase-1-5.spec.ts` | These define the layout geometry and prove the control sequence alongside the existing remote-browser launch flow. Review the desktop breakpoint and launch wait. |
+| Lower — skim or defer | `srd.md`, `architecture.md`, `DESIGN.md`, `frontend.md`, `phases.md`, and `decisions-log.md` | These record the interaction and safety boundary without adding runtime behavior. Use them before extending the workspace. |
+
+### Ten-question understanding check
+
+1. Why are Step Log collapse and recording full screen stored only in React state instead of being saved to the database or session?
+2. What remains mounted when the Step Log is collapsed, and why does that matter for recorded steps and local scroll position?
+3. How does application-level full screen differ from the browser Fullscreen API and from the noVNC fullscreen control that Sentinel intentionally hides?
+4. Which visible controls disappear in full screen, which control remains available, and why is Save or Discard not duplicated over the remote browser?
+5. How does the implementation restore the user's previous collapsed or expanded Step Log state after full screen is minimized?
+6. What does Escape do in this feature, and what does it deliberately not control inside the remote iframe?
+7. Which existing browser, Chromium, noVNC, recording, authorization, and redaction boundaries remain unchanged by these controls?
+8. Why does the existing narrow-screen desktop guidance remain instead of making full screen a mobile recording solution?
+9. Which tests prove the collapsed rail, button-driven exit, Escape exit, saved-recording flow, launch geometry, and broader browser regression?
+10. If persistent workspace preferences were requested later, what privacy, synchronization, and schema decisions would need approval before adding them?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the highest-priority component and CSS files before Phase 18 is considered fully understood.
+- Resolve the existing active Guided Run through the normal workflow, then rerun the two state-blocked Guided Run assertions.
+
+**Learning status:** Implementation, production build, focused Recording Workspace regression, broader browser regression, visual review, and priority diff review are complete. Owner answers and the unrelated state-blocked Guided Run assertions remain open.
