@@ -572,12 +572,12 @@ async function route(request: Request, context: Context) {
           include: {
             connection: { select: { id: true, label: true, repositoryFullName: true } },
             delivery: { select: { deliveryId: true, branch: true, afterSha: true, status: true, receivedAt: true, processedAt: true } },
-            runLinks: { include: { run: { select: { id: true, status: true, outcome: true, testCase: { select: { name: true } } } } } }
+            runLinks: { include: { run: { select: { id: true, status: true, outcome: true, testCase: { select: { name: true } }, sourceAnalyses: { select: { status: true }, orderBy: { createdAt: "desc" }, take: 1 } } } } }
           },
           orderBy: { createdAt: "desc" },
           take: 100
         });
-        return json(activity.map((target) => ({ id: target.id, status: target.status, decisionReason: target.decisionReason, queuedRunCount: target.queuedRunCount, excludedTests: target.excludedTests, createdAt: target.createdAt, connection: target.connection, delivery: target.delivery, runs: target.runLinks.map((link) => ({ id: link.run.id, status: link.run.status, outcome: link.run.outcome, testCaseName: link.run.testCase.name })) })));
+        return json(activity.map((target) => ({ id: target.id, status: target.status, decisionReason: target.decisionReason, queuedRunCount: target.queuedRunCount, excludedTests: target.excludedTests, createdAt: target.createdAt, connection: target.connection, delivery: target.delivery, runs: target.runLinks.map((link) => ({ id: link.run.id, status: link.run.status, outcome: link.run.outcome, testCaseName: link.run.testCase.name, sourceAnalysisStatus: link.run.sourceAnalyses[0]?.status ?? null })) })));
       }
       if (request.method === "POST" && path[3] === "connections") {
         if (!canConfigure) return json({ error: "Only Admins and assigned Managers can configure GitHub repositories." }, 403);
@@ -728,7 +728,7 @@ async function route(request: Request, context: Context) {
           include: { testCaseLinks: { where: { testCaseId: testCase.id }, select: { testCaseId: true } } },
           orderBy: { label: "asc" }
         });
-        return json(connections.map((connection) => ({ id: connection.id, label: connection.label, repositoryFullName: connection.repositoryFullName, defaultBranch: connection.defaultBranch, branchAllowlist: connection.branchAllowlist, status: connection.status, analysisEnabled: connection.analysisEnabled, linked: connection.testCaseLinks.length === 1 })));
+        return json({ available: githubIsConfigured(), canEdit: user.role !== OrganizationRole.TESTER || testCase.ownerId === user.id, connections: connections.map((connection) => ({ id: connection.id, label: connection.label, repositoryFullName: connection.repositoryFullName, defaultBranch: connection.defaultBranch, branchAllowlist: connection.branchAllowlist, status: connection.status, analysisEnabled: connection.analysisEnabled, linked: connection.testCaseLinks.length === 1 })) });
       }
       if (request.method === "PATCH") {
         if (user.role === OrganizationRole.TESTER && testCase.ownerId !== user.id) return json({ error: "Testers can change repository routing only for their own Test Cases." }, 403);
