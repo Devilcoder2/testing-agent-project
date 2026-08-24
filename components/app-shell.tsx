@@ -3,64 +3,106 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { ThemeControl } from "./theme-control";
 import { Icon, IconButton, SentinelMark, type IconName } from "./ui";
 import { NewRecordingDialog } from "./sentinel-views";
 
-const navigation: Array<{ href: string; label: string; icon: IconName }> = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-  { href: "/products", label: "Products", icon: "products" },
-  { href: "/test-cases", label: "Test Cases", icon: "testCases" },
-  { href: "/test-data", label: "Test Data", icon: "data" },
-  { href: "/runs", label: "Runs", icon: "runs" },
-  { href: "/releases", label: "Releases", icon: "releases" },
-  { href: "/notifications", label: "Notifications", icon: "bell" },
-  { href: "/review", label: "Review", icon: "review" },
-  { href: "/admin", label: "Administration", icon: "admin" }
+type NavigationItem = { href: string; label: string; icon: IconName };
+type NavigationGroup = { label: string; items: NavigationItem[] };
+
+const navigationGroups: NavigationGroup[] = [
+  { label: "Overview", items: [{ href: "/dashboard", label: "Dashboard", icon: "dashboard" }] },
+  { label: "Build", items: [
+    { href: "/products", label: "Products", icon: "products" },
+    { href: "/test-cases", label: "Test Cases", icon: "testCases" },
+    { href: "/test-data", label: "Test Data", icon: "data" }
+  ] },
+  { label: "Operate", items: [
+    { href: "/runs", label: "Runs", icon: "runs" },
+    { href: "/releases", label: "Releases", icon: "releases" }
+  ] },
+  { label: "Decide", items: [
+    { href: "/review", label: "Review", icon: "review" },
+    { href: "/notifications", label: "Notifications", icon: "bell" }
+  ] },
+  { label: "Manage", items: [{ href: "/admin", label: "Administration", icon: "admin" }] }
 ];
-const sidebarPreferenceKey = "sentinel-sidebar-collapsed";
+
+function isActive(pathname: string, href: string) {
+  return href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function activeDestination(pathname: string) {
+  return navigationGroups.flatMap((group) => group.items).find((item) => isActive(pathname, item.href));
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const [isNewRecordingOpen, setIsNewRecordingOpen] = useState(false);
+  const current = activeDestination(pathname);
 
   useEffect(() => {
-    setSidebarCollapsed(window.sessionStorage.getItem(sidebarPreferenceKey) === "true");
-  }, []);
+    setNavigationOpen(false);
+  }, [pathname]);
 
-  function toggleNavigation() {
-    if (window.matchMedia("(max-width: 64rem)").matches) setMenuOpen((open) => !open);
-    else setSidebarCollapsed((collapsed) => {
-      const nextCollapsed = !collapsed;
-      window.sessionStorage.setItem(sidebarPreferenceKey, String(nextCollapsed));
-      return nextCollapsed;
-    });
-  }
+  useEffect(() => {
+    if (!navigationOpen) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setNavigationOpen(false);
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [navigationOpen]);
 
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.assign("/");
   }
 
-  return <div className={`app-shell ${sidebarCollapsed ? "app-shell--sidebar-collapsed" : ""}`}>
-    <a className="skip-link" href="#main-content">Skip to content</a>
-    <aside className={`sidebar ${menuOpen ? "sidebar--open" : ""}`} aria-label="Primary navigation">
-      <Link href="/dashboard" className="sidebar__brand" aria-label="Sentinel dashboard" onClick={() => setMenuOpen(false)}><SentinelMark /></Link>
-      <nav className="sidebar__nav">
-        <p className="sidebar__label">Workspace</p>
-        {navigation.map((item) => {
-          const active = item.href === "/dashboard" ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
-          return <Link key={item.href} href={item.href} className={`sidebar__link ${active ? "sidebar__link--active" : ""}`} aria-label={item.label} title={sidebarCollapsed ? item.label : undefined} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}><Icon name={item.icon} /><span className="sidebar__link-label">{item.label}</span></Link>;
+  const navigation = <nav className="section-nav__groups" aria-label="Workspace sections">
+    {navigationGroups.map((group) => <div className="section-nav__group" key={group.label}>
+      <span className="section-nav__group-label">{group.label}</span>
+      <div className="section-nav__links">
+        {group.items.map((item) => {
+          const active = isActive(pathname, item.href);
+          return <Link className={`section-nav__link ${active ? "section-nav__link--active" : ""}`} href={item.href} key={item.href} aria-current={active ? "page" : undefined}>
+            <Icon name={item.icon} />
+            <span>{item.label}</span>
+          </Link>;
         })}
-      </nav>
-      <div className="sidebar__footer"><span className="sidebar__status" aria-hidden="true" /><div><strong>Organization workspace</strong><small>Controlled local pilot</small></div><IconButton label="Sign out" onClick={signOut}><Icon name="signOut" /></IconButton></div>
-    </aside>
-    {menuOpen && <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
-    <div className="app-shell__main">
-      <header className="topbar"><button className="topbar__menu" aria-label="Toggle navigation" aria-expanded={menuOpen || !sidebarCollapsed} onClick={toggleNavigation}><Icon name="menu" /></button><div className="topbar__spacer" aria-hidden="true" /><button className="topbar__action" type="button" onClick={() => setIsNewRecordingOpen(true)}>New recording <Icon name="plus" /></button></header>
-      <main className="app-main" id="main-content" tabIndex={-1}>{children}</main>
-      {isNewRecordingOpen && <NewRecordingDialog onClose={() => setIsNewRecordingOpen(false)} />}
-    </div>
+      </div>
+    </div>)}
+  </nav>;
+
+  return <div className="app-shell">
+    <a className="skip-link" href="#main-content">Skip to content</a>
+    <header className="command-masthead">
+      <div className="command-masthead__inner">
+        <div className="command-masthead__identity">
+          <IconButton className="mobile-menu-trigger" label="Open workspace navigation" aria-expanded={navigationOpen} aria-controls="mobile-workspace-navigation" onClick={() => setNavigationOpen(true)}><Icon name="menu" /></IconButton>
+          <Link href="/dashboard" aria-label="Sentinel dashboard"><SentinelMark /></Link>
+          <span className="command-masthead__divider" aria-hidden="true" />
+          <span className="command-masthead__context"><small>QA workspace</small><strong>{current?.label ?? "Sentinel"}</strong></span>
+        </div>
+        <div className="command-masthead__actions">
+          <ThemeControl />
+          <Link className="icon-button command-notifications" href="/notifications" aria-label="Open notifications" title="Notifications"><Icon name="bell" /></Link>
+          <button className="button button--primary command-record" type="button" onClick={() => setIsNewRecordingOpen(true)}><Icon name="plus" /> New recording</button>
+          <IconButton className="command-sign-out" label="Sign out" onClick={signOut}><Icon name="signOut" /></IconButton>
+        </div>
+      </div>
+    </header>
+    <div className="section-nav">{navigation}</div>
+    {navigationOpen && <>
+      <button className="navigation-sheet__backdrop" aria-label="Close workspace navigation" onClick={() => setNavigationOpen(false)} />
+      <aside className="navigation-sheet" id="mobile-workspace-navigation" aria-label="Workspace navigation">
+        <div className="navigation-sheet__header"><SentinelMark /><IconButton label="Close workspace navigation" onClick={() => setNavigationOpen(false)}><Icon name="close" /></IconButton></div>
+        {navigation}
+        <div className="navigation-sheet__footer"><ThemeControl /><button className="button button--ghost" onClick={signOut}><Icon name="signOut" /> Sign out</button></div>
+      </aside>
+    </>}
+    <main className="app-main" id="main-content" tabIndex={-1}>{children}</main>
+    {isNewRecordingOpen && <NewRecordingDialog onClose={() => setIsNewRecordingOpen(false)} />}
   </div>;
 }
