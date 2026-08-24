@@ -203,3 +203,30 @@ The owner approved a product-wide redesign on 2026-08-24 after a repository and 
 - All implemented routes have usable loading, empty, error, populated, narrow-screen, keyboard, and reduced-motion states.
 - Inventory paging never changes the visible total or makes a matching record undiscoverable.
 - Raw evidence remains available, but common diagnosis does not require reading JSON.
+
+## 9. Phase 16 clean-sheet replacement direction
+
+The owner rejected Phase 15's incremental visual refinement on 2026-08-24 because it retained too much of the existing interface. Phase 16 therefore supersedes the Phase 15 visual, layout, navigation, and theme decisions. Phase 15 remains documented only as implementation history.
+
+The authoritative interface specification is now `DESIGN.md`. Existing frontend behavior is a functional reference only: API calls, authorization checks, validation, data redaction, persisted state, route behavior, and workflow outcomes stay intact, while the rendered interface is rebuilt from a blank visual foundation.
+
+### Required replacement scope
+
+- Replace the persistent dark sidebar and top bar with the clean-sheet command masthead and grouped section navigator.
+- Replace the dark-only palette with equally supported light and dark semantic token sets. Follow the system preference until a user explicitly chooses a theme, then persist that choice locally.
+- Replace the previous surface, card, typography, spacing, radius, elevation, icon, and motion language across every implemented route.
+- Recompose screens around attention, decisions, and operational causality instead of retaining the existing page arrangements and merely restyling them.
+- Include all Phase 13 GitHub repository, webhook activity, routing, and source-analysis interfaces in the replacement system.
+- Preserve the standalone desktop-only Recording Workspace and live Guided Run boundary, but redesign their visual structure as an instrument workspace.
+
+### Functional preservation boundary
+
+Phase 16 must not change API paths, request or response contracts, database schema, authentication, role and Product authorization, Run and Release execution, GitHub or Jira behavior, redaction, evidence retention, or workflow semantics. DOM structure and selectors may change when necessary for accessibility or the new composition; tests must be updated to verify outcomes rather than obsolete presentation details.
+
+### Required verification
+
+- Every implemented route renders in both themes with no unreadable, unthemed, or theme-flashing primary surface.
+- The explicit theme control is keyboard accessible, announced, and persists across navigation and reload.
+- Desktop, tablet, and mobile navigation expose the same authorized routes and preserve active-route feedback.
+- Existing critical sign-in, Product, Test Case, recording, Run, Release, Review, Administration, Jira, GitHub, and source-analysis workflows still pass.
+- Both themes meet the documented WCAG 2.2 AA contrast, focus, zoom, reduced-motion, and non-colour-status requirements.
