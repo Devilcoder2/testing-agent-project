@@ -126,6 +126,13 @@ services:
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
       QA_DATABASE_URL: postgresql://qa_diagnostic:qa-diagnostic-read-only-development-only@qa-postgres:5432/qa_fixture
       EVIDENCE_RETENTION_DAYS: "30"
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+      SENTINEL_PUBLIC_WEBHOOK_URL: ${SENTINEL_PUBLIC_WEBHOOK_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
       GUIDED_RUN_DEMO_PASSWORD: ${GUIDED_RUN_DEMO_PASSWORD:?Set GUIDED_RUN_DEMO_PASSWORD in an untracked .env file}
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
     command: sh -c "npm ci --ignore-scripts && npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
@@ -174,6 +181,13 @@ services:
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
       QA_DATABASE_URL: postgresql://qa_diagnostic:qa-diagnostic-read-only-development-only@qa-postgres:5432/qa_fixture
       EVIDENCE_RETENTION_DAYS: "30"
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+      SENTINEL_PUBLIC_WEBHOOK_URL: ${SENTINEL_PUBLIC_WEBHOOK_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
       AUTO_RUN_DEMO_EMAIL: qa.tester@example.test
       AUTO_RUN_DEMO_PASSWORD: TestPassword!
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
@@ -181,6 +195,14 @@ services:
     volumes:
       - .:/app
       - sentinel-node-modules-worker:/app/node_modules
+
+  cloudflared:
+    image: cloudflare/cloudflared:2025.8.0
+    profiles: ["github-tunnel"]
+    depends_on:
+      sentinel:
+        condition: service_started
+    command: tunnel --no-autoupdate --url http://sentinel:3000
 
 volumes:
   sentinel-postgres:
