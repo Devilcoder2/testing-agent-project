@@ -7,7 +7,8 @@ const baseUrl = process.env.SENTINEL_BASE_URL ?? "http://localhost:3000";
 async function createSuggestionFixture() {
   const owner = await prisma.user.findUniqueOrThrow({ where: { email: "ava.tester@example.test" } });
   const suffix = Date.now();
-  const product = await prisma.product.create({ data: { name: `Suggestion UI ${suffix}`, createdById: owner.id, memberships: { create: { userId: owner.id } } } });
+  const organization = await prisma.organizationMember.findFirstOrThrow({ where: { userId: owner.id } });
+  const product = await prisma.product.create({ data: { name: `Suggestion UI ${suffix}`, organizationId: organization.organizationId, createdById: owner.id, memberships: { create: { userId: owner.id } } } });
   const recording = await prisma.recordingSession.create({ data: { productId: product.id, ownerId: owner.id, testName: `Suggestion source ${suffix}`, targetUrl: "http://demo-target", tokenHash: `suggestion-ui-${suffix}`, status: RecordingStatus.SAVED } });
   const testCase = await prisma.testCase.create({
     data: {
