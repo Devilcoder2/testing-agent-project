@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { Button, Card, Dialog, EmptyState, Feedback, Field, Pagination, PageHeader, SelectInput, Skeleton, StatusBadge, TextArea, TextInput } from "./ui";
+import { ThemeControl } from "./theme-control";
+import { Button, Card, Dialog, EmptyState, Feedback, Field, Pagination, PageHeader, SelectInput, SentinelMark, Skeleton, StatusBadge, TextArea, TextInput } from "./ui";
 import { OwnershipTransfer } from "./ownership-transfer";
 
 type Product = { id: string; name: string; createdById?: string };
@@ -63,12 +64,13 @@ export function SignInView() {
 
   return <main className="auth-page">
     <section className="auth-page__story">
-      <div className="sentinel-brand"><span className="sentinel-mark" aria-hidden="true"><span /></span><span className="sentinel-wordmark">Sentinel</span></div>
+      <SentinelMark />
       <p className="eyebrow">QA operations platform</p>
       <h1>Turn browser knowledge into reliable quality signals.</h1>
       <p>Teach a journey once, retain its ownership and intent, then grow toward evidence-backed autonomous quality assurance.</p>
     </section>
     <section className="auth-page__form-wrap">
+      <ThemeControl />
       <Card className="auth-card">
         <div className="auth-card__header"><p className="eyebrow">Organization access</p><h2>Sign in to Sentinel</h2><p>Use your organization account to access the local quality workspace.</p></div>
         <form className="auth-form" onSubmit={login}>
