@@ -1,8 +1,8 @@
 # Sentinel Frontend Design System and UX Decisions
 
-**Status:** Implemented and acceptance-verified; owner learning review pending
-**Date:** 2026-08-08
-**Scope:** Frontend foundation, Phase 1 redesign, and documented direction for future Sentinel product areas.
+**Status:** Phase 15 redesign approved for the currently delivered Phase 12 product
+**Date:** 2026-08-24
+**Scope:** Product-wide visual, interaction, responsive, and accessibility system for every currently implemented Sentinel route.
 
 **Verification:** Docker lint, type-check, API/database tests, Product creation browser test, remote-recording browser test, Phase 1.5 browser test, and production build passed on 2026-08-08. Desktop visual inspection confirmed the sign-in, App Shell, and recording-creation views.
 
@@ -150,3 +150,48 @@ Implement reusable App Shell, Sidebar, Top Bar, Page Header, Card, Button, Icon 
 - Keyboard focus, labels, error feedback, contrast, and reduced-motion behavior satisfy the documented WCAG 2.2 AA checks.
 - Playwright verifies routing, keyboard navigation, Product validation feedback, saved-test persistence, recording-layout behavior, and narrow-screen recording guidance.
 - Future product screens are documented here without premature implementation.
+
+## 8. Approved Phase 15 product-wide redesign
+
+The owner approved a product-wide redesign on 2026-08-24 after a repository and live-UI audit. This work may start before the optional Phase 13 GitHub and Phase 14 conversational integrations because it changes only the delivered Phase 12 interface. Those future integrations must adopt this system when implemented; Phase 15 must not create placeholder screens or invent their workflows now.
+
+### Design direction
+
+- Retain Sentinel's dark, low-glare operations identity and semantic blue, teal, amber, and rose status language.
+- Refine the canvas and surface hierarchy, use sentence-case labels, reserve monospace for operational data, and keep local system typography.
+- Replace text glyphs with a small internal SVG icon set; do not add an icon library, external font, Tailwind, or component framework.
+- Use one primary action per region. Move secondary, ownership, configuration, and destructive actions into explicit menus or dialogs without changing authorization.
+- Prefer compact tables and responsive labelled rows for inventories. Cards remain for metrics, summaries, empty states, and focused decision surfaces.
+- Keep dark mode as the only shipped theme. Tokens must remain semantic so a light palette can be added later without component rewrites.
+
+### Layout and responsive policy
+
+- Use a 15.5rem expanded and 4.5rem collapsed desktop sidebar, a 4rem sticky top bar, and a 90rem maximum operational content width.
+- At widths below 64rem, use an overlay navigation drawer. At widths below 48rem, tables become labelled cards and filters stack or move into compact disclosures.
+- Preserve the explicit desktop-only policy for the live Recording Workspace and browser-backed Guided Run below 64rem. Completed and autonomous Run details remain responsive.
+- Render large Test Case, Run, Notification, and Review collections in client-side pages of 25 while retaining the existing complete API response. Persist inventory filter and page state in the URL when practical.
+
+### Interaction and accessibility policy
+
+- Standardize 120ms control feedback, 180ms menus/tabs, and 240ms overlays using the existing ease-out curve. Dense rows change surface or border instead of lifting.
+- Replace browser-native prompts and confirmations with a reusable dialog that traps focus, closes with Escape where safe, restores focus, and labels consequences.
+- Provide shared skeleton, empty, error, inline-feedback, saved-state, tab, pagination, overflow-menu, structured evidence, and responsive-row patterns.
+- Maintain WCAG 2.2 AA: visible focus, 44px touch targets, semantic headings/tables/tabs/dialogs, non-colour status cues, live announcements, 200% zoom support, and reduced-motion behavior.
+
+### Screen hierarchy
+
+- Dashboard: show health metrics and personal attention items before the collapsible pilot-readiness detail.
+- Products, Test Cases, Test Data, Runs, Releases, Notifications, and Administration: use scannable inventory structures with compact actions and responsive cards.
+- Test Case Detail: keep Auto Run primary, Guided Run secondary, and group maintenance actions separately; organize Steps, Variables, and Versions without changing immutable data.
+- Recording: preserve the focused 30/70 timeline/browser workspace, collapse older steps, and expose annotation save state.
+- Run Detail: keep progress and outcome prominent; organize Screenshots, Network, Console, Storage, diagnostics, Jira, and proposals into readable sections with raw JSON available only as a disclosure.
+- Review: separate deterministic suggestions from baseline-change proposals and use an explicit before/after comparison.
+- Administration: replace native Product multi-selects and immediate field mutation with an accessible member editor and explicit save using the existing PATCH contract.
+
+### Phase 15 acceptance baseline
+
+- No API route, persisted schema, authorization rule, queue, evidence boundary, Run behavior, or redaction rule changes.
+- Existing critical Playwright workflows continue to pass after selector updates.
+- All implemented routes have usable loading, empty, error, populated, narrow-screen, keyboard, and reduced-motion states.
+- Inventory paging never changes the visible total or makes a matching record undiscoverable.
+- Raw evidence remains available, but common diagnosis does not require reading JSON.
