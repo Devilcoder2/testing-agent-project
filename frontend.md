@@ -1,10 +1,10 @@
 # Sentinel Frontend Design System and UX Decisions
 
-**Status:** Phase 15 redesign approved for the currently delivered Phase 12 product
+**Status:** Phase 15 implementation complete for the currently delivered Phase 12 product; owner usability/learning review pending
 **Date:** 2026-08-24
 **Scope:** Product-wide visual, interaction, responsive, and accessibility system for every currently implemented Sentinel route.
 
-**Verification:** Docker lint, type-check, API/database tests, Product creation browser test, remote-recording browser test, Phase 1.5 browser test, and production build passed on 2026-08-08. Desktop visual inspection confirmed the sign-in, App Shell, and recording-creation views.
+**Verification:** On 2026-08-24, lint and type-check passed; the production build compiled and generated all 18 routes; focused browser coverage passed for the shell/recording, readiness, Auto Run, variables/Test Data, Release/version editing, and Review workflows. Serial Vitest passed 43/45 assertions. The two remaining Guided Run assertions are blocked by the correct single-browser guard because an existing user-owned Guided Run remains active; see `phases.md` and `learning-log.md`.
 
 ## 1. Purpose
 
