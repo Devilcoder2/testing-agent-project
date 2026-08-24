@@ -6,7 +6,8 @@ const baseUrl = process.env.SENTINEL_BASE_URL ?? "http://localhost:3000";
 
 async function createVersionableTestCase(name: string) {
   const owner = await prisma.user.findUniqueOrThrow({ where: { email: "ava.tester@example.test" } });
-  const product = await prisma.product.create({ data: { name: `Release UI ${Date.now()}`, createdById: owner.id, memberships: { create: { userId: owner.id } } } });
+  const organization = await prisma.organizationMember.findFirstOrThrow({ where: { userId: owner.id } });
+  const product = await prisma.product.create({ data: { name: `Release UI ${Date.now()}`, organizationId: organization.organizationId, createdById: owner.id, memberships: { create: { userId: owner.id } } } });
   const recording = await prisma.recordingSession.create({ data: { productId: product.id, ownerId: owner.id, testName: name, targetUrl: "http://demo-target", tokenHash: `release-ui-${Date.now()}`, status: RecordingStatus.SAVED } });
   const testCase = await prisma.testCase.create({ data: { productId: product.id, ownerId: owner.id, recordingSessionId: recording.id, name, versions: { create: { version: 1, steps: { create: [
     { order: 1, kind: StepKind.NAVIGATION, timestamp: new Date(), target: { url: "http://demo-target" }, isCheckpoint: true },
