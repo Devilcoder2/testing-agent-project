@@ -230,6 +230,14 @@ Results are grouped by section and the section matching the current route appear
 
 The field uses an accessible combobox/listbox interaction. `Ctrl+K` or `Cmd+K` focuses it, Arrow Up/Down moves through results, Enter opens the active result, and Escape closes results without trapping focus. Pointer and touch selection remain available. Results link to an exact protected detail page when one exists and otherwise to the matching protected section.
 
+### F15. Recording workspace focus controls
+
+The active Recording Workspace provides a labelled Step Log collapse control. Collapsing the log turns it into a narrow, keyboard-accessible rail and gives the embedded approved browser the reclaimed workspace width. Expanding restores the same recorded steps, annotations, scroll state where the browser preserves it, and existing recording controls; neither action creates a new browser session or changes recording data.
+
+The workspace also provides a labelled full-screen control. Entering this application-level mode hides the recording session bar and Step Log and makes the embedded browser stage occupy the entire visible workspace. A persistent labelled minimize control exits the mode and restores the session bar and the user's Step Log collapse state. Full screen changes only Sentinel layout; it must not request browser-native full-screen permission, reveal noVNC controls, weaken Chromium target restrictions, hide save/discard semantics permanently, or alter recording, authorization, redaction, or persistence behavior.
+
+Both controls must be keyboard operable, expose their state through accessible labels or pressed state, retain visible focus treatment, respect reduced-motion preferences, and remain available only at the supported desktop-sized workspace width. The existing narrow-screen guidance remains unchanged.
+
 ## 7. Cross-cutting requirements
 
 ### Security and privacy
