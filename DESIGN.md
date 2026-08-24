@@ -179,7 +179,7 @@ The prior persistent sidebar is replaced with a two-level top workspace system.
 - **Review:** Suggestions and Change proposals remain distinct modes; before/after baseline content uses a two-column comparison.
 - **Administration:** member directory and explicit editor sheet, with roles, account state, and Product access visible at a glance.
 - **GitHub/source analysis:** repository connections appear as a Product-scoped integration ledger; a failed Run shows a bounded advisory analysis panel with commit context, confidence, observations, hypotheses, remediation, safe patch fragment, references, and limitations.
-- **Recording Workspace:** a standalone instrument view with a slim session header, timeline rail, and dominant browser stage. It does not inherit the global masthead.
+- **Recording Workspace:** a standalone instrument view with a slim session header, collapsible timeline rail, and dominant browser stage. It does not inherit the global masthead. The rail's labelled collapse control keeps an icon-sized restore affordance, while a full-screen control hides the session header and rail so the browser stage owns the full viewport. A persistent minimize control restores the prior rail state; this is Sentinel layout mode, not browser-native full screen.
 
 ## 9. Motion and interaction
 
