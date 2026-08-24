@@ -35,9 +35,12 @@ test("edits an immutable Test Case version and starts a visible excluded Release
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
+    await page.getByLabel("Find a Test Case").fill(name);
     await page.locator(".test-list__item").filter({ hasText: name }).getByRole("link", { name: "Open" }).click();
+    await page.getByText("More actions", { exact: true }).click();
     await page.getByRole("link", { name: "Edit Test" }).click();
     await page.getByLabel("Feature labels").fill("authentication, customer management");
+    await page.locator(".step-editor > summary").nth(1).click();
     await page.getByLabel("Description").nth(1).fill("Open the signed-in dashboard");
     await page.getByRole("button", { name: "Save Version 2" }).click();
     await expect(page.getByRole("heading", { name: "Version 2" })).toBeVisible();
