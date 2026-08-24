@@ -641,11 +641,13 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Outcome:** A tester can reclaim recording-browser width by collapsing the Step Log and can focus entirely on the remote browser through a reversible, accessible application-level full-screen mode.
 
 - [x] Define the collapse/full-screen behavior, browser/security boundary, desktop policy, keyboard semantics, and no-new-dependency decision in the project documents.
-- [ ] Add a labelled collapse/expand Step Log control that retains a narrow restore rail and does not alter recording data or browser state.
-- [ ] Add a labelled full-screen/minimize control that hides and restores only the recording session bar and Step Log while preserving the user’s rail state.
-- [ ] Keep noVNC controls hidden and leave browser target policy, recording events, save/discard behavior, authorization, redaction, and persistence unchanged.
-- [ ] Add browser coverage for the collapsed layout, full-screen transition, minimize restoration, keyboard-accessible controls, and supported-width guidance.
-- [ ] Run lint, type-check, production build, focused recording regression, and live visual review. Record exact output and distinguish the known active Guided Run blocker.
+- [x] Add a labelled collapse/expand Step Log control that retains a narrow restore rail and does not alter recording data or browser state.
+- [x] Add a labelled full-screen/minimize control that hides and restores only the recording session bar and Step Log while preserving the user’s rail state.
+- [x] Keep noVNC controls hidden and leave browser target policy, recording events, save/discard behavior, authorization, redaction, and persistence unchanged.
+- [x] Add browser coverage for the collapsed layout, full-screen transition, minimize restoration, keyboard-accessible controls, and supported-width guidance.
+- [x] Run lint, type-check, production build, focused recording regression, and live visual review. Record exact output and distinguish the known active Guided Run blocker.
 - [ ] Review the actual diff in learning priority order and add one append-only learning entry with exactly ten owner questions before closing the learning gate.
+
+**Implementation verification (2026-08-24):** Lint, type-check, and the 18-route production build pass. The focused live-recording journey passes collapse, the narrow restore rail, full-screen entry, button-driven minimize, Escape minimize, restored rail state, remote recording, annotation persistence, save, and refresh. The existing frontend recording workflow has a launch visibility wait suitable for post-browser-lock startup. All 14 applicable browser journeys pass. Live browser review confirmed the browser stage fills the workspace with only an Exit full screen control, then restores the collapsed rail and normal session bar. The complete API suite passes 50/52 assertions; the two known Guided Run assertions correctly receive HTTP 409 because the existing user-owned active Run still owns the single live-browser boundary. The Phase 18 priority review and exactly ten owner questions are in `learning-log.md`; owner answers remain pending, so the final learning checkbox stays open.
 
 **Out of scope:** Browser-native Fullscreen API permission, noVNC toolbar exposure, remote browser/Chromium-policy changes, Guided Run changes, persisted layout preferences, native mobile recording, or any API/database change.
