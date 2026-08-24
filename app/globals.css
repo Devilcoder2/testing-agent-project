@@ -203,6 +203,12 @@ body { background: radial-gradient(circle at 82% -10%, rgb(59 130 246 / 10%), tr
 .status-badge { min-height: 1.75rem; }
 
 .test-list, .run-list, .notification-list, .review-list { gap: var(--space-2); }
+.review-tabs { display: flex; gap: var(--space-2); padding: var(--space-1); border: 0.0625rem solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+.review-tabs .button { min-height: 2.5rem; }
+.proposal-diff { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-2); }
+.proposal-diff > div { border: 0.0625rem solid var(--color-border); border-radius: var(--radius-sm); padding: var(--space-3); background: var(--color-canvas); }
+.proposal-diff small { color: var(--color-text-subtle); font-size: var(--text-xs); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.proposal-diff p { margin-top: var(--space-2); }
 .test-list__item, .run-list__item, .notification-item, .review-item { border-radius: var(--radius-sm); background: var(--color-surface-raised); }
 .test-list__item:hover, .run-list__item:hover, .review-item:hover { border-color: var(--color-border-strong); background: var(--color-surface-interactive); transform: none; }
 .inventory-toolbar { grid-template-columns: repeat(3, minmax(12rem, 1fr)); margin-bottom: var(--space-5); }
@@ -283,6 +289,8 @@ body { background: radial-gradient(circle at 82% -10%, rgb(59 130 246 / 10%), tr
   .test-list__item, .run-list__item, .notification-item, .review-item { padding: var(--space-4); }
   .modal { width: calc(100% - var(--space-5)); max-height: calc(100vh - var(--space-5)); }
   .action-menu > div { position: fixed; right: var(--space-5); bottom: var(--space-5); top: auto; left: var(--space-5); }
+  .review-tabs, .proposal-diff { grid-template-columns: 1fr; }
+  .review-tabs { display: grid; width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
