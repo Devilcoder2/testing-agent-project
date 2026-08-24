@@ -19,6 +19,7 @@ import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSe
 import { markReleaseRunItemQueueFailure, refreshReleaseRun, syncReleaseRunItemForRun } from "@/lib/releases";
 import { proposedValueIsSafe, suggestionsForSteps, type SuggestionKind } from "@/lib/suggestions";
 import { sendAccountLink } from "@/lib/account-email";
+import { isSearchSection, searchWorkspace } from "@/lib/global-search";
 
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
@@ -410,6 +411,14 @@ async function route(request: Request, context: Context) {
     const user = await requireUser();
     if (request.method === "GET" && path.join("/") === "auth/me") {
       return json({ user: { id: user.id, email: user.email, displayName: user.displayName, role: user.role, organizationId: user.organizationId } });
+    }
+    if (request.method === "GET" && path.join("/") === "search") {
+      const searchParams = new URL(request.url).searchParams;
+      const query = searchParams.get("q") ?? "";
+      const section = searchParams.get("section");
+      if (!query.trim()) return json({ error: "Enter a search term." }, 400);
+      if (query.trim().length > 80) return json({ error: "Search terms must be 80 characters or fewer." }, 400);
+      return json(await searchWorkspace(user, query, isSearchSection(section) ? section : null));
     }
     if (path[0] === "admin") {
       if (user.role !== OrganizationRole.ADMIN) return json({ error: "Organization administration is restricted to Admins." }, 403);
