@@ -589,3 +589,21 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 - [ ] Conduct owner usability testing, record findings and approved refinements, then update all required documentation and add an append-only learning-log entry with exactly 10 owner questions.
 
 **Out of scope:** New business features, replacing the browser automation/evidence architecture, changing role policy, a native mobile application, or styling-only changes without the approved UX discovery and accessibility review.
+
+## Phase 16 — Clean-sheet dual-theme frontend rebuild
+
+**Depends on:** Phase 13's delivered frontend surface and the owner-approved `DESIGN.md` direction.
+
+**Outcome:** Sentinel's existing functionality is presented through a newly designed, responsive, accessible interface with first-class light and dark themes. No Phase 15 visual or layout decision is treated as a constraint.
+
+- [x] Record the owner's rejection of the incremental Phase 15 direction and approve a clean-sheet design specification covering identity, both themes, typography, layout, navigation, components, motion, responsive behavior, and every delivered screen.
+- [ ] Replace the semantic token layer with complete light and dark palettes and implement a no-flash, system-aware, locally persisted theme control.
+- [ ] Replace the sidebar-led shell with the command masthead, grouped section navigator, authorized route handling, responsive navigation sheet, account action, and New recording entry point.
+- [ ] Rebuild shared buttons, fields, status, panels, rows, dialogs, feedback, empty/loading states, evidence views, tabs, menus, pagination, and focus behavior from the new system.
+- [ ] Recompose authentication, Dashboard, Products, Test Cases, Test Data, Runs, Releases, Notifications, Review, Administration, Recording, Guided Run, and detail views without changing their existing workflow outcomes.
+- [ ] Include Phase 13 repository connection, source routing, webhook activity, and failed-Run source-analysis surfaces in the same replacement system.
+- [ ] Verify all implemented routes in light and dark themes at desktop, tablet, mobile, 200% zoom, keyboard-only, and reduced-motion settings. Preserve the explicit desktop-only boundary for recording and live Guided Run.
+- [ ] Run production build, lint, type-check, focused unit tests, critical Playwright workflows, and browser-based visual review. Record exact commands and raw output; distinguish any pre-existing Guided Run blocker.
+- [ ] Review the actual diff in learning priority order, update `learning-log.md` with one Phase 16 entry and exactly 10 understanding questions, update relevant documentation, and obtain owner answers before calling the learning gate complete.
+
+**Out of scope:** API, database, authorization, execution, GitHub, Jira, evidence, redaction, or workflow-semantic changes; new business features; a native mobile recording experience; or a new UI/font/icon/animation dependency without a separate approved decision.
