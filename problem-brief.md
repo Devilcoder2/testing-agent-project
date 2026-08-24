@@ -68,3 +68,17 @@ Mobile testing, writes to QA or production databases, source-control root-cause 
 ## Source
 
 This brief is derived from `sentinel-detailed-requirements.md` (v1.0), supplied with the project on 2026-08-05.
+
+## Global discovery extension — 2026-08-24
+
+As Sentinel grows across Products, Test Cases, Test Data, Runs, Releases, Review, notifications, and administration, users must currently choose a section before they can discover a named item. Existing section filters narrow known collections but do not help a user who remembers a name and not its location. Repeating separate search controls and matching rules on every page would create inconsistent behavior, duplicated requests, and a larger authorization surface.
+
+The desired outcome is one search field in the authenticated command masthead. A query such as `Demo` returns authorized items whose safe display title begins with that text, groups them by section, and places the current section first. Selecting a result opens its protected detail route when one exists and otherwise opens the relevant section. Search must feel immediate without querying on every keystroke and must remain fully keyboard and screen-reader operable.
+
+Five implementation assumptions have been resolved for the first version:
+
+1. “Starting with” means case-insensitive prefix matching after trimming surrounding whitespace, not fuzzy or full-text matching.
+2. Search covers safe entity titles and member names/email only; Test Data values, variable values, evidence, source code, payloads, secrets, and raw logs are excluded.
+3. Current-page priority changes result ordering only and never broadens authorization or hides other matching categories.
+4. Results are intentionally capped per category for a responsive command search; section pages remain the complete inventory.
+5. The first version needs no new search service or index at the ten-user pilot scale; PostgreSQL queries through the existing API are sufficient and can later be replaced behind the same response contract.
