@@ -52,6 +52,7 @@ test("generates, edits, approves, dismisses, and reopens a reviewable negative-T
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
     await page.goto(`${baseUrl}/test-cases/${fixture.testCaseId}`);
     await page.getByText("More actions", { exact: true }).click();
     await page.getByRole("button", { name: "Generate suggestions" }).click();
