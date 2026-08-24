@@ -54,6 +54,7 @@ test("generates, edits, approves, dismisses, and reopens a reviewable negative-T
     await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
     await page.getByLabel("Find a Test Case").fill(fixture.name);
     await page.locator(".test-list__item").filter({ hasText: fixture.name }).getByRole("link", { name: "Open" }).click();
+    await page.getByText("More actions", { exact: true }).click();
     await page.getByRole("button", { name: "Generate suggestions" }).click();
     await expect(page.getByText(/Suggestions generated: 5 new, 0 already known/)).toBeVisible();
     await page.locator(".app-main").getByRole("link", { name: "Review" }).click();
