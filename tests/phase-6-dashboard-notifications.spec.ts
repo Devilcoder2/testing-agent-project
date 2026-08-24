@@ -44,7 +44,7 @@ test("shows an authorized health drill-down and lets the tester read a failure n
     await expect(page.getByLabel("Product drill-down")).toHaveValue("");
     await expect(page.getByRole("heading", { name: "All accessible Products", exact: true })).toBeVisible();
 
-    await page.locator(".sidebar").getByRole("link", { name: "Notifications" }).click();
+    await page.getByRole("navigation", { name: "Workspace sections" }).getByRole("link", { name: "Notifications" }).click();
     await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
     const failureNotification = page.locator("article").filter({ hasText: "Run failed · Dashboard failed journey" });
     await expect(failureNotification).toBeVisible();
