@@ -70,7 +70,7 @@ export function selectSourcePaths(paths: string[]) {
 }
 
 function safeString(value: unknown, maximum = MAX_ANALYSIS_TEXT) {
-  const text = typeof value === "string" ? value.trim().replace(/\u0000/g, "") : "";
+  const text = typeof value === "string" ? value.trim().split(String.fromCharCode(0)).join("") : "";
   if (!text) return "";
   if (isSensitiveSourceText(text)) throw new SourceAnalysisError("ANALYSIS_SENSITIVE_OUTPUT", "The generated diagnosis contained sensitive-looking text.");
   return text.slice(0, maximum);
