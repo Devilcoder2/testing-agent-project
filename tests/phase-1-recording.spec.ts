@@ -41,7 +41,7 @@ test("records the remote demo journey and preserves saved annotations after refr
 
   try {
     await signIn(page);
-    await page.locator(".topbar").getByRole("button", { name: "New recording" }).click();
+    await page.locator(".command-masthead").getByRole("button", { name: "New recording" }).click();
     await expect(page.getByRole("dialog", { name: "Create recording workspace" })).toBeVisible();
     await page.getByLabel("Test Name").fill(testName);
     const createResponse = page.waitForResponse((response) => response.url().endsWith("/api/recordings") && response.request().method() === "POST" && response.request().postData()?.includes(testName) === true);
@@ -119,7 +119,7 @@ test("records the remote demo journey and preserves saved annotations after refr
     await expect(page.getByText("Variable: demoemail")).toBeVisible();
 
     await page.locator(".breadcrumbs").getByRole("link", { name: "Dashboard" }).click();
-    await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
+    await page.getByRole("navigation", { name: "Workspace sections" }).getByRole("link", { name: "Test Cases" }).click();
     await page.getByLabel("Find a Test Case").fill(testName);
     const savedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await savedTest.getByRole("link", { name: "Open" }).click();
@@ -128,7 +128,7 @@ test("records the remote demo journey and preserves saved annotations after refr
 
     await page.reload();
     await signIn(page, "ava.tester@example.test");
-    await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
+    await page.getByRole("navigation", { name: "Workspace sections" }).getByRole("link", { name: "Test Cases" }).click();
     await page.getByLabel("Find a Test Case").fill(testName);
     const reopenedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await reopenedTest.getByRole("link", { name: "Open" }).click();
