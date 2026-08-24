@@ -597,13 +597,15 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Outcome:** Sentinel's existing functionality is presented through a newly designed, responsive, accessible interface with first-class light and dark themes. No Phase 15 visual or layout decision is treated as a constraint.
 
 - [x] Record the owner's rejection of the incremental Phase 15 direction and approve a clean-sheet design specification covering identity, both themes, typography, layout, navigation, components, motion, responsive behavior, and every delivered screen.
-- [ ] Replace the semantic token layer with complete light and dark palettes and implement a no-flash, system-aware, locally persisted theme control.
-- [ ] Replace the sidebar-led shell with the command masthead, grouped section navigator, authorized route handling, responsive navigation sheet, account action, and New recording entry point.
-- [ ] Rebuild shared buttons, fields, status, panels, rows, dialogs, feedback, empty/loading states, evidence views, tabs, menus, pagination, and focus behavior from the new system.
-- [ ] Recompose authentication, Dashboard, Products, Test Cases, Test Data, Runs, Releases, Notifications, Review, Administration, Recording, Guided Run, and detail views without changing their existing workflow outcomes.
-- [ ] Include Phase 13 repository connection, source routing, webhook activity, and failed-Run source-analysis surfaces in the same replacement system.
+- [x] Replace the semantic token layer with complete light and dark palettes and implement a no-flash, system-aware, locally persisted theme control.
+- [x] Replace the sidebar-led shell with the command masthead, grouped section navigator, authorized route handling, responsive navigation sheet, account action, and New recording entry point.
+- [x] Rebuild shared buttons, fields, status, panels, rows, dialogs, feedback, empty/loading states, evidence views, tabs, menus, pagination, and focus behavior from the new system.
+- [x] Recompose authentication, Dashboard, Products, Test Cases, Test Data, Runs, Releases, Notifications, Review, Administration, Recording, Guided Run, and detail views without changing their existing workflow outcomes.
+- [x] Include Phase 13 repository connection, source routing, webhook activity, and failed-Run source-analysis surfaces in the same replacement system.
 - [ ] Verify all implemented routes in light and dark themes at desktop, tablet, mobile, 200% zoom, keyboard-only, and reduced-motion settings. Preserve the explicit desktop-only boundary for recording and live Guided Run.
-- [ ] Run production build, lint, type-check, focused unit tests, critical Playwright workflows, and browser-based visual review. Record exact commands and raw output; distinguish any pre-existing Guided Run blocker.
+- [x] Run production build, lint, type-check, focused unit tests, critical Playwright workflows, and browser-based visual review. Record exact commands and raw output; distinguish any pre-existing Guided Run blocker.
 - [ ] Review the actual diff in learning priority order, update `learning-log.md` with one Phase 16 entry and exactly 10 understanding questions, update relevant documentation, and obtain owner answers before calling the learning gate complete.
+
+**Implementation verification (2026-08-24):** Lint, type-check, and the 18-route production build pass. Browser review confirmed the new authentication composition, desktop route fit, both theme palettes, and persisted dark-theme selection. All 13 Playwright workflows that do not require a second live Guided Run pass. Docker Vitest passes 48/50 assertions; both remaining assertions receive the intended HTTP 409 single-browser response because an existing user-owned Guided Run remains active. The priority diff review and exactly ten Phase 16 owner questions are recorded in `learning-log.md`. Owner answers and final visual/usability checks at every listed viewport/zoom setting remain open, so the learning and full visual-acceptance gates are not complete.
 
 **Out of scope:** API, database, authorization, execution, GitHub, Jira, evidence, redaction, or workflow-semantic changes; new business features; a native mobile recording experience; or a new UI/font/icon/animation dependency without a separate approved decision.
