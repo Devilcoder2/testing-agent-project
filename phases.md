@@ -27,6 +27,8 @@ flowchart LR
     P12 --> P15["15. Product-wide UI revamp"]
     P13 --> P15
     P14 --> P15
+    P15 --> P16
+    P16["16. Clean-sheet dual-theme frontend"] --> P17["17. Global authorized search"]
 ```
 
 ## Phase 1 — Foundation and guided recording
@@ -611,3 +613,21 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Runtime repair verification (2026-08-24):** The host build and Docker development server now use separate generated `.next` directories through nested named volumes. After recreating only the Sentinel web container, a full host lint/type-check/18-route production build left the live container healthy at HTTP 200 with zero recent missing-chunk or React Client Manifest errors. The focused navigation/theme Playwright workflow passed. D-040 and the append-only repair learning entry record the cause, tradeoff, evidence, and ten additional owner questions.
 
 **Out of scope:** API, database, authorization, execution, GitHub, Jira, evidence, redaction, or workflow-semantic changes; new business features; a native mobile recording experience; or a new UI/font/icon/animation dependency without a separate approved decision.
+
+## Phase 17 — Global authorized search
+
+**Depends on:** Phase 16's command masthead and all delivered protected inventory routes.
+
+**Outcome:** A signed-in user can discover authorized items from one fast, accessible masthead search without visiting or searching each section independently.
+
+- [x] Confirm prefix matching, safe searchable fields, current-section priority, result caps, destination behavior, and the no-new-dependency boundary in the project documents.
+- [ ] Add one protected, read-only search endpoint and a reusable server module covering Products, Test Cases, Test Data, Runs, Releases, Review, notifications, and Admin-only organization members.
+- [ ] Apply the same organization, Product, Release, recipient, and Admin authorization rules as the destination routes; never return secrets, Test Data values, evidence, source, or raw payloads.
+- [ ] Add the command-masthead combobox with a 250 ms debounce, stale-request cancellation, current-section ordering, explicit loading/empty/error states, and responsive light/dark presentation.
+- [ ] Support `Ctrl+K`/`Cmd+K`, Arrow Up/Down, Enter, Escape, pointer selection, focus visibility, combobox/listbox semantics, and reduced motion.
+- [ ] Add focused unit/API coverage for normalization, caps, ordering, authorization denial, and safe response fields.
+- [ ] Add browser coverage for debounce, cross-section results, current-section priority, keyboard selection, empty results, mobile presentation, and protected navigation.
+- [ ] Run lint, type-check, production build, focused Vitest, critical Playwright regression, and live browser review with exact output.
+- [ ] Review the actual diff in learning priority order and add one append-only learning entry with exactly ten owner questions before closing the learning gate.
+
+**Out of scope:** Fuzzy/semantic search, full-text indexing, saved/recent queries, search analytics, external providers, secret/evidence/source-content search, or separate per-page search fields.
