@@ -35,9 +35,11 @@ flowchart LR
 
 ### Web application
 
-Provides authentication, a product-authorized health dashboard, product and Test Case management, Recording Workspace, Run Detail, Releases, notification inbox, a Phase 7 review queue, approvals, and manual actions. Its route-based App Shell uses the tokenized Sentinel frontend system documented in [`frontend.md`](frontend.md): a persistent sidebar, accessible semantic controls, and a desktop-first focused Recording Workspace. It never directly owns browser automation or external integration credentials.
+Provides authentication, a product-authorized health dashboard, product and Test Case management, Recording Workspace, Run Detail, Releases, notification inbox, a Phase 7 review queue, approvals, and manual actions. Its route-based App Shell uses the clean-sheet Sentinel system documented in [`DESIGN.md`](DESIGN.md) and [`frontend.md`](frontend.md): a command masthead, grouped section navigation, accessible semantic controls, equal light/dark themes, and a desktop-first focused Recording Workspace. It never directly owns browser automation or external integration credentials.
 
 Phase 15 keeps this frontend inside the modular monolith and adds no client state service or backend-for-frontend layer. Shared React primitives own presentation concerns such as navigation, dialogs, tables, tabs, pagination, status, loading, and responsive disclosure. Feature views continue to call the existing authorized API routes and retain their current polling and mutation boundaries. Client-side inventory pagination operates only on already-authorized complete responses; it does not change record visibility or server authorization. Structured evidence views format existing protected payloads and keep raw evidence available without copying it into a new store.
+
+Phase 16 replaces the rendered frontend without changing that boundary. Theme selection is a presentation-only client preference: an inline pre-render bootstrap reads `sentinel-theme` or the system color preference and sets the root `data-theme` attribute before paint; a React control updates that attribute and local storage. Theme state never enters an API request, database record, authorization decision, or server cache. The existing feature views keep their request/state logic while their composition and shared primitives adopt the new system.
 
 ### Application API
 
