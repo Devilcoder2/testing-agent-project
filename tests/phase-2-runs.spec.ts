@@ -42,6 +42,7 @@ test("starts, refreshes, and completes a strict guided Run in the UI", async ({ 
     await page.getByLabel("Email").fill("ava.tester@example.test");
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto(`${baseUrl}/test-cases/${created.testCaseId}`);
     await page.getByRole("button", { name: "Guided Run" }).click();
     await expect(page).toHaveURL(/\/runs\//, { timeout: 15_000 });
