@@ -54,11 +54,11 @@ test("creates, persists, and authorizes a Product through the portal", async ({ 
     await renamedProduct.getByRole("link", { name: "View Test Cases" }).click();
     await expect(page).toHaveURL(/\/test-cases\?productId=/);
     await expect(page.getByLabel("Filter by Product").locator("option:checked")).toHaveText(renamedProductName);
-    await page.locator(".sidebar").getByRole("link", { name: "Products" }).click();
+    await page.getByRole("navigation", { name: "Workspace sections" }).getByRole("link", { name: "Products" }).click();
     await expect(page).toHaveURL(/\/products$/);
     await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
 
-    await page.locator(".topbar").getByRole("button", { name: "New recording" }).click();
+    await page.locator(".command-masthead").getByRole("button", { name: "New recording" }).click();
     await expect(page.getByRole("dialog", { name: "Create recording workspace" })).toBeVisible();
     await expect(page.getByLabel("Product").locator("option:checked")).toHaveText(renamedProductName);
     await page.getByLabel("Test Name").fill(testName);
