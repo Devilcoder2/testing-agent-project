@@ -1849,3 +1849,58 @@ Both failures expected HTTP 201 but received HTTP 409 because the existing user-
 - Resolve the existing active Guided Run through the normal application workflow, then rerun all 50 Vitest assertions and the complete 14-test browser suite.
 
 **Learning status:** Implementation and automated redesign verification are recorded. Owner answers, final viewport/usability acceptance, and the state-blocked Guided Run regression remain open.
+
+## Phase 16 runtime repair — Isolated Next.js build output
+
+### What changed and why
+
+The running Sentinel development server returned HTTP 500 because it could no longer find a generated server chunk, `./331.js`. The source code was valid. The failure came from two different Next.js compilers writing into the same bind-mounted `/app/.next` directory: the container was running `next dev`, while a host `next build` replaced its chunks and manifests. The still-running development process then held references to files produced by its earlier compilation.
+
+`docker-compose.yml` now overlays `/app/.next` with separate named volumes for the Sentinel server and worker. The repository source remains bind-mounted for live updates, but host production output and container-generated output no longer share a directory. Recreating only the Sentinel web container initialized its isolated volume without deleting or changing PostgreSQL, Redis, MinIO, evidence, or the existing user-owned Guided Run.
+
+This uses Docker's normal nested-volume precedence: the repository mount supplies `/app`, and the more specific `/app/.next` mount supplies disposable generated output. A simpler one-time cache deletion would have restored the current server but allowed the next host build to corrupt it again. Removing the repository bind mount would also prevent the intended local live-development workflow. Separate generated-output volumes solve the root cause while preserving both development and host verification.
+
+### Verification and limitations
+
+```text
+docker compose config --quiet
+exit 0
+
+docker compose up -d --force-recreate --no-deps sentinel
+Volume "testingagentproject_sentinel-next-api" Created
+Container testingagentproject-sentinel-1 Started
+
+npm run lint && npm run typecheck && npm run build
+✓ Compiled successfully
+✓ Generating static pages (18/18)
+exit 0
+
+post_build_http=200
+recent_chunk_or_manifest_errors=0
+
+docker compose exec -T sentinel npx playwright test tests/frontend-phase-1-5.spec.ts --reporter=line
+1 passed (12.7s)
+```
+
+The first focused browser attempt began while the fresh development server was cold-compiling its API route. Login completed successfully in 5.031 seconds, just beyond the test's five-second URL assertion, so that attempt timed out without a runtime error. The unchanged test passed after the one-time compilation. The worker will adopt its own isolated `.next` volume the next time it is normally recreated; it was not restarted during this repair to avoid disturbing queued work.
+
+Relevant files: `docker-compose.yml`, `decisions-log.md` D-040, and this learning entry.
+
+### Ten-question understanding check
+
+1. Why could a valid Next.js source tree still produce a missing `./331.js` runtime error?
+2. Which two compiler processes were writing incompatible artifacts into the same `.next` directory?
+3. Why would deleting `.next` and restarting the server fix only the immediate symptom rather than the root cause?
+4. How does the more-specific `/app/.next` volume interact with the broader repository bind mount at `/app`?
+5. Why are separate generated-output volumes used for the Sentinel server and worker instead of sharing one new volume?
+6. Which persistent application data was deliberately left untouched while the Sentinel container was recreated?
+7. What recurrence test proves that a host production build can no longer corrupt the running container development server?
+8. Why did the first focused browser rerun time out even though the login endpoint returned HTTP 200?
+9. Why was the worker not forcibly restarted as part of the immediate web-runtime repair?
+10. If another generated directory becomes process-specific in the future, what evidence should be collected before isolating it with a nested volume?
+
+#### Answers
+
+- Owner answers pending.
+
+**Learning status:** The runtime repair and recurrence verification are complete. Owner answers remain required before this repair is considered fully understood.
