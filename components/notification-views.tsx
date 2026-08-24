@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button, Card, EmptyState, Feedback, PageHeader, StatusBadge } from "./ui";
+import { Button, Card, EmptyState, Feedback, Pagination, PageHeader, Skeleton, StatusBadge } from "./ui";
 
 type NotificationItem = {
   id: string;
@@ -47,6 +47,7 @@ export function NotificationsView() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [page, setPage] = useState(1);
 
   async function load(nextFilter = filter) {
     setLoading(true);
@@ -60,7 +61,7 @@ export function NotificationsView() {
     }
   }
 
-  useEffect(() => { void load(); }, [filter]);
+  useEffect(() => { setPage(1); void load(); }, [filter]);
 
   async function markRead(notificationId: string) {
     try {
@@ -83,9 +84,11 @@ export function NotificationsView() {
   }
 
   const unreadCount = notifications.filter((notification) => !notification.readAt).length;
+  const pageSize = 25;
+  const visible = notifications.slice((page - 1) * pageSize, page * pageSize);
   return <div className="dashboard-grid">
     <PageHeader eyebrow="Safe operational updates" title="Notifications" detail="Only events you can currently access are shown. Email delivery contains no evidence or sensitive values." actions={<div className="notification-toolbar"><div className="notification-filter" aria-label="Notification filter"><Button type="button" variant={filter === "unread" ? "primary" : "secondary"} onClick={() => setFilter("unread")}>Unread</Button><Button type="button" variant={filter === "all" ? "primary" : "secondary"} onClick={() => setFilter("all")}>All</Button></div><Button type="button" variant="secondary" disabled={unreadCount === 0} onClick={() => void markAllRead()}>Mark all read</Button></div>} />
     {message && <Feedback tone={message.includes("Could not") || message.includes("access") ? "danger" : "success"}>{message}</Feedback>}
-    <Card className="panel-card notification-inbox"><div className="panel-card__head"><div><p className="eyebrow">{filter === "unread" ? "Unread only" : "All notifications"}</p><h2>{loading ? "Loading inbox" : `${notifications.length} visible notification${notifications.length === 1 ? "" : "s"}`}</h2></div><StatusBadge tone={unreadCount ? "warning" : "success"}>{unreadCount ? `${unreadCount} unread` : "All caught up"}</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading notifications</StatusBadge> : notifications.length === 0 ? <EmptyState title={filter === "unread" ? "All caught up" : "No notifications yet"} detail={filter === "unread" ? "New failed Runs, checkpoint reviews, and change decisions will appear here." : "Run, Release, and change-review events will appear here when they happen."} /> : <div className="notification-list">{notifications.map((notification) => { const href = notification.run ? `/runs/${notification.run.id}` : notification.release ? `/releases/${notification.release.id}` : notification.changeProposal ? "/review" : null; return <article className={`notification-item ${notification.readAt ? "notification-item--read" : ""}`} key={notification.id}><div className="notification-item__main"><div className="notification-item__head"><h3>{label(notification)}</h3>{!notification.readAt && <StatusBadge tone="info">Unread</StatusBadge>}</div><p>{notification.productName ?? notification.release?.name ?? "Sentinel"} · {formatTimestamp(notification.createdAt)}</p><div className="notification-item__meta"><StatusBadge tone={deliveryTone(notification.deliveryStatus)}>{notification.deliveryStatus.toLowerCase()}</StatusBadge>{notification.deliveryError && <span>{notification.deliveryError}</span>}{notification.deliveryAttempts > 1 && <span>{notification.deliveryAttempts} delivery attempts</span>}</div></div><div className="notification-item__actions">{href && <Link className="button button--secondary" href={href}>Open <span aria-hidden="true">→</span></Link>}{!notification.readAt && <Button type="button" variant="ghost" onClick={() => void markRead(notification.id)}>Mark read</Button>}</div></article>; })}</div>}</Card>
+    <Card className="panel-card notification-inbox"><div className="panel-card__head"><div><p className="eyebrow">{filter === "unread" ? "Unread only" : "All notifications"}</p><h2>{loading ? "Loading inbox" : `${notifications.length} visible notification${notifications.length === 1 ? "" : "s"}`}</h2></div><StatusBadge tone={unreadCount ? "warning" : "success"}>{unreadCount ? `${unreadCount} unread` : "All caught up"}</StatusBadge></div>{loading ? <Skeleton lines={5} /> : notifications.length === 0 ? <EmptyState title={filter === "unread" ? "All caught up" : "No notifications yet"} detail={filter === "unread" ? "New failed Runs, checkpoint reviews, and change decisions will appear here." : "Run, Release, and change-review events will appear here when they happen."} /> : <div className="notification-list">{visible.map((notification) => { const href = notification.run ? `/runs/${notification.run.id}` : notification.release ? `/releases/${notification.release.id}` : notification.changeProposal ? "/review" : null; return <article className={`notification-item ${notification.readAt ? "notification-item--read" : ""}`} key={notification.id}><div className="notification-item__main"><div className="notification-item__head"><h3>{label(notification)}</h3>{!notification.readAt && <StatusBadge tone="info">Unread</StatusBadge>}</div><p>{notification.productName ?? notification.release?.name ?? "Sentinel"} · {formatTimestamp(notification.createdAt)}</p><div className="notification-item__meta"><StatusBadge tone={deliveryTone(notification.deliveryStatus)}>{notification.deliveryStatus.toLowerCase()}</StatusBadge>{notification.deliveryError && <span>{notification.deliveryError}</span>}{notification.deliveryAttempts > 1 && <span>{notification.deliveryAttempts} delivery attempts</span>}</div></div><div className="notification-item__actions">{href && <Link className="button button--secondary" href={href}>Open <span aria-hidden="true">→</span></Link>}{!notification.readAt && <Button type="button" variant="ghost" onClick={() => void markRead(notification.id)}>Mark read</Button>}</div></article>; })}</div>}<Pagination page={page} totalItems={notifications.length} pageSize={pageSize} onPageChange={setPage} label="notifications" /></Card>
   </div>;
 }
