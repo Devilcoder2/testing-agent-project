@@ -231,3 +231,15 @@ docker compose --profile github-tunnel up cloudflared
 ```
 
 Use an isolated test repository. Connect it from the Product GitHub settings, link a saved Demo CRM Test Case, and push to an allowed branch. The GitHub activity view should show the delivery decision and the queued Auto Run. A failed GitHub-triggered Auto Run automatically requests a bounded source analysis. A manually failed Run instead requires an authorized user to choose a connected repository and immutable SHA before selecting **Analyze failure**. Diagnosis is advisory only: it can show safe evidence-backed observations, hypotheses, source references, remediation, and a review-only patch fragment, but Sentinel never changes code, creates commits/PRs, changes Tests, or files Jira. Raw repository source, tokens, checkout files, prompts, and provider responses are not retained.
+
+### Phase 13 validation status
+
+The optional integration is implemented but intentionally unavailable until every GitHub App setting is configured server-side. Focused TypeScript, Docker integration, worker-routing, authorization, and browser checks run without external credentials. Before treating GitHub automation as externally accepted, use two disposable repositories (for example, frontend and backend) and verify all of the following:
+
+1. Connect each repository independently to the same Product and link a different saved Test Case to each connection.
+2. Push to an allowed branch and confirm only its linked, Auto Run-eligible Test Cases queue; push to a blocked branch and confirm the delivery is retained without a Run.
+3. Re-deliver the same signed push and confirm no duplicate Run is created.
+4. Cause a linked Auto Run to fail, then confirm its diagnosis is pinned to that repository and full commit SHA, contains only safe structured findings, and never alters GitHub, Jira, or Sentinel Test data.
+5. For a manual failed Run, enter an explicit connected repository plus a full 40-character commit SHA and confirm the same advisory-only boundary.
+
+The normal complete suite includes Guided Run checks. It may correctly reject those checks with HTTP 409 while an existing Guided Run owns Sentinel's one visible browser session; finish that Run through the product before rerunning the complete suite.
