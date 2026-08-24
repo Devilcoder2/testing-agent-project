@@ -34,7 +34,7 @@ export function Icon({ name, className, ...props }: { name: IconName } & SVGProp
 
 export function SentinelMark({ compact = false }: { compact?: boolean }) {
   return <div className={classes("sentinel-brand", compact && "sentinel-brand--compact")}>
-    <span className="sentinel-mark" aria-hidden="true"><span /></span>
+    <span className="sentinel-mark" aria-hidden="true"><i /><i /><i /><i /></span>
     {!compact && <span className="sentinel-wordmark">Sentinel</span>}
   </div>;
 }
@@ -72,7 +72,7 @@ export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 }
 
 export function EmptyState({ title, detail, action }: { title: string; detail: string; action?: ReactNode }) {
-  return <div className="empty-state"><div className="empty-state__mark" aria-hidden="true">+</div><h2>{title}</h2><p>{detail}</p>{action}</div>;
+  return <div className="empty-state"><div className="empty-state__mark" aria-hidden="true"><span /><span /><span /></div><h2>{title}</h2><p>{detail}</p>{action}</div>;
 }
 
 export function Feedback({ tone = "info", children }: { tone?: "info" | "success" | "danger" | "warning"; children: ReactNode }) {
@@ -80,7 +80,7 @@ export function Feedback({ tone = "info", children }: { tone?: "info" | "success
 }
 
 export function PageHeader({ eyebrow, title, detail, actions }: { eyebrow?: string; title: string; detail?: string; actions?: ReactNode }) {
-  return <header className="page-header"><div><p className="eyebrow">{eyebrow ?? "Sentinel"}</p><h1>{title}</h1>{detail && <p className="page-header__detail">{detail}</p>}</div>{actions && <div className="page-header__actions">{actions}</div>}</header>;
+  return <header className="page-header"><div className="page-header__copy"><p className="eyebrow">{eyebrow ?? "Sentinel"}</p><h1>{title}</h1>{detail && <p className="page-header__detail">{detail}</p>}</div>{actions && <div className="page-header__actions">{actions}</div>}<span className="page-header__rule" aria-hidden="true" /></header>;
 }
 
 export function Dialog({ title, eyebrow, detail, children, actions, onClose, className }: { title: string; eyebrow?: string; detail?: string; children?: ReactNode; actions?: ReactNode; onClose: () => void; className?: string }) {
