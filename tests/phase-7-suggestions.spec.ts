@@ -69,12 +69,13 @@ test("generates, edits, approves, dismisses, and reopens a reviewable negative-T
     await expect(page.getByText("Suggestion draft updated.")).toBeVisible();
     const editedEmail = page.locator(".review-item").filter({ hasText: "Reject malformed CRM email" });
     await editedEmail.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("dialog", { name: /Approve Reject malformed CRM email/ }).getByRole("button", { name: "Approve suggestion" }).click();
     await expect(page.getByText(/Suggestion approved/)).toBeVisible();
     await expect(page.getByRole("link", { name: "Open approved Test Case" })).toBeVisible();
 
     const required = page.locator(".review-item").filter({ hasText: "Reject missing email" });
-    page.once("dialog", (dialog) => dialog.accept());
     await required.getByRole("button", { name: "Dismiss" }).click();
+    await page.getByRole("dialog", { name: /Dismiss Reject missing email/ }).getByRole("button", { name: "Dismiss suggestion" }).click();
     await expect(page.getByText("Suggestion dismissed. It remains available in history.")).toBeVisible();
     await page.getByLabel("Filter by review state").selectOption("DISMISSED");
     await expect(page.getByRole("button", { name: "Reopen" })).toBeVisible();
