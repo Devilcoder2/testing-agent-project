@@ -22,24 +22,33 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   await expect(page.getByText("Test inventory", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Product context", { exact: true })).toHaveCount(0);
 
-  const navigationToggle = page.getByRole("button", { name: "Toggle navigation" });
-  await navigationToggle.click();
-  await expect(page.locator(".app-shell")).toHaveClass(/app-shell--sidebar-collapsed/);
-  await expect(page.locator(".sidebar__link-label").first()).toBeHidden();
+  const workspaceNavigation = page.getByRole("navigation", { name: "Workspace sections" });
+  await expect(workspaceNavigation.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
+  const initialTheme = await page.locator("html").getAttribute("data-theme");
+  const changedTheme = initialTheme === "dark" ? "light" : "dark";
+  await page.locator(".command-masthead").locator(".theme-control").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", changedTheme);
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", changedTheme);
 
-  await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
+  await workspaceNavigation.getByRole("link", { name: "Test Cases" }).click();
   await expect(page).toHaveURL(/\/test-cases$/);
-  await expect(page.locator(".app-shell")).toHaveClass(/app-shell--sidebar-collapsed/);
-  await expect(page.locator(".sidebar__link-label").first()).toBeHidden();
+  await expect(workspaceNavigation.getByRole("link", { name: "Test Cases" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByLabel("Filter by Product")).toBeVisible();
   await expect(page.locator(".page-header").getByText(/\d+ \/ \d+ visible Test Cases?/)).toBeVisible();
   await expect(page.locator(".inventory-toolbar")).toHaveCSS("margin-bottom", "20px");
-  await navigationToggle.click();
-  await expect(page.locator(".app-shell")).not.toHaveClass(/app-shell--sidebar-collapsed/);
-  await expect(page.locator(".sidebar__link-label").first()).toBeVisible();
-  await page.locator(".sidebar").getByRole("link", { name: "Products" }).click();
+
+  await page.setViewportSize({ width: 900, height: 900 });
+  await expect(workspaceNavigation).toBeHidden();
+  await page.getByRole("button", { name: "Open workspace navigation" }).click();
+  const navigationSheet = page.getByRole("complementary", { name: "Workspace navigation" });
+  await expect(navigationSheet).toBeVisible();
+  await navigationSheet.getByRole("link", { name: "Products" }).click();
   await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
-  const newRecording = page.locator(".topbar").getByRole("button", { name: "New recording" });
+  await expect(navigationSheet).toHaveCount(0);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const newRecording = page.locator(".command-masthead").getByRole("button", { name: "New recording" });
   await expect(page.getByRole("button", { name: "New recording" })).toHaveCount(1);
   await newRecording.focus();
   await expect(newRecording).toBeFocused();
@@ -61,8 +70,8 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   await page.getByRole("button", { name: "Create recording workspace" }).click();
   await expect(page).toHaveURL(/\/recordings\/[a-z0-9]+$/);
   await expect(page.locator(".recording-workspace")).toBeVisible();
-  await expect(page.locator(".sidebar")).toHaveCount(0);
-  await expect(page.locator(".topbar")).toHaveCount(0);
+  await expect(page.locator(".command-masthead")).toHaveCount(0);
+  await expect(page.locator(".section-nav")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: testName })).toBeVisible();
   await expect(page.locator(".recording-bar").getByRole("button", { name: "Launch live browser" })).toHaveCount(0);
   const browserStage = page.locator(".browser-stage");
