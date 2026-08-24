@@ -8,12 +8,12 @@ test("shows authenticated local-pilot readiness without exposing service secrets
   await page.getByLabel("Password").fill("sentinel-dev");
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page.getByRole("heading", { name: "Pilot readiness" })).toBeVisible();
-  await expect(page.getByText("Local Docker services and seeded named users only.")).toBeVisible();
+  await page.locator(".operational-readiness > summary").click();
+  await expect(page.getByText("Operational readiness", { exact: true })).toBeVisible();
+  await expect(page.getByText("Local services and access boundary", { exact: true })).toBeVisible();
   await expect(page.getByText("Sentinel database", { exact: true })).toBeVisible();
   await expect(page.getByText("Background worker", { exact: true })).toBeVisible();
   await expect(page.getByText("Evidence retention", { exact: true })).toBeVisible();
-  await expect(page.getByText("Unconfigured by design for the local pilot.")).toBeVisible();
   await expect(page.locator("body")).not.toContainText("postgresql://");
   await expect(page.locator("body")).not.toContainText("sentinel-minio-development-only");
 });
