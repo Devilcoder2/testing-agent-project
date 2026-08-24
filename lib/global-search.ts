@@ -1,5 +1,5 @@
 import { NotificationType, OrganizationRole, Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "./prisma";
 
 export const searchSections = ["products", "test-cases", "test-data", "runs", "releases", "review", "notifications", "admin"] as const;
 export type SearchSection = typeof searchSections[number];
