@@ -37,6 +37,8 @@ flowchart LR
 
 Provides authentication, a product-authorized health dashboard, product and Test Case management, Recording Workspace, Run Detail, Releases, notification inbox, a Phase 7 review queue, approvals, and manual actions. Its route-based App Shell uses the tokenized Sentinel frontend system documented in [`frontend.md`](frontend.md): a persistent sidebar, accessible semantic controls, and a desktop-first focused Recording Workspace. It never directly owns browser automation or external integration credentials.
 
+Phase 15 keeps this frontend inside the modular monolith and adds no client state service or backend-for-frontend layer. Shared React primitives own presentation concerns such as navigation, dialogs, tables, tabs, pagination, status, loading, and responsive disclosure. Feature views continue to call the existing authorized API routes and retain their current polling and mutation boundaries. Client-side inventory pagination operates only on already-authorized complete responses; it does not change record visibility or server authorization. Structured evidence views format existing protected payloads and keep raw evidence available without copying it into a new store.
+
 ### Application API
 
 Validates user permissions, persists domain state, starts jobs, derives dashboard health metrics using a rolling UTC window, exposes Run/evidence/notification metadata, generates deterministic Phase 7 suggestion drafts, records audit events, and coordinates approval and integration workflows. Phase 11 adds explicit creator-authorized ownership transfer endpoints and an authenticated, read-only pilot-readiness projection. API operations are the authorization boundary for all writes.
