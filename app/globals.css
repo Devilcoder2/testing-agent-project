@@ -256,6 +256,16 @@ body { background: radial-gradient(circle at 82% -10%, rgb(59 130 246 / 10%), tr
 .page-stack select[multiple] option { border-radius: 0.35rem; padding: var(--space-2); }
 .card-grid > .card { padding: var(--space-5); }
 .section-heading { gap: var(--space-4); }
+.member-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
+.member-card { display: grid; align-content: start; gap: var(--space-4); }
+.member-card .section-heading { margin: 0; }
+.member-card .section-heading p { margin: var(--space-1) 0 0; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.member-card__meta, .member-card__actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.member-card__meta span { border-radius: 999rem; padding: var(--space-1) var(--space-2); color: var(--color-text-muted); background: var(--color-surface-overlay); font-size: var(--text-xs); font-weight: 700; text-transform: capitalize; }
+.member-card__products { min-height: 2.625rem; margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.member-card__actions { margin-top: auto; }
+.checkbox-grid { display: grid; max-height: 18rem; gap: var(--space-2); overflow: auto; margin: 0; border: 0; padding: 0; }
+.checkbox-grid legend { margin-bottom: var(--space-2); color: var(--color-text); font-size: var(--text-sm); font-weight: 700; }
 
 @media (max-width: 64rem) {
   .app-main { padding: var(--space-6); }
