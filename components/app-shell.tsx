@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { ThemeControl } from "./theme-control";
+import { GlobalSearch } from "./global-search";
 import { Icon, IconButton, SentinelMark, type IconName } from "./ui";
 import { NewRecordingDialog } from "./sentinel-views";
 
@@ -85,6 +86,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="command-masthead__divider" aria-hidden="true" />
           <span className="command-masthead__context"><small>QA workspace</small><strong>{current?.label ?? "Sentinel"}</strong></span>
         </div>
+        <GlobalSearch />
         <div className="command-masthead__actions">
           <ThemeControl />
           <Link className="icon-button command-notifications" href="/notifications" aria-label="Open notifications" title="Notifications"><Icon name="bell" /></Link>
