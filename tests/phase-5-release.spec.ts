@@ -35,6 +35,7 @@ test("edits an immutable Test Case version and starts a visible excluded Release
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
     await page.goto(`${baseUrl}/test-cases/${created.testCaseId}`);
     await page.getByText("More actions", { exact: true }).click();
     await page.getByRole("link", { name: "Edit Test" }).click();
