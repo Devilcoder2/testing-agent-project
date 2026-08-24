@@ -141,6 +141,7 @@ services:
     volumes:
       - .:/app
       - sentinel-node-modules-api:/app/node_modules
+      - sentinel-next-api:/app/.next
 
   worker:
     build: .
@@ -195,6 +196,7 @@ services:
     volumes:
       - .:/app
       - sentinel-node-modules-worker:/app/node_modules
+      - sentinel-next-worker:/app/.next
 
   cloudflared:
     image: cloudflare/cloudflared:2025.8.0
@@ -208,6 +210,8 @@ volumes:
   sentinel-postgres:
   sentinel-node-modules-api:
   sentinel-node-modules-worker:
+  sentinel-next-api:
+  sentinel-next-worker:
   sentinel-minio:
   sentinel-redis:
   sentinel-qa-postgres:
