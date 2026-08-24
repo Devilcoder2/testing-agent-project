@@ -53,6 +53,7 @@ function ruleLabel(kind: string) {
 
 export function ReviewView() {
   const searchParams = useSearchParams();
+  const requestedQueue = searchParams.get("queue") === "changes" ? "changes" : "suggestions";
   const [products, setProducts] = useState<Product[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [productId, setProductId] = useState("");
@@ -61,7 +62,7 @@ export function ReviewView() {
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState<Suggestion | null>(null);
-  const [queue, setQueue] = useState<"suggestions" | "changes">("suggestions");
+  const [queue, setQueue] = useState<"suggestions" | "changes">(requestedQueue);
   const [pendingAction, setPendingAction] = useState<{ suggestion: Suggestion; action: "approve" | "dismiss" } | null>(null);
 
   const sourceTestCaseId = searchParams.get("testCaseId") ?? "";
@@ -86,6 +87,7 @@ export function ReviewView() {
   }
 
   useEffect(() => { void load(); }, [productId, sourceTestCaseId, status]);
+  useEffect(() => { setQueue(requestedQueue); }, [requestedQueue]);
 
   async function changeState(suggestion: Suggestion, action: "approve" | "dismiss" | "reopen") {
     setWorkingId(suggestion.id);
