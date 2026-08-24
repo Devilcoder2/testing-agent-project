@@ -54,6 +54,7 @@ test("queues and completes an Auto Run from saved Test Case detail", async ({ pa
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.getByRole("link", { name: "Test Cases" }).click();
+    await page.getByLabel("Find a Test Case").fill(name);
     await page.locator(".test-list__item").filter({ hasText: name }).getByRole("link", { name: "Open" }).click();
     await page.getByRole("button", { name: "Auto Run" }).click();
 
