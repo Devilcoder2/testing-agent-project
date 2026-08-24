@@ -53,6 +53,7 @@ test("queues and completes an Auto Run from saved Test Case detail", async ({ pa
     await page.getByLabel("Email").fill("ava.tester@example.test");
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto(`${baseUrl}/test-cases/${created.testCaseId}`);
     await page.getByRole("button", { name: "Auto Run" }).click();
 
