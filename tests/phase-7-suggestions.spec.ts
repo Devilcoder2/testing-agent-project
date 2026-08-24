@@ -51,9 +51,7 @@ test("generates, edits, approves, dismisses, and reopens a reviewable negative-T
     await page.getByLabel("Email").fill("ava.tester@example.test");
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
-    await page.getByLabel("Find a Test Case").fill(fixture.name);
-    await page.locator(".test-list__item").filter({ hasText: fixture.name }).getByRole("link", { name: "Open" }).click();
+    await page.goto(`${baseUrl}/test-cases/${fixture.testCaseId}`);
     await page.getByText("More actions", { exact: true }).click();
     await page.getByRole("button", { name: "Generate suggestions" }).click();
     await expect(page.getByText(/Suggestions generated: 5 new, 0 already known/)).toBeVisible();
