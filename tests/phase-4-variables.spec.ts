@@ -62,6 +62,7 @@ test("creates masked Test Data and binds it to a checkpointed Auto Run", async (
     await expect(page.locator("body")).not.toContainText("customer.pool@example.test");
 
     await page.getByRole("link", { name: "Test Cases" }).click();
+    await page.getByLabel("Find a Test Case").fill(name);
     await page.locator(".test-list__item").filter({ hasText: name }).getByRole("link", { name: "Open" }).click();
     await expect(page.getByRole("heading", { name: "Variables" })).toBeVisible();
     await page.getByRole("button", { name: "Auto Run" }).click();
@@ -106,6 +107,7 @@ test("reuses a reusable Test Data Set after a passed Auto Run", async ({ page })
     await expect(page.locator("body")).not.toContainText("customer.reusable@example.test");
 
     await page.getByRole("link", { name: "Test Cases" }).click();
+    await page.getByLabel("Find a Test Case").fill(name);
     await page.locator(".test-list__item").filter({ hasText: name }).getByRole("link", { name: "Open" }).click();
     await page.getByRole("button", { name: "Auto Run" }).click();
     let bindingDialog = page.getByRole("dialog", { name: "Choose variable values" });
