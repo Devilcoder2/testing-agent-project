@@ -333,3 +333,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** A host `next build` replaced chunks and manifests while the running container `next dev` process still referenced its own compilation. The mixed cache produced missing server chunks such as `./331.js` and invalid React Client Manifest references even though source compilation passed.
 - **Impact:** Source hot reload and the existing persistent `node_modules` volumes remain unchanged. Recreating the Sentinel and worker containers initializes isolated generated-output volumes; PostgreSQL, Redis, MinIO, evidence, and user-owned Run state are not removed or modified. The additional volumes contain disposable build artifacts only.
 - **Status:** Implemented and recurrence-verified on 2026-08-24. After recreating only the Sentinel web container, a host production build completed while the container remained healthy, the home route returned HTTP 200, recent logs contained zero missing-chunk or React Client Manifest errors, and the focused navigation/theme browser workflow passed. Owner learning answers remain pending.
+
+## D-041 — One server-authorized command search with prefix matching
+
+- **Date:** 2026-08-24
+- **Decision:** Add one global search combobox to the authenticated command masthead and one protected server endpoint. Search uses trimmed, case-insensitive prefix matching over approved safe titles, returns at most five results per category, and ranks the current route's category first. The client waits 250 milliseconds, cancels stale requests, and supports standard combobox keyboard interaction.
+- **Reason:** Users should be able to find a remembered item without first knowing its section. Duplicating search controls and data-fetch logic across eight pages would create inconsistent behavior, repeated work, and more places for authorization mistakes.
+- **Impact:** Products, Test Cases, Test Data, Runs, Releases, Review items, notifications, and Admin-only organization members share one result contract and retain their existing access rules. Test Data values, variables, evidence, source code, payloads, secrets, and raw logs are never searched or returned. No search service, persistence, analytics, or third-party dependency is added.
+- **Status:** Owner-approved through the feature request; implementation pending.
