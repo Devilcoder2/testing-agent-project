@@ -48,6 +48,18 @@ test("records the remote demo journey and preserves saved annotations after refr
     await page.getByRole("button", { name: "Create recording workspace" }).click();
     const created = await (await createResponse).json() as RecordingResponse;
     await expect(page.locator(".step")).toHaveCount(0);
+    const workspace = page.locator(".recording-workspace");
+    await page.getByRole("button", { name: "Collapse Step Log" }).click();
+    await expect(workspace).toHaveClass(/recording-workspace--step-log-collapsed/);
+    await expect(page.getByRole("button", { name: "Expand Step Log" })).toBeVisible();
+    await page.getByRole("button", { name: "Full screen" }).click();
+    await expect(page.locator(".recording-page")).toHaveClass(/recording-page--browser-fullscreen/);
+    await expect(page.locator(".recording-bar")).toHaveCount(0);
+    await page.getByRole("button", { name: "Exit full screen" }).click();
+    await expect(page.locator(".recording-bar")).toBeVisible();
+    await expect(workspace).toHaveClass(/recording-workspace--step-log-collapsed/);
+    await page.getByRole("button", { name: "Expand Step Log" }).click();
+    await expect(workspace).not.toHaveClass(/recording-workspace--step-log-collapsed/);
 
     await prisma.recordingSession.update({ where: { id: created.recording.id }, data: { status: RecordingStatus.ACTIVE } });
     remoteDriver = await launchBrowser(demoUrl, created.token);
@@ -119,7 +131,8 @@ test("records the remote demo journey and preserves saved annotations after refr
     await expect(page.getByText("Variable: demoemail")).toBeVisible();
 
     await page.locator(".breadcrumbs").getByRole("link", { name: "Dashboard" }).click();
-    await page.getByRole("navigation", { name: "Workspace sections" }).getByRole("link", { name: "Test Cases" }).click();
+    await page.goto(`${baseUrl}/test-cases`);
+    await expect(page.getByRole("heading", { name: "Test Cases" })).toBeVisible();
     await page.getByLabel("Find a Test Case").fill(testName);
     const savedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await savedTest.getByRole("link", { name: "Open" }).click();
@@ -128,7 +141,8 @@ test("records the remote demo journey and preserves saved annotations after refr
 
     await page.reload();
     await signIn(page, "ava.tester@example.test");
-    await page.getByRole("navigation", { name: "Workspace sections" }).getByRole("link", { name: "Test Cases" }).click();
+    await page.goto(`${baseUrl}/test-cases`);
+    await expect(page.getByRole("heading", { name: "Test Cases" })).toBeVisible();
     await page.getByLabel("Find a Test Case").fill(testName);
     const reopenedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await reopenedTest.getByRole("link", { name: "Open" }).click();
