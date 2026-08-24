@@ -560,12 +560,12 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 ## Phase 15 — Product-wide UI/UX revamp
 
-**Depends on:** Phases 12–14. This phase is intentionally last.
-**Outcome:** The complete delivered Sentinel product has a cohesive, modern, accessible, and understandable experience across administration, GitHub automation, conversational integrations, recording, testing, Runs, Releases, Review, evidence, notifications, and settings—without changing approved business/security behavior accidentally.
+**Depends on:** Phase 12 for the currently delivered product. The owner approved beginning this work before optional Phases 13–14 on 2026-08-24; their future screens must adopt the resulting system later.
+**Outcome:** The delivered Sentinel product has a cohesive, modern, accessible, and understandable experience across administration, recording, testing, Runs, Releases, Review, evidence, and notifications—without changing approved business/security behavior accidentally.
 
-- [ ] Run structured UX discovery across representative admins, managers, and testers. Confirm target workflows, vocabulary, navigation, density, information hierarchy, accessibility needs, desktop/mobile policy, and success measures before visual implementation.
-- [ ] Audit every current route, modal, empty/loading/error state, protected action, focus order, responsive state, and operational workflow. Produce approved user journeys and page blueprints before redesigning components.
-- [ ] Define the revised visual language, design tokens, typography, colour/contrast roles, component states, icon strategy, motion rules, accessibility specification, and content guidelines. Do not assume an external design system, font, or asset library without approval.
+- [x] Complete repository and live-interface discovery for the currently delivered Phase 12 product. The owner approved the resulting route-by-route redesign blueprint on 2026-08-24; broader representative-user usability research remains a post-implementation validation activity.
+- [x] Audit every current route, modal, empty/loading/error state, protected action, focus order, responsive state, and operational workflow. The approved blueprint records the current problems and intended hierarchy.
+- [x] Define the revised visual language, design tokens, typography, colour/contrast roles, component states, internal SVG icon strategy, motion rules, accessibility specification, and content guidelines in `frontend.md`.
 - [ ] Redesign the application shell, navigation, Dashboard, Product/administration areas, Test Cases, recording workspace, Run/evidence detail, Releases, Review, notifications, GitHub settings/activity, and conversational-integration management as one coherent system.
 - [ ] Preserve all authorization visibility rules, protected links, destructive-action confirmations, privacy-redaction cues, desktop recording constraints, and existing keyboard/reduced-motion behavior while improving clarity and speed.
 - [ ] Validate responsive behavior against the agreed policy. Recording and other browser-heavy operational workspaces must retain an explicit supported-viewport experience rather than silently degrading.
