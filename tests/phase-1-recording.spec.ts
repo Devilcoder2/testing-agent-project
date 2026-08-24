@@ -55,6 +55,10 @@ test("records the remote demo journey and preserves saved annotations after refr
     await page.getByRole("button", { name: "Full screen" }).click();
     await expect(page.locator(".recording-page")).toHaveClass(/recording-page--browser-fullscreen/);
     await expect(page.locator(".recording-bar")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".recording-bar")).toBeVisible();
+    await expect(workspace).toHaveClass(/recording-workspace--step-log-collapsed/);
+    await page.getByRole("button", { name: "Full screen" }).click();
     await page.getByRole("button", { name: "Exit full screen" }).click();
     await expect(page.locator(".recording-bar")).toBeVisible();
     await expect(workspace).toHaveClass(/recording-workspace--step-log-collapsed/);
