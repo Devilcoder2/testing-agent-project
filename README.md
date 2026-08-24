@@ -207,3 +207,27 @@ Phases 1–11 remain as documented above. Phase 12 now provides a Docker-local o
 ### Phase 12 local testing
 
 Start the Docker stack, then sign in at `http://localhost:3001` using the controlled bootstrap account from your untracked `.env` (the local default is `ava.tester@example.test` / `sentinel-dev`). Open **Administration** to invite a Manager or Tester and assign Products. New-account invitation and reset emails arrive in Mailpit at `http://localhost:8025`; each link is single-use and expires after 24 hours. Disable a member to revoke all of that user's active sessions immediately.
+
+## Phase 13 scope
+
+Phase 13 adds an optional GitHub App integration for Product-scoped, multi-repository automation and advisory source-aware failure analysis. An Admin or assigned Manager can connect separate frontend/backend repositories, define allowed branches, and explicitly route saved Test Cases to a connection. A signed GitHub push queues only linked Auto Run-eligible Tests and records the exact repository, branch, commit, and delivery. Products without a connection behave exactly as before.
+
+Set these values only in an untracked `.env` when testing a disposable GitHub sandbox organization and repository:
+
+```text
+GITHUB_APP_ID="your-github-app-id"
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+GITHUB_WEBHOOK_SECRET="your-long-random-webhook-secret"
+GITHUB_APP_SLUG="your-github-app-slug"
+SENTINEL_PUBLIC_WEBHOOK_URL="https://your-public-tunnel.example/api/internal/github/webhooks"
+OPENAI_API_KEY="your-server-only-openai-key"
+OPENAI_MODEL="gpt-5-mini"
+```
+
+Create a GitHub App with only **Metadata: read**, **Contents: read**, and a **push** webhook subscription. Do not grant write, pull-request, workflow, or administration permissions. For a local webhook sandbox, start the optional tunnel after the normal stack and configure its displayed HTTPS URL as the App webhook URL:
+
+```text
+docker compose --profile github-tunnel up cloudflared
+```
+
+Use an isolated test repository. Connect it from the Product GitHub settings, link a saved Demo CRM Test Case, and push to an allowed branch. The GitHub activity view should show the delivery decision and the queued Auto Run. A failed GitHub-triggered Auto Run automatically requests a bounded source analysis. A manually failed Run instead requires an authorized user to choose a connected repository and immutable SHA before selecting **Analyze failure**. Diagnosis is advisory only: it can show safe evidence-backed observations, hypotheses, source references, remediation, and a review-only patch fragment, but Sentinel never changes code, creates commits/PRs, changes Tests, or files Jira. Raw repository source, tokens, checkout files, prompts, and provider responses are not retained.
