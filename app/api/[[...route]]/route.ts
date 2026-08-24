@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { AccountStatus, AuthTokenKind, ChangeProposalStatus, DatabaseDiagnosticKind, DatabaseDiagnosticStatus, EvidenceKind, JiraFilingStatus, OrganizationRole, Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
+import { AccountStatus, AuthTokenKind, ChangeProposalStatus, DatabaseDiagnosticKind, DatabaseDiagnosticStatus, EvidenceKind, GitHubDeliveryStatus, GitHubRepositoryConnectionStatus, JiraFilingStatus, OrganizationRole, Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, SourceAnalysisTrigger, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { consumeAuthToken, createSession, hashPassword, issueAuthToken, readSession, revokeUserSessions, validPassword, verifyPassword, type SessionUser } from "@/lib/auth";
@@ -12,6 +12,9 @@ import { notifyChangeProposalResolved, notifyChangeProposalSubmitted, notifyRunF
 import { prisma } from "@/lib/prisma";
 import { pilotReadiness } from "@/lib/pilot-readiness";
 import { enqueueAutoRun, enqueueJiraFiling } from "@/lib/queue";
+import { enqueueGitHubDelivery } from "@/lib/queue";
+import { GitHubIntegrationError, githubIsConfigured, normalizeBranches, parseGitHubPushDelivery, repositoryDetailsForApp, validBranchName, verifyGitHubSignature } from "@/lib/github";
+import { requestSourceAnalysis } from "@/lib/github-runs";
 import { canonicalVariableName, decryptVariableValue, encryptVariableValue, isSecretLikeVariable, maskedVariableValue, variablePlaceholder } from "@/lib/variables";
 import { markReleaseRunItemQueueFailure, refreshReleaseRun, syncReleaseRunItemForRun } from "@/lib/releases";
 import { proposedValueIsSafe, suggestionsForSteps, type SuggestionKind } from "@/lib/suggestions";
@@ -297,6 +300,32 @@ function publicSuggestion(suggestion: {
 
 async function route(request: Request, context: Context) {
   const path = (await context.params).route ?? [];
+  if (request.method === "POST" && path.join("/") === "internal/github/webhooks") {
+    if (!githubIsConfigured()) return json({ error: "GitHub App integration is not configured." }, 503);
+    const rawBody = await request.text();
+    if (!verifyGitHubSignature(rawBody, request.headers.get("x-hub-signature-256"))) return json({ error: "GitHub webhook signature is invalid." }, 401);
+    const event = request.headers.get("x-github-event");
+    const deliveryHeader = request.headers.get("x-github-delivery");
+    if (event !== "push") return json({ accepted: true, ignored: true }, 202);
+    let parsed;
+    try {
+      parsed = parseGitHubPushDelivery(rawBody, deliveryHeader, event);
+    } catch (error) {
+      if (error instanceof GitHubIntegrationError) return json({ error: error.message }, 400);
+      return json({ error: "GitHub webhook payload is invalid." }, 400);
+    }
+    const existing = await prisma.gitHubDelivery.findUnique({ where: { deliveryId: parsed.deliveryId } });
+    if (existing?.status === GitHubDeliveryStatus.PROCESSED || existing?.status === GitHubDeliveryStatus.IGNORED) return json({ accepted: true, duplicate: true }, 202);
+    const delivery = existing ?? await prisma.gitHubDelivery.create({ data: { deliveryId: parsed.deliveryId, event: parsed.event, installationNumber: parsed.installationId, repositoryId: parsed.repositoryId, repositoryFullName: parsed.repositoryFullName, ref: parsed.ref, branch: parsed.branch, beforeSha: parsed.beforeSha, afterSha: parsed.afterSha } });
+    try {
+      await enqueueGitHubDelivery({ deliveryId: delivery.id });
+      await prisma.gitHubDelivery.update({ where: { id: delivery.id }, data: { status: GitHubDeliveryStatus.QUEUED, safeError: null } });
+      return json({ accepted: true, duplicate: Boolean(existing) }, 202);
+    } catch {
+      await prisma.gitHubDelivery.update({ where: { id: delivery.id }, data: { status: GitHubDeliveryStatus.FAILED, safeError: "DELIVERY_QUEUE_UNAVAILABLE" } });
+      return json({ error: "GitHub delivery queue is temporarily unavailable." }, 503);
+    }
+  }
   const body = request.method === "GET" ? {} : await request.json().catch(() => ({}));
 
   if (request.method === "OPTIONS" && path.join("/") === "internal/events") return recorderJson({});
@@ -520,6 +549,99 @@ async function route(request: Request, context: Context) {
         throw error;
       }
     }
+    if (path[0] === "products" && path[1] && path[2] === "github") {
+      const product = await prisma.product.findUnique({ where: { id: path[1] }, select: { id: true, name: true, organizationId: true } });
+      if (!product) return json({ error: "Product not found." }, 404);
+      await assertProductMember(user.id, product.id);
+      const canConfigure = user.role === OrganizationRole.ADMIN || user.role === OrganizationRole.MANAGER;
+      if (request.method === "GET" && path.length === 3) {
+        const connections = await prisma.productRepositoryConnection.findMany({
+          where: { productId: product.id },
+          include: { installation: { select: { accountLogin: true, accountType: true, status: true } }, testCaseLinks: { select: { testCaseId: true } } },
+          orderBy: { createdAt: "asc" }
+        });
+        return json({
+          available: githubIsConfigured(),
+          canConfigure,
+          connections: connections.map((connection) => ({ id: connection.id, label: connection.label, repositoryFullName: connection.repositoryFullName, repositoryId: connection.repositoryId, defaultBranch: connection.defaultBranch, branchAllowlist: connection.branchAllowlist, status: connection.status, analysisEnabled: connection.analysisEnabled, installation: connection.installation, linkedTestCaseCount: connection.testCaseLinks.length, createdAt: connection.createdAt, updatedAt: connection.updatedAt }))
+        });
+      }
+      if (request.method === "GET" && path[3] === "activity") {
+        const activity = await prisma.gitHubDeliveryTarget.findMany({
+          where: { connection: { productId: product.id } },
+          include: {
+            connection: { select: { id: true, label: true, repositoryFullName: true } },
+            delivery: { select: { deliveryId: true, branch: true, afterSha: true, status: true, receivedAt: true, processedAt: true } },
+            runLinks: { include: { run: { select: { id: true, status: true, outcome: true, testCase: { select: { name: true } } } } } }
+          },
+          orderBy: { createdAt: "desc" },
+          take: 100
+        });
+        return json(activity.map((target) => ({ id: target.id, status: target.status, decisionReason: target.decisionReason, queuedRunCount: target.queuedRunCount, excludedTests: target.excludedTests, createdAt: target.createdAt, connection: target.connection, delivery: target.delivery, runs: target.runLinks.map((link) => ({ id: link.run.id, status: link.run.status, outcome: link.run.outcome, testCaseName: link.run.testCase.name })) })));
+      }
+      if (request.method === "POST" && path[3] === "connections") {
+        if (!canConfigure) return json({ error: "Only Admins and assigned Managers can configure GitHub repositories." }, 403);
+        if (!githubIsConfigured()) return json({ error: "GitHub App integration is not configured for this Sentinel deployment." }, 503);
+        const repositoryFullName = typeof body.repositoryFullName === "string" ? body.repositoryFullName.trim() : "";
+        const label = typeof body.label === "string" ? body.label.trim().replace(/\s+/g, " ") : "";
+        if (!label || label.length > 64) return json({ error: "Use a repository label of up to 64 characters." }, 400);
+        let details: Awaited<ReturnType<typeof repositoryDetailsForApp>>;
+        let branchAllowlist: string[];
+        try {
+          details = await repositoryDetailsForApp(repositoryFullName);
+          const requestedDefaultBranch = typeof body.defaultBranch === "string" ? body.defaultBranch.trim() : details.defaultBranch;
+          if (!validBranchName(requestedDefaultBranch)) return json({ error: "The default branch is invalid." }, 400);
+          branchAllowlist = normalizeBranches(Array.isArray(body.branchAllowlist) && body.branchAllowlist.length ? body.branchAllowlist : [requestedDefaultBranch]);
+          if (!branchAllowlist.includes(requestedDefaultBranch)) branchAllowlist = [requestedDefaultBranch, ...branchAllowlist];
+          const connection = await prisma.$transaction(async (tx) => {
+            const currentInstallation = await tx.gitHubInstallation.findUnique({ where: { installationId: details.installationId } });
+            if (currentInstallation && currentInstallation.organizationId !== product.organizationId) throw new Error("GITHUB_INSTALLATION_ORGANIZATION_CONFLICT");
+            const installation = currentInstallation ?? await tx.gitHubInstallation.create({ data: { organizationId: product.organizationId!, installationId: details.installationId, accountLogin: details.installationAccountLogin, accountType: details.installationAccountType } });
+            const created = await tx.productRepositoryConnection.create({ data: { productId: product.id, installationId: installation.id, repositoryId: details.repositoryId, repositoryFullName: details.repositoryFullName, label, defaultBranch: requestedDefaultBranch, branchAllowlist, analysisEnabled: body.analysisEnabled !== false } });
+            await tx.auditEvent.create({ data: { actorId: user.id, action: "GITHUB_REPOSITORY_CONNECTED", entityType: "ProductRepositoryConnection", entityId: created.id, details: { productId: product.id, repository: created.repositoryFullName, label: created.label, branches: created.branchAllowlist } } });
+            return created;
+          });
+          return json(connection, 201);
+        } catch (error) {
+          if (error instanceof GitHubIntegrationError) return json({ error: error.message }, error.transient ? 503 : 400);
+          if (error instanceof Error && error.message === "GITHUB_INSTALLATION_ORGANIZATION_CONFLICT") return json({ error: "This GitHub App installation already belongs to another Sentinel organization." }, 409);
+          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return json({ error: "This repository is already connected to this Product." }, 409);
+          throw error;
+        }
+      }
+      if ((request.method === "PATCH" || request.method === "DELETE") && path[3] === "connections" && path[4]) {
+        if (!canConfigure) return json({ error: "Only Admins and assigned Managers can configure GitHub repositories." }, 403);
+        const connection = await prisma.productRepositoryConnection.findFirst({ where: { id: path[4], productId: product.id } });
+        if (!connection) return json({ error: "GitHub repository connection not found." }, 404);
+        if (request.method === "DELETE") {
+          const disconnected = await prisma.$transaction(async (tx) => {
+            const updated = await tx.productRepositoryConnection.update({ where: { id: connection.id }, data: { status: GitHubRepositoryConnectionStatus.DISCONNECTED } });
+            await tx.auditEvent.create({ data: { actorId: user.id, action: "GITHUB_REPOSITORY_DISCONNECTED", entityType: "ProductRepositoryConnection", entityId: connection.id, details: { productId: product.id, repository: connection.repositoryFullName } } });
+            return updated;
+          });
+          return json(disconnected);
+        }
+        const label = body.label === undefined ? connection.label : typeof body.label === "string" ? body.label.trim().replace(/\s+/g, " ") : "";
+        const defaultBranch = body.defaultBranch === undefined ? connection.defaultBranch : typeof body.defaultBranch === "string" ? body.defaultBranch.trim() : "";
+        if (!label || label.length > 64 || !validBranchName(defaultBranch)) return json({ error: "Use a valid repository label and default branch." }, 400);
+        let branchAllowlist: string[];
+        try {
+          branchAllowlist = body.branchAllowlist === undefined ? connection.branchAllowlist : normalizeBranches(body.branchAllowlist);
+        } catch (error) {
+          if (error instanceof GitHubIntegrationError) return json({ error: error.message }, 400);
+          throw error;
+        }
+        if (!branchAllowlist.includes(defaultBranch)) branchAllowlist = [defaultBranch, ...branchAllowlist];
+        const status = body.status === undefined ? connection.status : body.status === "ACTIVE" ? GitHubRepositoryConnectionStatus.ACTIVE : body.status === "PAUSED" ? GitHubRepositoryConnectionStatus.PAUSED : null;
+        if (!status) return json({ error: "Repository state must be ACTIVE or PAUSED." }, 400);
+        const updated = await prisma.$transaction(async (tx) => {
+          const changed = await tx.productRepositoryConnection.update({ where: { id: connection.id }, data: { label, defaultBranch, branchAllowlist, status, analysisEnabled: typeof body.analysisEnabled === "boolean" ? body.analysisEnabled : connection.analysisEnabled } });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "GITHUB_REPOSITORY_UPDATED", entityType: "ProductRepositoryConnection", entityId: connection.id, details: { productId: product.id, status: changed.status, branches: changed.branchAllowlist, analysisEnabled: changed.analysisEnabled } } });
+          return changed;
+        });
+        return json(updated);
+      }
+    }
     if (path[0] === "products" && path[1] && path[2] === "jira") {
       const product = await prisma.product.findUnique({ where: { id: path[1] }, include: { jiraConfig: true } });
       if (!product) return json({ error: "Product not found." }, 404);
@@ -595,6 +717,32 @@ async function route(request: Request, context: Context) {
         orderBy: { updatedAt: "desc" }
       });
       return json(testCases);
+    }
+    if (path[0] === "test-cases" && path[1] && path[2] === "github") {
+      const testCase = await prisma.testCase.findUnique({ where: { id: path[1] }, select: { id: true, productId: true, ownerId: true } });
+      if (!testCase) return json({ error: "Test Case not found." }, 404);
+      await assertProductMember(user.id, testCase.productId);
+      if (request.method === "GET") {
+        const connections = await prisma.productRepositoryConnection.findMany({
+          where: { productId: testCase.productId, status: { not: GitHubRepositoryConnectionStatus.DISCONNECTED } },
+          include: { testCaseLinks: { where: { testCaseId: testCase.id }, select: { testCaseId: true } } },
+          orderBy: { label: "asc" }
+        });
+        return json(connections.map((connection) => ({ id: connection.id, label: connection.label, repositoryFullName: connection.repositoryFullName, defaultBranch: connection.defaultBranch, branchAllowlist: connection.branchAllowlist, status: connection.status, analysisEnabled: connection.analysisEnabled, linked: connection.testCaseLinks.length === 1 })));
+      }
+      if (request.method === "PATCH") {
+        if (user.role === OrganizationRole.TESTER && testCase.ownerId !== user.id) return json({ error: "Testers can change repository routing only for their own Test Cases." }, 403);
+        const connectionIds = Array.isArray(body.connectionIds) && body.connectionIds.every((id: unknown) => typeof id === "string") ? [...new Set(body.connectionIds as string[])] : null;
+        if (!connectionIds) return json({ error: "Repository routing must contain valid connection identifiers." }, 400);
+        const connections = connectionIds.length ? await prisma.productRepositoryConnection.findMany({ where: { id: { in: connectionIds }, productId: testCase.productId, status: GitHubRepositoryConnectionStatus.ACTIVE }, select: { id: true } }) : [];
+        if (connections.length !== connectionIds.length) return json({ error: "Choose only active repository connections from this Product." }, 409);
+        await prisma.$transaction(async (tx) => {
+          await tx.testCaseRepositoryLink.deleteMany({ where: { testCaseId: testCase.id } });
+          if (connectionIds.length) await tx.testCaseRepositoryLink.createMany({ data: connectionIds.map((connectionId) => ({ testCaseId: testCase.id, connectionId })) });
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_CASE_GITHUB_ROUTING_UPDATED", entityType: "TestCase", entityId: testCase.id, details: { connectionCount: connectionIds.length } } });
+        });
+        return json({ connectionIds });
+      }
     }
     if (request.method === "GET" && path[0] === "test-cases" && path[1] && path.length === 2) {
       const testCase = await prisma.testCase.findUnique({
@@ -1408,6 +1556,26 @@ async function route(request: Request, context: Context) {
       await assertProductMember(user.id, run.productId);
       return json(run.jiraFiling ? publicJiraFiling(run.jiraFiling) : null);
     }
+    if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "source-analysis") {
+      const run = await prisma.run.findUnique({ where: { id: path[1] }, select: { id: true, productId: true, status: true, outcome: true } });
+      if (!run) return json({ error: "Run not found." }, 404);
+      await assertProductMember(user.id, run.productId);
+      if (run.status !== RunStatus.COMPLETED || run.outcome !== RunOutcome.FAILED) return json({ error: "Source analysis is available only for a completed failed Run." }, 409);
+      const connectionId = typeof body.connectionId === "string" ? body.connectionId : "";
+      const commitSha = typeof body.commitSha === "string" ? body.commitSha.trim() : "";
+      const parentSha = typeof body.parentSha === "string" && body.parentSha.trim() ? body.parentSha.trim() : null;
+      if (!connectionId || !commitSha) return json({ error: "Choose a connected repository and immutable commit SHA before analysis." }, 400);
+      try {
+        const result = await requestSourceAnalysis({ runId: run.id, connectionId, requestedById: user.id, trigger: SourceAnalysisTrigger.MANUAL_REQUEST, commitSha, parentSha });
+        return json(result, result.created ? 201 : 200);
+      } catch (error) {
+        const code = error instanceof Error ? error.message : "";
+        if (code === "SOURCE_ANALYSIS_COMMIT_INVALID") return json({ error: "Use a full 40-character immutable Git commit SHA." }, 400);
+        if (code === "SOURCE_ANALYSIS_CONNECTION_UNAVAILABLE") return json({ error: "This repository connection is unavailable for analysis." }, 409);
+        if (code === "SOURCE_ANALYSIS_RUN_INVALID") return json({ error: "The selected repository does not belong to this Run's Product." }, 403);
+        throw error;
+      }
+    }
     if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "diagnostics" && path[3] === "customer-lookup") {
       const run = await prisma.run.findUnique({ where: { id: path[1] }, include: { testCaseVersion: { include: { steps: { orderBy: { order: "asc" } } } }, variableBindings: true } });
       if (!run) return json({ error: "Run not found." }, 404);
@@ -1445,7 +1613,9 @@ async function route(request: Request, context: Context) {
           evidence: { orderBy: { capturedAt: "asc" } },
           databaseDiagnostics: { orderBy: { createdAt: "asc" } },
           jiraFiling: { include: { jiraIssue: true } },
-          changeProposal: { include: { changes: true } }
+          changeProposal: { include: { changes: true } },
+          githubRunLink: { include: { connection: { select: { id: true, label: true, repositoryFullName: true, defaultBranch: true } } } },
+          sourceAnalyses: { orderBy: { createdAt: "desc" }, select: { id: true, trigger: true, commitSha: true, parentSha: true, status: true, confidence: true, provider: true, model: true, observations: true, hypotheses: true, likelyCause: true, remediation: true, suggestedPatch: true, sourceReferences: true, limitations: true, errorCode: true, queuedAt: true, startedAt: true, completedAt: true, expiresAt: true, connection: { select: { id: true, label: true, repositoryFullName: true } } } }
         }
       });
       if (!run) return json({ error: "Run not found." }, 404);
@@ -1646,6 +1816,7 @@ async function route(request: Request, context: Context) {
     if (code.startsWith("VARIABLE_DATA_SET_REQUIRED:")) return json({ error: `Choose a Test Data Set for ${code.slice("VARIABLE_DATA_SET_REQUIRED:".length)} before starting this Run.` }, 400);
     if (code.startsWith("VARIABLE_DATA_SET_FIELD_MISSING:")) return json({ error: `The selected Test Data Set does not provide ${code.slice("VARIABLE_DATA_SET_FIELD_MISSING:".length)}.` }, 409);
     if (code.startsWith("BROWSER_")) return json({ error: "The live browser could not start. Try launching it again." }, 503);
+    if (error instanceof GitHubIntegrationError) return json({ error: error.message }, error.transient ? 503 : 400);
     if (error instanceof JiraAdapterError) return json({ error: error.message }, error.transient ? 503 : 400);
     console.error("Sentinel API failure", error);
     return json({ error: "The recording browser could not be launched. Check the Sentinel container logs for details." }, 500);
