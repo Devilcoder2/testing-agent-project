@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ThemeControl } from "./theme-control";
 import { Button, Card, Dialog, EmptyState, Feedback, Field, Pagination, PageHeader, SelectInput, SentinelMark, Skeleton, StatusBadge, TextArea, TextInput } from "./ui";
 import { OwnershipTransfer } from "./ownership-transfer";
@@ -388,8 +388,11 @@ function JiraProjectSettings({ product }: { product: Product }) {
 }
 
 export function TestDataView() {
+  const searchParams = useSearchParams();
+  const requestedProductId = searchParams.get("productId") ?? "";
   const { products, loading, error } = useDashboardData();
-  const [productId, setProductId] = useState("");
+  const appliedRequestedProductId = useRef<string | null>(null);
+  const [productId, setProductId] = useState(requestedProductId);
   const [dataSets, setDataSets] = useState<TestDataSet[]>([]);
   const [message, setMessage] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -397,7 +400,15 @@ export function TestDataView() {
   const [fieldsText, setFieldsText] = useState("customer_email=");
   const [reusePolicy, setReusePolicy] = useState<"REUSABLE" | "SINGLE_USE">("REUSABLE");
 
-  useEffect(() => { if (!productId && products[0]) setProductId(products[0].id); }, [productId, products]);
+  useEffect(() => {
+    if (!products.length) return;
+    if (appliedRequestedProductId.current !== requestedProductId) {
+      appliedRequestedProductId.current = requestedProductId;
+      setProductId(products.some((product) => product.id === requestedProductId) ? requestedProductId : products[0].id);
+      return;
+    }
+    if (!products.some((product) => product.id === productId)) setProductId(products[0].id);
+  }, [productId, products, requestedProductId]);
   useEffect(() => { if (!productId) return; request(`products/${productId}/test-data`).then((result) => setDataSets(result as TestDataSet[])).catch((loadError) => setMessage(errorMessage(loadError, "Could not load Test Data Sets."))); }, [productId]);
 
   async function create(event: FormEvent<HTMLFormElement>) {
