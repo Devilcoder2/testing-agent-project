@@ -234,6 +234,15 @@ Disabling a user preserves history and memberships but removes all effective acc
 - Replay should not exceed equivalent manual duration for the same journey.
 - Evidence retention and concurrency limits require an operational decision before production.
 
+### Interface and accessibility
+
+- Preserve every current authorization, immutable-history, execution, evidence, redaction, and external-side-effect boundary while improving presentation and navigation.
+- Use one cohesive responsive design system across every delivered route, with a dark operations theme, semantic status roles, local typography, and no external UI framework requirement.
+- Large Test Case, Run, Notification, and Review collections must remain searchable and discoverable without rendering an unbounded initial page. Client-side pagination may use the existing complete API responses.
+- Live recording and browser-backed Guided Runs require a desktop-sized viewport and must show explicit guidance below the supported width. Other read-only and autonomous workflows must reflow without horizontal page overflow.
+- Meet WCAG 2.2 AA for contrast, keyboard use, focus management, semantic structure, 200% zoom, status announcements, touch targets, and reduced motion.
+- Common Run diagnosis must provide structured Screenshots, Network, Console, Storage, and diagnostic views while retaining protected raw evidence as an optional disclosure.
+
 ## 8. Acceptance criteria for the product baseline
 
 - A named user can create a product-specific Test Case and see their ownership recorded.
