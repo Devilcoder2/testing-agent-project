@@ -230,3 +230,11 @@ Phase 16 must not change API paths, request or response contracts, database sche
 - Desktop, tablet, and mobile navigation expose the same authorized routes and preserve active-route feedback.
 - Existing critical sign-in, Product, Test Case, recording, Run, Release, Review, Administration, Jira, GitHub, and source-analysis workflows still pass.
 - Both themes meet the documented WCAG 2.2 AA contrast, focus, zoom, reduced-motion, and non-colour-status requirements.
+
+## 10. Phase 17 global search extension
+
+Add one global command-search combobox to the Phase 16 masthead rather than separate page-level search fields. It searches only server-authorized, safe display metadata across Products, Test Cases, Test Data, Runs, Releases, Review, notifications, and Administration. Results follow the grouped section-navigation order, except the current route's group moves first.
+
+The desktop field occupies the flexible center of the masthead. At narrower widths it becomes a full-width second masthead row while retaining the identity, New recording, and theme controls. The result panel uses the Signal Canvas flat ledger language, five rows per category, clear section headings, a cobalt active trace, explicit loading/no-result/error states, and equal light/dark treatment.
+
+Interaction follows the accessible combobox pattern: `Ctrl+K`/`Cmd+K` focuses search, input is debounced by 250 milliseconds, stale requests are cancelled, Arrow keys move the active result, Enter follows it, Escape closes the panel, and pointer/touch input remains equivalent. Query state is transient and clears when a result is selected or the user signs out.
