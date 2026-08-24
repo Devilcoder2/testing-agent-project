@@ -301,3 +301,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** The local pilot needs a real, immediately revocable authorization boundary before GitHub triggers or conversational controls can request Runs. An external provider, public signup, and custom roles would expand the first administration phase beyond its approved scope.
 - **Impact:** Existing seeded data migrates into one demo organization. Product creators remain historical attribution, while role policy replaces creator-only Jira, ownership, and change-approval authority. Disabled users preserve history but lose effective access and sessions immediately.
 - **Status:** Confirmed by project owner; implementation pending.
+
+## D-037 — Begin the product-wide UI/UX revamp on the delivered Phase 12 surface
+
+- **Date:** 2026-08-24
+- **Decision:** Begin Phase 15 against every currently implemented Phase 12 route before the optional GitHub and conversational-integration phases. Retain the dark operations identity, local system typography, semantic status palette, and custom React/CSS approach; add an internal SVG icon set and reusable accessible interaction primitives without adding a frontend framework or changing API contracts.
+- **Reason:** The repository and live-interface audit found immediate usability and accessibility debt in delivered workflows: health information is buried below readiness detail, large Test Case and Run inventories are unbounded, Run evidence is raw-JSON-first, Review combines distinct queues, Test Case actions compete, and Administration uses inconsistent native multi-select and immediate-save behavior. Waiting for optional future integrations would prolong those problems without improving the redesign inputs.
+- **Impact:** `frontend.md` is the approved Phase 15 design source of truth. The redesign may change layout, client-side paging, URL-backed filters, dialogs, and when Administration sends its existing PATCH request, but it must not change authorization, persistence, queueing, Run/evidence semantics, privacy boundaries, or API shapes. Phases 13–14 remain optional and must adopt the resulting design system if later approved.
+- **Status:** Approved by the owner; implementation in progress.
