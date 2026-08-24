@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import { Button, Card, EmptyState, Feedback, Field, Pagination, PageHeader, SelectInput, Skeleton, StatusBadge, TextArea, TextInput } from "./ui";
+import { Button, Card, Dialog, EmptyState, Feedback, Field, Pagination, PageHeader, SelectInput, Skeleton, StatusBadge, TextArea, TextInput } from "./ui";
 import { OwnershipTransfer } from "./ownership-transfer";
 
 type Product = { id: string; name: string; createdById?: string };
@@ -684,7 +684,7 @@ export function NewRecordingDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
-  return <div className="modal-backdrop" role="presentation"><section className="modal recording-create-modal" role="dialog" aria-modal="true" aria-labelledby="recording-modal-title"><div className="modal__header"><div><p className="eyebrow">Guided test creation</p><h2 id="recording-modal-title">Create recording workspace</h2><p>Choose the Product and name for the approved Demo CRM journey.</p></div><Button type="button" variant="ghost" onClick={onClose}>Close</Button></div><form className="form-stack" onSubmit={createRecording}><Field label="Product"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)} disabled={loading || products.length === 0}>{products.length === 0 ? <option value="">Create a Product first</option> : products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field><Field label="Test Name"><TextInput value={testName} onChange={(event) => setTestName(event.target.value)} required /></Field><Field label="Website Link" hint="Phase 1 accepts only the isolated Demo CRM target."><TextInput value="http://demo-target" readOnly /></Field>{error && <Feedback tone="danger">{error}</Feedback>}{message && <Feedback tone="danger">{message}</Feedback>}<div className="modal__actions"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" disabled={!products.length}>Create recording workspace <span aria-hidden="true">→</span></Button></div></form></section></div>;
+  return <Dialog eyebrow="Guided test creation" title="Create recording workspace" detail="Choose the Product and name for the approved Demo CRM journey." className="recording-create-modal" onClose={onClose}><form className="form-stack" onSubmit={createRecording}><Field label="Product"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)} disabled={loading || products.length === 0}>{products.length === 0 ? <option value="">Create a Product first</option> : products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field><Field label="Test Name"><TextInput value={testName} onChange={(event) => setTestName(event.target.value)} required /></Field><div className="fixed-target"><span>Approved target</span><strong>Demo CRM</strong><code>http://demo-target</code></div>{error && <Feedback tone="danger">{error}</Feedback>}{message && <Feedback tone="danger">{message}</Feedback>}<div className="modal__actions"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" disabled={!products.length}>Create workspace</Button></div></form></Dialog>;
 }
 
 export function RecordingWorkspaceView({ recordingId }: { recordingId: string }) {
