@@ -34,9 +34,7 @@ test("edits an immutable Test Case version and starts a visible excluded Release
     await page.getByLabel("Email").fill("ava.tester@example.test");
     await page.getByLabel("Password").fill("sentinel-dev");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
-    await page.getByLabel("Find a Test Case").fill(name);
-    await page.locator(".test-list__item").filter({ hasText: name }).getByRole("link", { name: "Open" }).click();
+    await page.goto(`${baseUrl}/test-cases/${created.testCaseId}`);
     await page.getByText("More actions", { exact: true }).click();
     await page.getByRole("link", { name: "Edit Test" }).click();
     await page.getByLabel("Feature labels").fill("authentication, customer management");
