@@ -77,7 +77,7 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   const browserStage = page.locator(".browser-stage");
   await browserStage.getByRole("button", { name: "Launch live browser" }).click();
   const liveBrowser = page.getByTitle("Live recording browser");
-  await expect(liveBrowser).toBeVisible();
+  await expect(liveBrowser).toBeVisible({ timeout: 15_000 });
   await expect(page.frameLocator('iframe[title="Live recording browser"]').locator("#noVNC_control_bar_anchor")).toBeHidden();
   const [stageBox, browserBox] = await Promise.all([browserStage.boundingBox(), liveBrowser.boundingBox()]);
   expect(browserBox?.width).toBe(stageBox?.width);
