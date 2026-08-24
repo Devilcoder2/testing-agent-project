@@ -220,6 +220,16 @@ For a failed GitHub-triggered Auto Run, Sentinel automatically requests one guar
 
 The worker calls the server-only OpenAI Responses API only when `OPENAI_API_KEY` and `OPENAI_MODEL` are configured. It requests a strict structured result containing evidence-backed observations, clearly labelled hypotheses, a likely-cause summary, confidence, safe remediation, optional review-only patch fragment, validated repository file/line references, and limitations. The result is advisory: Sentinel never applies a patch, creates a commit or pull request, changes a Test Case/baseline, modifies GitHub workflows, or files Jira automatically. Missing configuration, checkout failure, secret detection, malformed output, or an unavailable provider records a clear safe analysis state without changing Run outcome, evidence status, Release readiness, or notification truth. Safe diagnosis metadata is retained for 30 days; raw analysis context is always ephemeral.
 
+### F14. Global authorized search
+
+Every authenticated App Shell route provides one command-masthead search field for Products, Test Cases, Test Data Sets, Runs, Releases, Review items, notifications, and organization members. The server accepts a trimmed query of 1–80 characters and returns only case-insensitive prefix matches against approved safe display fields. It caps each category at five results and returns no Test Data values, variable values, evidence content, source code, integration payloads, secrets, or raw operational logs.
+
+Search must apply the same current organization, Product-membership, notification-recipient, Release, Review, account-state, and Admin-only authorization boundaries as the destination screens. Administration results are available only to an active Admin. Search results must not reveal that an inaccessible matching item exists. Query text is transient client state and is not persisted, audited, emailed, queued, or sent to external providers.
+
+Results are grouped by section and the section matching the current route appears first; remaining groups follow the command-navigation order. The client waits 250 milliseconds after the latest input before requesting results, cancels stale in-flight requests, and never allows an older response to replace a newer query. Empty, loading, error, and no-result states are explicit.
+
+The field uses an accessible combobox/listbox interaction. `Ctrl+K` or `Cmd+K` focuses it, Arrow Up/Down moves through results, Enter opens the active result, and Escape closes results without trapping focus. Pointer and touch selection remain available. Results link to an exact protected detail page when one exists and otherwise to the matching protected section.
+
 ## 7. Cross-cutting requirements
 
 ### Security and privacy
