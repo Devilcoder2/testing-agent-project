@@ -120,6 +120,7 @@ test("records the remote demo journey and preserves saved annotations after refr
 
     await page.locator(".breadcrumbs").getByRole("link", { name: "Dashboard" }).click();
     await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
+    await page.getByLabel("Find a Test Case").fill(testName);
     const savedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await savedTest.getByRole("link", { name: "Open" }).click();
     await expect(page.locator(".timeline-item")).toHaveCount(capturedStepCount);
@@ -128,6 +129,7 @@ test("records the remote demo journey and preserves saved annotations after refr
     await page.reload();
     await signIn(page, "ava.tester@example.test");
     await page.locator(".sidebar").getByRole("link", { name: "Test Cases" }).click();
+    await page.getByLabel("Find a Test Case").fill(testName);
     const reopenedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await reopenedTest.getByRole("link", { name: "Open" }).click();
     await expect(page.locator(".timeline-item")).toHaveCount(capturedStepCount);
