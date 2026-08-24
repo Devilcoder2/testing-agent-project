@@ -14,6 +14,7 @@
 | Styling | Custom CSS token system and component styles | Native CSS; no external styling library | Provides fixed semantic design tokens, responsive behavior, and reusable Sentinel-specific primitives without a framework migration. |
 | Validation | Zod | 3.x or compatible stable major | Runtime validation at API and job boundaries. |
 | Testing | Vitest and Playwright Test | Current compatible majors pinned in Phase 1 | Fast unit tests plus real-browser acceptance tests. |
+| Global search | Existing Next.js API, Prisma, PostgreSQL, and React state | No additional dependency | Case-insensitive capped prefix queries and a debounced accessible combobox are sufficient for the controlled pilot while keeping authorization on the server. |
 
 ## 2. Persistence and execution
 
@@ -64,6 +65,7 @@
 - Phase 1.5 uses local system typography, CSS custom properties, and custom React/CSS primitives; it does not add external fonts, icon packs, Tailwind, shadcn, or a component library.
 - Phase 15 extends the same dependency-free frontend approach with internal SVG icons and React primitives for dialogs, menus, tabs, pagination, structured evidence, skeletons, and responsive inventory rows. It adds no client state library, chart package, CSS framework, or design-system dependency; existing React state, native URL state, and CSS remain sufficient for the ten-user pilot.
 - Phase 16 keeps that dependency boundary while replacing the visual implementation. CSS custom properties define complete light and dark semantic palettes; a small inline bootstrap plus a React theme control use `data-theme`, `matchMedia`, and local storage to prevent a wrong-theme first paint and persist an explicit choice. No theme provider package, external font, CSS framework, icon library, or animation runtime is required.
+- Phase 17 adds no search service, client state package, or debounce utility. The existing API and Prisma layer perform bounded prefix queries; native `AbortController`, timers, React state, and combobox/listbox semantics implement cancellation and interaction in the App Shell.
 - Phase 13 adds `git`, Repomix, GitHub App helpers, and OpenAI SDK support to the worker image. The normal Compose stack remains localhost-only; `docker compose --profile github-tunnel up cloudflared` is optional and only forwards the signed GitHub webhook endpoint for a local sandbox App. Every queued GitHub delivery and source analysis retries once only for approved transient infrastructure/provider failures.
 - CI should run formatting/lint checks, unit tests, type checks, and browser smoke tests.
 - Structured logs should include correlation IDs for a Test Case, Run, job, evidence event, and external integration request.
