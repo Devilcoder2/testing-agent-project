@@ -1611,3 +1611,82 @@ The important implementation files are `prisma/schema.prisma`, `prisma/seed.ts`,
     **Owner answer:** Pending follow-up.
 
 **Learning status:** Pending owner review. The Phase 12 account and role flow is ready for manual testing, but the ten answers and the broader browser permission-matrix hardening remain follow-up work.
+
+## Phase 15 — Product-wide UI/UX redesign
+
+### What changed and why
+
+Phase 15 turns the delivered Phase 12 interface into one coherent operations workspace without changing its APIs, authorization rules, queues, evidence model, or immutable-version behavior. The redesign introduces a restrained dark visual system, a responsive/collapsible application shell, internal SVG icons, a skip link, consistent hierarchy and density, reusable dialogs with focus trapping and Escape handling, pagination and skeleton states, searchable inventories, and reduced-motion-safe transitions. The practical user problems it addresses are unbounded lists, competing actions, raw-JSON-first evidence, mixed review queues, immediate-save administration controls, and long Test Case editing forms.
+
+The end-to-end flow remains the same: a signed-in organization member chooses an authorized Product, records or opens a Test Case, starts the existing Guided/Auto Run API, reviews the existing persisted outcome/evidence, and uses the existing Release, Review, notification, or administration operations. The client now organizes those results more clearly. Test Case and Run filtering/pagination are client-side over the existing authorized API response, so the server remains the source of truth. Run Detail presents structured network evidence and moves raw payloads into disclosures. Administration stages role/Product changes in a modal and sends the same PATCH only after explicit Save. Review separates suggestions from change proposals and uses explicit confirmation dialogs. Saving Test Case edits still creates the next immutable version.
+
+The implementation deliberately uses the existing React 19, Next.js App Router, TypeScript, and CSS token infrastructure. No component framework, icon package, animation package, or state library was added. This keeps the dependency and security surface stable, but means the project owns its dialog behavior, responsive CSS, and visual regression upkeep. The shared `Dialog` handles initial focus, Tab containment, Escape, body scroll locking, and focus restoration. Motion uses three duration tokens and becomes zero under `prefers-reduced-motion`.
+
+### Tradeoffs, alternatives, limitations, and risks
+
+- A third-party design system was rejected because the existing primitives were sufficient and adopting one would create a large migration surface unrelated to business behavior.
+- Server pagination was not introduced because that would change API contracts. Current paging is intentionally client-side and should move server-side only when data scale justifies an approved API change.
+- Browser-heavy Recording and Guided Run workspaces remain desktop-only below the supported viewport; they show explicit guidance instead of pretending the two-pane workflow is usable on a phone.
+- GitHub settings/activity and conversational-integration screens were not invented because optional Phases 13–14 are not implemented. They must adopt these tokens/primitives if approved later.
+- Owner usability testing and the ten-question learning review remain open. Phase 15 must not be considered fully learned until those are completed.
+- Production build succeeds with one pre-existing Autoprefixer compatibility warning for legacy `align-items: end` CSS and an existing ESLint Next-plugin configuration warning. Neither changes runtime behavior, but both should be cleaned up with a separately reviewed stylesheet/configuration formatting change.
+- The full integration suite is state-sensitive. A pre-existing Guided Run created on 2026-08-22 remains `RUNNING`, so the correct single-browser guard rejects another Guided Run with HTTP 409. The redesign did not alter or clear that user-owned state.
+
+### Verification evidence and priority-based diff review
+
+The final implementation checks produced these outcomes:
+
+```text
+npm run lint -- --quiet
+> eslint . --quiet
+exit 0
+
+npm run typecheck
+> tsc --noEmit
+exit 0
+
+npm run build
+✓ Compiled successfully
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T sentinel env SENTINEL_BASE_URL=http://localhost:3000 npx playwright test tests/frontend-phase-1-5.spec.ts tests/phase-1-recording.spec.ts tests/phase-11-pilot-hardening.spec.ts --reporter=line --workers=1
+3 passed
+
+docker compose exec -T sentinel env SENTINEL_BASE_URL=http://localhost:3000 npx playwright test tests/phase-5-release.spec.ts tests/phase-7-suggestions.spec.ts --reporter=line --workers=1
+2 passed
+
+docker compose exec -T sentinel env SENTINEL_BASE_URL=http://localhost:3000 npx playwright test tests/phase-3-auto-runs.spec.ts tests/phase-4-variables.spec.ts --reporter=line --workers=1
+3 passed
+```
+
+The serial Vitest run passed 43 of 45 tests. Both remaining assertions are the Guided Run API attempting to start while the pre-existing user-owned Guided Run is active; focused Playwright confirms the UI displays “Another local browser session is active. Finish it before starting a Run.” No database record was changed to bypass that protection.
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `components/ui.tsx` (`Dialog`, `Pagination`, `Skeleton`, `Icon`); `components/app-shell.tsx`; `components/sentinel-views.tsx` (inventory, Test Case actions, Run evidence, recording dialog); `components/admin-views.tsx`; `components/review-views.tsx`; `components/test-case-editor.tsx` | These files control focus, protected-action presentation, navigation, evidence interpretation, access-edit timing, review decisions, and immutable version editing. Read now, especially the Dialog focus lifecycle and editor toggle state. |
+| Medium — understand next | `components/release-views.tsx`; `components/notification-views.tsx`; `components/ownership-transfer.tsx`; `app/globals.css`; `app/styles/tokens.css`; invite/reset/review/test-case route Suspense boundaries | These define high-impact layout/state presentation and responsive behavior but reuse existing server contracts. Review responsive breakpoints, client paging, raw-evidence disclosures, and release selection. |
+| Lower — skim or defer | Updated Playwright specs and design/project documents | Tests were aligned with organization-scoped fixtures, pagination, action menus, confirmations, and readiness disclosure. Documents record the approved boundary and implementation evidence. Skim now; use them during later regressions. |
+
+### Ten-question understanding check
+
+1. Which business, authorization, persistence, and queue behaviors did Phase 15 intentionally leave unchanged, and how can a maintainer verify that boundary?
+2. How does the shared `Dialog` manage initial focus, Tab/Shift+Tab containment, Escape, body scroll, and focus restoration?
+3. Why are Test Case, Run, and notification pages paginated on the client today, and what dependency would require an approved server-pagination change?
+4. How do the desktop sidebar, tablet/mobile navigation drawer, and browser-heavy Recording/Guided Run viewport policy differ?
+5. Why is raw Run evidence behind a disclosure while structured network/status information is shown first, and what privacy guarantees must remain intact?
+6. How does the redesigned Test Case editor preserve immutable versioning while making long step lists easier to use?
+7. What changed in Administration’s save interaction, and why does the server remain responsible for role, Product access, final-Admin, and session-revocation enforcement?
+8. Why are suggestions and change proposals separate tabs, and which confirmation steps prevent accidental approval, dismissal, or baseline decisions?
+9. Which motion tokens and CSS accessibility rule implement reduced-motion support, and which interactions must still work when every duration is zero?
+10. Why did the Guided Run regression remain blocked, what existing record causes it, and why would deleting or completing that record solely to make tests green be unsafe?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the highest-priority files before Phase 15 is considered fully understood.
+- Conduct representative owner usability checks on Dashboard, Test Case search/edit, Run evidence, Release creation, Review confirmation, Administration access editing, tablet navigation, and the explicit narrow-screen recording boundary.
+- Resolve the existing active Guided Run through the normal product workflow, then rerun the two blocked Guided Run integration assertions and the complete serial suite.
