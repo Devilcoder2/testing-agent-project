@@ -97,3 +97,21 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   await page.getByRole("button", { name: "Discard Test Case" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 });
+
+test("uses compact icon controls for the recording Step Log rail", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("button", { name: "New recording" }).click();
+  await page.getByLabel("Test Name").fill(`Compact rail ${Date.now()}`);
+  await page.getByRole("button", { name: "Create recording workspace" }).click();
+
+  const collapse = page.getByRole("button", { name: "Collapse Step Log" });
+  await expect(collapse).toHaveCSS("font-size", "0px");
+  await collapse.click();
+  const expand = page.getByRole("button", { name: "Expand Step Log" });
+  await expect(expand).toBeVisible();
+  await expect(expand).toHaveCSS("font-size", "0px");
+  await expect(expand).toHaveCSS("writing-mode", "horizontal-tb");
+  await expect(page.locator(".step-panel__rail-count")).toBeHidden();
+  await page.getByRole("button", { name: "Discard" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+});
