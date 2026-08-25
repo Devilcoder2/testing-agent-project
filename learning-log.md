@@ -2071,3 +2071,45 @@ Live browser review created an empty disposable Recording Workspace, collapsed t
 - Resolve the existing active Guided Run through the normal workflow, then rerun the two state-blocked Guided Run assertions.
 
 **Learning status:** Implementation, production build, focused Recording Workspace regression, broader browser regression, visual review, and priority diff review are complete. Owner answers and the unrelated state-blocked Guided Run assertions remain open.
+
+## Phase 18 refinement — Compact Step Log rail icons
+
+The collapsed Recording Workspace rail originally rotated the visible **Expand Step Log** text vertically and showed a step-count badge. That used unnecessary visual space and made the browser-focused mode feel unfinished. The rail now uses a compact directional chevron icon, and the expanded Step Log uses the matching opposite-direction icon. The existing button text remains the accessible name and tooltip, while CSS reduces only its visual font size. No recording state, browser session, API, noVNC behavior, or authorization rule changed.
+
+`app/globals.css` overrides the original rail dimensions, writing mode, text size, count badge, and chevron direction. `tests/frontend-phase-1-5.spec.ts` creates and discards a lightweight recording draft, asserts that both controls are icon-sized, confirms normal horizontal writing mode, and verifies the count badge is hidden. `DESIGN.md`, `frontend.md`, and D-042 record the icon-only interaction rule.
+
+```text
+npm run lint
+> eslint .
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/frontend-phase-1-5.spec.ts --grep "compact icon controls" --reporter=line
+1 passed (5.2s)
+
+npm run typecheck && npm run build
+> tsc --noEmit
+✓ Compiled successfully
+✓ Generating static pages (18/18)
+exit 0
+```
+
+Priority review: read `app/globals.css` now because its later override must continue to win over the original collapsed-rail declarations. Read `tests/frontend-phase-1-5.spec.ts` next because it captures the accessible-name and visual-layout contract. The design and decision documents are lower priority reference material.
+
+### Ten-question understanding check
+
+1. Why was rotated visible text a poor fit for the collapsed Step Log rail?
+2. How can a button keep an accessible name when its visible text is visually hidden?
+3. Why does the compact rail override writing mode rather than relying on the original vertical declaration?
+4. Which pseudo-elements create the two directional chevrons, and how do their rotations differ?
+5. Why is the step-count badge hidden in the collapsed rail?
+6. Which existing interaction state still determines whether the rail is collapsed or expanded?
+7. Why does this CSS-only refinement not affect recording API calls or the remote browser session?
+8. What does the lightweight Playwright test create and how does it clean that data up safely?
+9. Which selector-order property makes the later compact-control rules override the earlier rail rules?
+10. If a future icon asset replaces the CSS chevron, which accessible behavior must remain unchanged?
+
+#### Answers
+
+- Owner answers pending.
+
+**Learning status:** Compact-control implementation and focused verification are complete. Owner answers remain pending.
