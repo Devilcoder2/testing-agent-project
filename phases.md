@@ -505,7 +505,7 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 - [x] Record startup/daily retention outcomes and a Redis worker heartbeat; expose safe service, retention, and optional-Jira state on the authenticated Dashboard readiness panel.
 - [x] Honor optional Jira HTTP 429 `Retry-After` once, capped at 60 seconds, without altering factual Run, evidence, Release, or notification state.
 - [x] Add focused Docker coverage for transfers, proposal reassignment, retention, readiness authentication, and rate-limit parsing.
-- [x] Re-run full lint, type-check, Vitest, Playwright, Docker startup, concurrency/retry/denial checks, and automated readiness verification. Owner manual readiness verification remains pending.
+- [x] Re-run full lint, type-check, Vitest, Playwright, Docker startup, concurrency/retry/denial checks, and automated readiness verification. On 2026-08-26, the owner manually verified the local-only boundary, readiness dashboard, worker heartbeat, ownership transfers and safeguards, evidence retention and safe failures, Jira rate-limit handling, pilot dependency health, and adversarial-review findings.
 - [x] Publish an adversarial review and explicitly defer each wider-deployment finding.
 - [ ] Complete deferred owner learning answers before calling the platform fully understood.
 
