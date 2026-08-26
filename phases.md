@@ -651,3 +651,21 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Implementation verification (2026-08-24):** Lint, type-check, and the 18-route production build pass. The focused live-recording journey passes collapse, the narrow restore rail, full-screen entry, button-driven minimize, Escape minimize, restored rail state, remote recording, annotation persistence, save, and refresh. The existing frontend recording workflow has a launch visibility wait suitable for post-browser-lock startup. All 14 applicable browser journeys pass. Live browser review confirmed the browser stage fills the workspace with only an Exit full screen control, then restores the collapsed rail and normal session bar. The compact-rail refinement replaces visible rotated text and the count badge with accessible directional icons; its focused browser check passes. The complete API suite passes 50/52 assertions; the two known Guided Run assertions correctly receive HTTP 409 because the existing user-owned active Run still owns the single live-browser boundary. The Phase 18 priority review and exactly ten owner questions are in `learning-log.md`; owner answers remain pending, so the final learning checkbox stays open.
 
 **Out of scope:** Browser-native Fullscreen API permission, noVNC toolbar exposure, remote browser/Chromium-policy changes, Guided Run changes, persisted layout preferences, native mobile recording, or any API/database change.
+
+## Phase 19 — Responsive workspace navigation
+
+**Depends on:** Phase 16's command masthead and the delivered workspace routes.
+
+**Outcome:** A tester can move rapidly between workspace sections without the previous page appearing stuck while the next route prepares, and repeated section visits avoid rebuilding the shared shell.
+
+- [ ] Keep one persistent authenticated App Shell across Dashboard, Products, Test Cases, Test Data, Runs, Releases, Review, Notifications, and Administration routes.
+- [ ] Preserve the standalone sign-in, account-link, Recording Workspace, and Run Workspace compositions.
+- [ ] Reflect the tester's latest section click immediately, keep navigation available while content changes, and ensure rapid Products → Runs → Releases clicks settle on Releases.
+- [ ] Preload the small set of primary workspace routes after the shell becomes idle without adding a client state or routing dependency.
+- [ ] Load the New Recording dialog code only when requested so ordinary section navigation does not eagerly load recording creation UI.
+- [ ] Preserve current API calls, authorization, persisted data, responsive navigation, keyboard focus, reduced-motion behavior, and route destinations.
+- [ ] Add focused browser regression for persistent-shell identity, latest-click routing, and post-navigation interaction.
+- [ ] Run lint, type-check, production build, focused browser verification, and applicable navigation regression with exact output.
+- [ ] Review the actual diff in learning priority order, record the decision, and add one append-only learning entry with exactly ten owner questions before closing the learning gate.
+
+**Out of scope:** API or database optimization, a new state-management/data-fetching library, server-side rendering changes, permission changes, redesigning page content, or changing the standalone recording and Run workspaces.
