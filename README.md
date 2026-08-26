@@ -38,7 +38,7 @@ The attached requirements document is the current product source of truth. Archi
 - Phase 7: deterministic negative-Test suggestions are implementation and automated-acceptance verified; owner manual and learning reviews remain pending.
 - Phase 8: reviewed Jira Cloud Bug workflow is implemented; focused automated verification passed, while a real Jira Cloud and owner manual check remain pending.
 - Phase 10: explicit read-only local QA customer diagnostics are implemented and focused Docker verification passed; full regression, owner manual, and learning reviews remain pending.
-- Phase 11: controlled local-pilot hardening, full regression, and adversarial review are complete; owner manual and learning reviews remain pending.
+- Phase 11: controlled local-pilot hardening, full regression, adversarial review, and owner manual acceptance are complete; the deferred owner learning review remains pending.
 - Application code: local Docker recording, guided Runs, MinIO evidence, Redis/BullMQ, and a two-concurrency Playwright worker are available.
 - Mobile testing: deferred from v1.
 - QA PostgreSQL access: read-only by design.
