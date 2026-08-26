@@ -67,14 +67,12 @@ function AppShellFrame({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setNavigationOpen(false);
-    setPendingHref((current) => current && !isActive(pathname, current) ? current : null);
-  }, [pathname]);
+    if (pendingHref && isActive(pathname, pendingHref)) setPendingHref(null);
+  }, [pathname, pendingHref]);
 
   useEffect(() => {
-    if (!pendingHref) return;
-    const timer = setTimeout(() => router.push(pendingHref), 50);
-    return () => clearTimeout(timer);
-  }, [pendingHref, router]);
+    if (pendingHref && !isActive(pathname, pendingHref)) router.push(pendingHref);
+  }, [pathname, pendingHref, router]);
 
   useEffect(() => {
     const prefetchRoutes = () => navigationItems.forEach((item) => router.prefetch(item.href));
