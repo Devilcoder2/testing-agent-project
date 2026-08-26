@@ -67,8 +67,14 @@ function AppShellFrame({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setNavigationOpen(false);
-    setPendingHref(null);
+    setPendingHref((current) => current && !isActive(pathname, current) ? current : null);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!pendingHref) return;
+    const timer = setTimeout(() => router.push(pendingHref), 50);
+    return () => clearTimeout(timer);
+  }, [pendingHref, router]);
 
   useEffect(() => {
     const prefetchRoutes = () => navigationItems.forEach((item) => router.prefetch(item.href));
@@ -96,6 +102,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
 
   function beginNavigation(event: MouseEvent<HTMLAnchorElement>, href: string) {
     if (event.button !== 0 || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || href === pathname) return;
+    event.preventDefault();
     setPendingHref(href);
   }
 
