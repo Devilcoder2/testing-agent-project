@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { WorkspaceShell } from "@/components/app-shell";
 import "./globals.css";
 
 export const metadata: Metadata = { title: "Sentinel", description: "Autonomous QA agent platform" };
@@ -16,6 +17,6 @@ const themeBootstrap = `
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="en" suppressHydrationWarning>
     <head><script dangerouslySetInnerHTML={{ __html: themeBootstrap }} /></head>
-    <body>{children}</body>
+    <body><WorkspaceShell>{children}</WorkspaceShell></body>
   </html>;
 }
