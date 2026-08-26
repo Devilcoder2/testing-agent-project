@@ -1,12 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { createContext, useContext, useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { ThemeControl } from "./theme-control";
 import { GlobalSearch } from "./global-search";
 import { Icon, IconButton, SentinelMark, type IconName } from "./ui";
-import { NewRecordingDialog } from "./sentinel-views";
+
+const NewRecordingDialog = dynamic(() => import("./sentinel-views").then((module) => module.NewRecordingDialog), { ssr: false });
 
 type NavigationItem = { href: string; label: string; icon: IconName };
 type NavigationGroup = { label: string; items: NavigationItem[] };
@@ -28,24 +30,55 @@ const navigationGroups: NavigationGroup[] = [
   ] },
   { label: "Manage", items: [{ href: "/admin", label: "Administration", icon: "admin" }] }
 ];
+const navigationItems = navigationGroups.flatMap((group) => group.items);
+const shellContext = createContext(false);
 
 function isActive(pathname: string, href: string) {
   return href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function activeDestination(pathname: string) {
-  return navigationGroups.flatMap((group) => group.items).find((item) => isActive(pathname, item.href));
+  return navigationItems.find((item) => isActive(pathname, item.href));
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  return useContext(shellContext) ? children : <AppShellFrame>{children}</AppShellFrame>;
+}
+
+function usesWorkspaceShell(pathname: string) {
+  if (pathname === "/runs") return true;
+  return ["/dashboard", "/products", "/test-cases", "/test-data", "/releases", "/review", "/notifications", "/admin"]
+    .some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
+export function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  return usesWorkspaceShell(pathname) ? <AppShellFrame>{children}</AppShellFrame> : children;
+}
+
+function AppShellFrame({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [isNewRecordingOpen, setIsNewRecordingOpen] = useState(false);
-  const current = activeDestination(pathname);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const visiblePathname = pendingHref ?? pathname;
+  const current = activeDestination(visiblePathname);
 
   useEffect(() => {
     setNavigationOpen(false);
+    setPendingHref(null);
   }, [pathname]);
+
+  useEffect(() => {
+    const prefetchRoutes = () => navigationItems.forEach((item) => router.prefetch(item.href));
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(prefetchRoutes, { timeout: 2_000 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timer = setTimeout(prefetchRoutes, 250);
+    return () => clearTimeout(timer);
+  }, [router]);
 
   useEffect(() => {
     if (!navigationOpen) return;
@@ -61,13 +94,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.location.assign("/");
   }
 
+  function beginNavigation(event: MouseEvent<HTMLAnchorElement>, href: string) {
+    if (event.button !== 0 || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || href === pathname) return;
+    setPendingHref(href);
+  }
+
   const navigation = <nav className="section-nav__groups" aria-label="Workspace sections">
     {navigationGroups.map((group) => <div className="section-nav__group" key={group.label}>
       <span className="section-nav__group-label">{group.label}</span>
       <div className="section-nav__links">
         {group.items.map((item) => {
-          const active = isActive(pathname, item.href);
-          return <Link className={`section-nav__link ${active ? "section-nav__link--active" : ""}`} href={item.href} key={item.href} aria-current={active ? "page" : undefined}>
+          const active = isActive(visiblePathname, item.href);
+          return <Link className={`section-nav__link ${active ? "section-nav__link--active" : ""}`} href={item.href} key={item.href} aria-current={active ? "page" : undefined} onClick={(event) => beginNavigation(event, item.href)}>
             <Icon name={item.icon} />
             <span>{item.label}</span>
           </Link>;
@@ -76,7 +114,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>)}
   </nav>;
 
-  return <div className="app-shell">
+  return <shellContext.Provider value><div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
     <header className="command-masthead">
       <div className="command-masthead__inner">
@@ -104,7 +142,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="navigation-sheet__footer"><ThemeControl /><button className="button button--ghost" onClick={signOut}><Icon name="signOut" /> Sign out</button></div>
       </aside>
     </>}
-    <main className="app-main" id="main-content" tabIndex={-1}>{children}</main>
+    <main className="app-main" id="main-content" tabIndex={-1} aria-busy={Boolean(pendingHref)}>
+      <span className="sr-only" role="status" aria-live="polite">{pendingHref ? `Loading ${activeDestination(pendingHref)?.label ?? "section"}` : ""}</span>
+      {children}
+    </main>
     {isNewRecordingOpen && <NewRecordingDialog onClose={() => setIsNewRecordingOpen(false)} />}
-  </div>;
+  </div></shellContext.Provider>;
 }
