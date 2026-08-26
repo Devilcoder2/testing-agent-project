@@ -292,7 +292,7 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Decision:** Treat Phase 11 as a Docker-local internal pilot only. Keep seeded named users, bind Sentinel, Demo CRM, and noVNC to localhost, retain Mailpit, and leave Jira optional. Product creators may transfer Product, Test Case, and Release ownership independently to eligible existing members; Test Case transfer reroutes submitted proposals to the new owner. Retain completed-Run detailed evidence and completed database diagnostics for 30 days, then remove them through worker maintenance while retaining safe history.
 - **Reason:** The project needs a recoverable pilot operating boundary before adding the separately proposed organization roles, external identity, provider credentials, and production deployment model. Ownership continuity and bounded evidence storage address concrete pilot risks without broadening scope into administration.
 - **Impact:** A Dashboard readiness panel checks local services, worker heartbeat, QA read-only access, retention state, and optional Jira configuration without exposing secrets. Jira HTTP 429 retries once after a validated `Retry-After` delay capped at 60 seconds. Real email, production Jira, external access, retention/legal policy, and role-based access remain future decisions.
-- **Status:** Implemented with focused Docker verification on 2026-08-20; full regression, adversarial review, owner manual check, and learning review remain pending.
+- **Status:** Implemented with focused Docker verification on 2026-08-20. Full regression, adversarial review, and owner manual acceptance were completed on 2026-08-26; the deferred learning review remains pending.
 
 ## D-036 — Phase 12 built-in multi-organization roles
 
