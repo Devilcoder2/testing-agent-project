@@ -349,3 +349,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Recording is a browser-first task. The existing workspace preserves a useful editable Step Log, but a tester needs an immediate way to reclaim its width or temporarily devote the whole viewport to the approved remote browser.
 - **Impact:** The change stays entirely in the recording view and CSS. It cannot create or close a remote browser, show noVNC controls, change Chromium policy, alter recording events, or bypass save/discard and authorization behavior. Compact icon controls retain accessible labels and tooltips without rotated rail text or a visible count badge; the existing narrow-screen guidance remains authoritative, and no new library or server contract is needed.
 - **Status:** Implemented and pushed on 2026-08-24. Lint, type-check, the 18-route production build, the focused live-recording workflow, and all 14 applicable browser regressions pass. The full API suite remains 50/52 because the same unrelated user-owned active Guided Run returns the intended HTTP 409. Owner answers to the Phase 18 learning check remain pending.
+
+## D-043 — Persist and prefetch the authenticated workspace shell
+
+- **Date:** 2026-08-26
+- **Decision:** Move ownership of the authenticated App Shell to the persistent root layout boundary, keep existing page wrappers compatibility-safe, optimistically reflect the latest section click, prefetch the finite primary route set, and load New Recording UI on demand.
+- **Reason:** Each section currently recreates the same masthead, navigation, search, theme, and recording entry component tree. During route preparation Next.js leaves the previous page visible, so rapid navigation appears stuck and later clicks become visible only after the route commits. A persistent shell addresses the lifecycle problem without changing protected page or API behavior.
+- **Impact:** Workspace navigation remains available and gives immediate pending feedback while child content changes. Sign-in, account-link, Recording Workspace, and Run Workspace layouts stay standalone. No API, database, authorization, client state library, or route destination changes.
+- **Status:** Approved for Phase 19 implementation and focused rapid-navigation verification.
