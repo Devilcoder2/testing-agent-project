@@ -115,3 +115,25 @@ test("uses compact icon controls for the recording Step Log rail", async ({ page
   await page.getByRole("button", { name: "Discard" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 });
+
+test("keeps the workspace shell responsive during rapid section navigation", async ({ page }) => {
+  await signIn(page);
+  const masthead = page.locator(".command-masthead");
+  await masthead.evaluate((element) => { element.setAttribute("data-navigation-shell", "persistent"); });
+  const navigation = page.getByRole("navigation", { name: "Workspace sections" });
+  const products = navigation.getByRole("link", { name: "Products" });
+  const runs = navigation.getByRole("link", { name: "Runs" });
+  const releases = navigation.getByRole("link", { name: "Releases" });
+
+  await products.click({ noWaitAfter: true });
+  await expect(products).toHaveAttribute("aria-current", "page");
+  await runs.click({ noWaitAfter: true });
+  await expect(runs).toHaveAttribute("aria-current", "page");
+  await releases.click({ noWaitAfter: true });
+  await expect(releases).toHaveAttribute("aria-current", "page");
+
+  await expect(page).toHaveURL(/\/releases$/);
+  await expect(page.getByRole("heading", { name: "Releases", exact: true })).toBeVisible();
+  await expect(masthead).toHaveAttribute("data-navigation-shell", "persistent");
+  await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "false");
+});
