@@ -2113,3 +2113,80 @@ Priority review: read `app/globals.css` now because its later override must cont
 - Owner answers pending.
 
 **Learning status:** Compact-control implementation and focused verification are complete. Owner answers remain pending.
+
+## Phase 19 — Responsive workspace navigation
+
+### What changed and what problem it solves
+
+Workspace sections previously rendered their own `AppShell`. Moving from Products to Runs or Releases therefore recreated the masthead, section navigation, global search, theme controls, and New Recording entry point. While Next.js prepared the next route, the previous page remained visible, so a rapid sequence of clicks looked stuck and competing route transitions could leave the browser on an older destination.
+
+The root layout now owns one persistent workspace shell. Existing page wrappers detect that boundary and render only their content, which avoids a risky all-at-once route-file rewrite. The shell highlights the latest clicked section immediately, keeps navigation available, and reasserts that destination until its pathname commits. It prefetches the finite primary route set during browser idle time and loads the New Recording dialog module only when the user requests it.
+
+### End-to-end flow and implementation details
+
+1. `app/layout.tsx` keeps `WorkspaceShell` mounted above route content.
+2. `WorkspaceShell` applies the shared shell only to authenticated inventory and management routes. Sign-in, account-link, Recording Workspace, and Run Workspace routes keep their established standalone compositions.
+3. A workspace link click prevents the competing default transition, records the latest destination, and updates the active navigation label plus an accessible loading status immediately.
+4. An effect compares that pending destination with the current pathname. If they differ, it calls the existing Next.js router. If an older route commits first, the changed pathname causes the effect to request the latest destination again. Pending state clears only when that destination is active.
+5. The shell prefetches Dashboard, Products, Test Cases, Test Data, Runs, Releases, Review, Notifications, and Administration after the browser becomes idle. No API data is fetched by this prefetch.
+6. The New Recording dialog uses a dynamic client import. Ordinary routes no longer eagerly include that dialog through the shell; production first-load JavaScript for Releases fell from 136 kB to 117 kB and Administration from 135 kB to 116 kB.
+
+### Technologies, choices, alternatives, and tradeoffs
+
+- The existing Next.js App Router, `usePathname`, `useRouter`, and `router.prefetch` remain the only routing tools. A second router or navigation state library would add ownership and synchronization problems without helping this finite route set.
+- A React context marks the persistent shell boundary. This compatibility layer avoids editing every page wrapper in the same change, though those wrappers are now redundant and may be removed gradually in later one-file changes.
+- Latest-destination state is transient. It is not stored in local storage, a cookie, session data, or PostgreSQL because it has meaning only while one navigation is pending.
+- The first timer-based coalescing attempt was rejected after the global-search regression showed that a responsive navigation lifecycle could clear the timer. Pathname-driven idempotent routing is slightly more explicit and covers older-route completion reliably.
+- This change improves route preparation and perceived responsiveness. It does not cache Product, Run, or Release API responses; server-query performance remains a separate concern if measurements later show an API bottleneck.
+
+### Verification evidence and priority-based diff review
+
+```text
+npm run lint
+> sentinel@0.1.0 lint
+> eslint .
+exit 0
+
+npx tsc --noEmit --incremental false
+exit 0
+
+npm run build
+✓ Compiled successfully in 1923ms
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/frontend-phase-1-5.spec.ts tests/global-search.spec.ts --reporter=line
+Running 4 tests using 1 worker
+4 passed (22.3s)
+exit 0
+```
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `components/app-shell.tsx` (`WorkspaceShell`, `AppShellFrame`, `pendingHref`, pathname-routing effect) | This is the navigation state machine and the fix for the competing-transition race. Read now, especially the rule that pending state clears only when its own destination commits. |
+| Medium — understand next | `app/layout.tsx` (`WorkspaceShell` boundary); `tests/frontend-phase-1-5.spec.ts` (rapid navigation regression) | These activate persistence and encode the Products → Runs → Releases contract. Review how the test proves the masthead DOM survives the route change. |
+| Lower — skim or defer | `architecture.md`, `phases.md`, and `decisions-log.md` | These explain the approved boundary and acceptance state but do not execute runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why did rendering `AppShell` independently inside every section page make navigation feel stuck even when the API was healthy?
+2. Which routes receive the persistent workspace shell, and why do sign-in, Recording Workspace, and Run Workspace remain outside it?
+3. How does the React context let existing page-level `AppShell` wrappers remain safe during this migration?
+4. What changes in the interface immediately after a section click, before the new pathname has committed?
+5. Why does the routing effect compare `pendingHref` with `pathname` instead of clearing pending state on every pathname change?
+6. How does the implementation ensure Releases still wins if Products or Runs finishes navigating after the Releases click?
+7. What does route prefetching load, and what Product, Test Case, Run, or Release data does it deliberately not cache?
+8. Why is the New Recording dialog dynamically imported, and what production bundle evidence shows the effect?
+9. Which browser assertions prove shell persistence, rapid-click behavior, responsive navigation, and compatibility with global search?
+10. If a page still feels slow after this fix, how would you distinguish route preparation, client rendering, and API/database latency before changing code?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews `WorkspaceShell`, `AppShellFrame`, and the latest-destination effect before Phase 19 is considered fully understood.
+- Measure protected API response times separately if users still observe slow data after the route lifecycle fix; do not add client caching without defining freshness and mutation invalidation rules.
+
+**Learning status:** Implementation, production build, rapid-click verification, responsive/global-search regression, and priority diff review are complete. Owner answers remain pending.
