@@ -658,14 +658,16 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Outcome:** A tester can move rapidly between workspace sections without the previous page appearing stuck while the next route prepares, and repeated section visits avoid rebuilding the shared shell.
 
-- [ ] Keep one persistent authenticated App Shell across Dashboard, Products, Test Cases, Test Data, Runs, Releases, Review, Notifications, and Administration routes.
-- [ ] Preserve the standalone sign-in, account-link, Recording Workspace, and Run Workspace compositions.
-- [ ] Reflect the tester's latest section click immediately, keep navigation available while content changes, and ensure rapid Products → Runs → Releases clicks settle on Releases.
-- [ ] Preload the small set of primary workspace routes after the shell becomes idle without adding a client state or routing dependency.
-- [ ] Load the New Recording dialog code only when requested so ordinary section navigation does not eagerly load recording creation UI.
-- [ ] Preserve current API calls, authorization, persisted data, responsive navigation, keyboard focus, reduced-motion behavior, and route destinations.
-- [ ] Add focused browser regression for persistent-shell identity, latest-click routing, and post-navigation interaction.
-- [ ] Run lint, type-check, production build, focused browser verification, and applicable navigation regression with exact output.
-- [ ] Review the actual diff in learning priority order, record the decision, and add one append-only learning entry with exactly ten owner questions before closing the learning gate.
+- [x] Keep one persistent authenticated App Shell across Dashboard, Products, Test Cases, Test Data, Runs, Releases, Review, Notifications, and Administration routes.
+- [x] Preserve the standalone sign-in, account-link, Recording Workspace, and Run Workspace compositions.
+- [x] Reflect the tester's latest section click immediately, keep navigation available while content changes, and ensure rapid Products → Runs → Releases clicks settle on Releases.
+- [x] Preload the small set of primary workspace routes after the shell becomes idle without adding a client state or routing dependency.
+- [x] Load the New Recording dialog code only when requested so ordinary section navigation does not eagerly load recording creation UI.
+- [x] Preserve current API calls, authorization, persisted data, responsive navigation, keyboard focus, reduced-motion behavior, and route destinations.
+- [x] Add focused browser regression for persistent-shell identity, latest-click routing, and post-navigation interaction.
+- [x] Run lint, type-check, production build, focused browser verification, and applicable navigation regression with exact output.
+- [x] Review the actual diff in learning priority order, record the decision, and add one append-only learning entry with exactly ten owner questions before closing the learning gate.
 
 **Out of scope:** API or database optimization, a new state-management/data-fetching library, server-side rendering changes, permission changes, redesigning page content, or changing the standalone recording and Run workspaces.
+
+**Implementation verification (2026-08-26):** Lint and strict TypeScript checks pass. The production build compiles in 1923 ms and generates all 18 static pages. Deferring New Recording UI reduced first-load JavaScript from 136 kB to 117 kB for Releases and from 135 kB to 116 kB for Administration. The focused rapid-click regression passes in 2.7 seconds, and the combined frontend/global-search suite passes all four workflows in 22.3 seconds. The priority review, D-043, and exactly ten Phase 19 owner questions are recorded; owner answers remain pending, so the learning gate is not complete.
