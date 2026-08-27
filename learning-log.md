@@ -2279,3 +2279,89 @@ exit 0
 - Revisit data caching only if measured API latency becomes the dominant delay and an explicit freshness and mutation-invalidation contract is approved.
 
 **Learning status:** The local compiler change, clean-container timing, production build, and focused browser regression are complete. Owner answers remain pending.
+
+## Phase 18 defect refinement — Step Log collapse visibility
+
+### What changed and what problem it solves
+
+The Recording Workspace collapse button changed React state and reduced the Step Log grid column to 4rem, but the expanded timeline content stayed visible inside that narrow column. This produced the clipped headings and paragraphs shown in the owner screenshots and made the collapse control appear broken.
+
+React already applied `hidden` to `.step-panel__expanded`. The problem was CSS precedence: the authored `.step-panel__expanded { display: flex; }` rule overrode the browser's built-in `[hidden] { display: none; }` behavior. A component-scoped rule now makes both Step Log regions `display: none` whenever their `hidden` attribute is present.
+
+### End-to-end flow, implementation details, and tradeoffs
+
+1. The tester selects **Collapse Step Log**.
+2. `RecordingWorkspaceView` keeps the existing `isStepLogCollapsed` state and sets `hidden` on the expanded region while revealing the collapsed region.
+3. The workspace grid changes from its 30/70 split to `4rem` plus the remaining browser width.
+4. The new CSS rule removes the hidden expanded region from layout, leaving only the labelled **Expand Step Log** chevron in the rail.
+5. Selecting **Expand Step Log** reverses the two `hidden` attributes and restores the same mounted timeline DOM.
+
+Keeping both regions mounted preserves the existing component and scroll/state boundary. Conditional React rendering was considered but rejected because the state was already correct and changing component structure would be broader than the presentation defect. A global `[hidden]` override was rejected because the failure is local and a global rule could affect unrelated components. No `!important` declaration is required because the scoped rule is placed after the competing display rules with sufficient specificity.
+
+The fix does not persist the collapsed preference across refreshes and intentionally does not change the 4rem rail width. It also does not affect Guided Runs, remote browser/noVNC behavior, captured steps, APIs, save/discard, authorization, or full-screen state restoration.
+
+### Verification evidence and priority-based diff review
+
+```text
+Before the CSS fix:
+expandedHidden: true
+expandedDisplay: flex
+expandedWidth: 155.421875
+panelWidth: 64
+
+After the CSS fix:
+expandedHidden: true
+expandedDisplay: none
+expandedWidth: 0
+panelWidth: 64
+workspaceColumns: 64px 1216px
+
+npm run lint && npx tsc --noEmit --incremental false && npm run build
+> sentinel@0.1.0 lint
+> eslint .
+✓ Compiled successfully in 3.3s
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/frontend-phase-1-5.spec.ts --grep "compact icon controls" --reporter=line
+Running 1 test using 1 worker
+1 passed (9.5s)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/frontend-phase-1-5.spec.ts tests/phase-1-recording.spec.ts --reporter=dot
+Running 4 tests using 1 worker
+····
+4 passed (54.1s)
+exit 0
+```
+
+The live visual check used an empty temporary draft at the screenshot-sized desktop layout. It confirmed a clean restore rail with no clipped content; that exact zero-step draft was then removed.
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `app/globals.css` (`.step-panel__expanded[hidden]`, `.step-panel__collapsed[hidden]`) | This is the behavior fix and demonstrates how authored display rules can override semantic hidden state. Read now. |
+| Medium — understand next | `tests/frontend-phase-1-5.spec.ts` (`uses compact icon controls…`) | This now proves the expanded region is hidden, the rail is exactly 64px, and expansion restores the content. Review the three assertions. |
+| Lower — skim or defer | `phases.md` and `decisions-log.md` | These preserve the defect boundary, evidence, and rationale without executing runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why did the Step Log look collapsed at the grid level while its text remained visible and clipped?
+2. Which React state and HTML attribute were already correct before this repair?
+3. How can an authored `display: flex` rule override the browser's normal handling of the `hidden` attribute?
+4. Why is the repair scoped to the two Step Log regions instead of adding a global `[hidden]` rule?
+5. Why was `!important` unnecessary for this selector?
+6. What remains visible in the intentional 4rem collapsed rail, and how can a screen-reader user identify it?
+7. Why does keeping the regions mounted help preserve the existing timeline boundary when expanding again?
+8. Which browser assertions prove that clipped content cannot return while the Step Log is collapsed?
+9. Which recording, browser, persistence, authorization, and Guided Run behaviors remain unchanged?
+10. If another component combines `hidden` with an authored display declaration, how would you diagnose and repair it without creating an overly broad CSS rule?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the scoped hidden-state rule plus the focused browser assertions before this refinement is considered fully understood.
+
+**Learning status:** Root-cause diagnosis, scoped CSS repair, visual geometry verification, static checks, production build, focused regression, broader recording regression, cleanup, and priority review are complete. Owner answers remain pending.
