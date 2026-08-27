@@ -670,14 +670,16 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Outcome:** The expanded Step Log header keeps its existing title block and presents the step count plus collapse control on one aligned row without wrapping, using a polished matching chevron pair for collapse and restore.
 
-- [ ] Preserve the existing **Live timeline / Step Log** copy and place the step count between that title block and the collapse control.
-- [ ] Keep the complete step-count label on one line at supported desktop widths.
-- [ ] Replace the CSS-drawn corner marks with the project's existing left/right SVG chevrons while retaining labelled buttons, tooltips, keyboard focus, and minimum target size.
-- [ ] Keep the 4rem collapsed rail, hidden expanded content, recording state, full-screen restoration, browser session, and save/discard behavior unchanged.
-- [ ] Add focused browser assertions for single-line count geometry, horizontal ordering, chevron rendering, collapse, and expansion.
-- [ ] Run lint, type-check, production build, focused visual verification, and applicable recording regressions; record the priority review and exactly ten owner questions.
+- [x] Preserve the existing **Live timeline / Step Log** copy and place the step count between that title block and the collapse control.
+- [x] Keep the complete step-count label on one line at supported desktop widths.
+- [x] Replace the CSS-drawn corner marks with the project's existing left/right SVG chevrons while retaining labelled buttons, tooltips, keyboard focus, and minimum target size.
+- [x] Keep the 4rem collapsed rail, hidden expanded content, recording state, full-screen restoration, browser session, and save/discard behavior unchanged.
+- [x] Add focused browser assertions for single-line count geometry, horizontal ordering, chevron rendering, collapse, and expansion.
+- [x] Run lint, type-check, production build, focused visual verification, and applicable recording regressions; record the priority review and exactly ten owner questions.
 
 **Out of scope:** Changing Step Log copy or width, moving the title block, replacing the shared icon system, persisting layout state, or changing any API, recording, browser, authorization, or Guided Run behavior.
+
+**Implementation verification (2026-08-27):** Live review measured the unchanged title block ending at 217.375px, the one-line `0 steps` badge from 233.375–313px, and the collapse control from 321–363px, proving title → count → control ordering without overlap. The badge computes `white-space: nowrap`; both circular targets are 42px with matching 18px shared SVG chevrons. Collapse still hides the expanded region and retains the 64px rail. The zero-step visual-check draft was removed. Lint, strict TypeScript, and the 18-page production build pass. The focused workflow passes in 5.8 seconds and all four applicable frontend/remote-recording workflows pass in 56.2 seconds. D-046, synchronized design documents, priority review, and exactly ten owner questions are recorded; owner answers remain pending, so the learning review is not complete.
 
 ## Phase 19 — Responsive workspace navigation
 
