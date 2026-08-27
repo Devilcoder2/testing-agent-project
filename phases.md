@@ -676,11 +676,13 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Outcome:** The Docker-local pilot no longer makes a tester wait several seconds while visiting a section whose development bundle has not yet been compiled.
 
-- [ ] Use Next.js Turbopack for the local `dev` command while retaining the existing production `next build` and `next start` paths.
-- [ ] Confirm the temporary runtime starts successfully with the repository's current Next.js, React, Prisma, API, and client-component boundaries.
-- [ ] Measure every primary workspace route from a fresh compiler and require the initial shared Dashboard compilation to remain below 3.5 seconds, each subsequent cold section below 1 second, and warmed sections below 250 milliseconds on the current development machine.
-- [ ] Recreate only the Sentinel web container so PostgreSQL, Redis, MinIO, QA fixture, worker, evidence, and the user-owned active Guided Run remain untouched.
-- [ ] Re-run lint, type-check, the production build, rapid-navigation coverage, and the broader frontend/global-search regression.
-- [ ] Record raw timing evidence, update setup/runtime documentation, and add exactly ten owner learning questions before closing the refinement learning gate.
+- [x] Use Next.js Turbopack for the local `dev` command while retaining the existing production `next build` and `next start` paths.
+- [x] Confirm the temporary runtime starts successfully with the repository's current Next.js, React, Prisma, API, and client-component boundaries.
+- [x] Measure every primary workspace route from a fresh compiler and require the initial shared Dashboard compilation to remain below 3.5 seconds, each subsequent cold section below 1 second, and warmed sections below 250 milliseconds on the current development machine.
+- [x] Recreate only the Sentinel web container so PostgreSQL, Redis, MinIO, QA fixture, worker, evidence, and the user-owned active Guided Run remain untouched.
+- [x] Re-run lint, type-check, the production build, rapid-navigation coverage, and the broader frontend/global-search regression.
+- [x] Record raw timing evidence, update setup/runtime documentation, and add exactly ten owner learning questions before closing the refinement learning gate.
 
 **Out of scope:** Production bundler replacement, API-response caching, database schema/query changes, clearing user-owned Runs, or altering browser-worker behavior.
+
+**Implementation verification (2026-08-27):** Live Webpack development logs showed cold section responses of 5.54 seconds for Products, 4.58 seconds for Test Cases, 4.02 seconds for Runs, and 6.64 seconds for Test Data while protected API requests were generally 30–200 milliseconds. After recreating only the Sentinel web container with Turbopack, a clean Dashboard compiled in 3.157841 seconds; every subsequent cold workspace section completed in 0.306975–0.465875 seconds and every warmed section in 0.085250–0.102401 seconds. Lint, strict TypeScript, and the standard production build pass, including all 18 generated pages. The final combined frontend/global-search browser suite passes all four workflows in 28.8 seconds. D-044, runtime documentation, the priority diff review, and exactly ten owner questions are recorded. Owner answers remain pending, so the learning review is not complete.
