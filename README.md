@@ -51,6 +51,8 @@ Read [`AGENTS.md`](AGENTS.md) before planning or changing the project. In partic
 
 Docker Desktop is required. Start the local stack, then open [http://localhost:3001](http://localhost:3001).
 
+The interactive Sentinel container runs Next.js with Turbopack so first visits to workspace sections compile quickly while retaining hot reload. Production verification remains the separate `npm run build` and `npm run start` path.
+
 ```text
 docker compose up --build -d
 docker compose logs -f sentinel
