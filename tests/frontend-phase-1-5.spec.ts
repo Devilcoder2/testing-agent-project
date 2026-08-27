@@ -88,7 +88,10 @@ test("provides routed, keyboard-accessible, reduced-motion-safe recording UI", a
   await expect(page.locator(".recording-workspace")).toBeHidden();
 
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--motion-base").trim())).toBe("0ms");
+  await expect.poll(() => page.evaluate(() => {
+    const duration = getComputedStyle(document.documentElement).getPropertyValue("--motion-base").trim();
+    return Number.parseFloat(duration);
+  })).toBe(0);
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.locator(".recording-bar").getByRole("button", { name: "Back to dashboard" }).click();
