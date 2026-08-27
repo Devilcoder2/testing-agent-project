@@ -2190,3 +2190,92 @@ exit 0
 - Measure protected API response times separately if users still observe slow data after the route lifecycle fix; do not add client caching without defining freshness and mutation invalidation rules.
 
 **Learning status:** Implementation, production build, rapid-click verification, responsive/global-search regression, and priority diff review are complete. Owner answers remain pending.
+
+## Phase 19 refinement — Fast local route compilation
+
+### What changed and what problem it solves
+
+The persistent workspace shell made clicks react immediately, but the Docker-local Next.js development server still used Webpack and compiled each unvisited route on demand. Live measurements showed that first visits to Products, Test Cases, Runs, and Test Data took about 4–6.6 seconds even though their protected API requests generally completed in 30–200 milliseconds. The local `dev` script now uses Next.js Turbopack. Production still uses the existing `next build` and `next start` paths.
+
+From a clean Sentinel web-container restart, the shared Dashboard compiled in 3.16 seconds. Every other primary cold section completed in 0.31–0.47 seconds, and warmed visits completed in 0.085–0.102 seconds. The web container alone was recreated; PostgreSQL, Redis, MinIO, the QA fixture, the worker, stored evidence, and the active Guided Run were not reset.
+
+### End-to-end flow, choices, tradeoffs, and limitations
+
+1. Docker starts the Sentinel web service and runs the package `dev` script.
+2. Next.js starts with its bundled Turbopack development compiler and preserves hot reload.
+3. The first shared route prepares common application modules; later section clicks compile only their missing route modules.
+4. The persistent shell from Phase 19 continues to show the newest click immediately while that smaller cold compilation finishes.
+5. Page components then make the same protected API calls as before. No response is cached beyond existing behavior, so create/edit/delete freshness and authorization are unchanged.
+
+Turbopack was chosen because it is bundled with the pinned Next.js runtime, needs no new dependency, and directly targets the measured compiler bottleneck. Running the production server for daily development was rejected because it removes the normal edit-and-hot-reload loop. Adding a client data cache was rejected because API timing was not the primary delay and no freshness or mutation-invalidation contract has been approved. Database indexing was also rejected without evidence of a slow query.
+
+The main tradeoff is that local development and production use different compilers, so both the live browser regression and the production build must keep running. The initial shared Dashboard compile still takes about 3.16 seconds after a fresh compiler restart, but it is a one-time cost within the accepted 3.5-second budget. The existing dependency audit warning about eight high-severity packages remains unrelated and unresolved by this performance change.
+
+### Verification evidence and priority-based diff review
+
+```text
+Fresh Docker-local Turbopack timing:
+dashboard 3.157841s 200
+products 0.361990s 200
+test-cases 0.322821s 200
+runs 0.334352s 200
+releases 0.345726s 200
+test-data 0.306975s 200
+review 0.348900s 200
+notifications 0.465875s 200
+admin 0.380420s 200
+dashboard warm 0.100093s 200
+products warm 0.086925s 200
+test-cases warm 0.090334s 200
+runs warm 0.090877s 200
+releases warm 0.085250s 200
+test-data warm 0.102401s 200
+review warm 0.092239s 200
+notifications warm 0.089872s 200
+admin warm 0.085254s 200
+
+npm run lint && npx tsc --noEmit --incremental false && npm run build
+> sentinel@0.1.0 lint
+> eslint .
+> sentinel@0.1.0 build
+> next build
+✓ Compiled successfully in 5.0s
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/frontend-phase-1-5.spec.ts --reporter=dot
+Running 3 tests using 1 worker
+···
+3 passed (17.4s)
+exit 0
+```
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `package.json` (`dev` script) | This switches the live local compiler and therefore affects every developer page visit. Read now and keep production `build`/`start` separate. |
+| Medium — understand next | `tests/frontend-phase-1-5.spec.ts` (reduced-motion assertion and rapid navigation); `techstack.md`; `README.md` | The browser test protects the user flow and now treats `0s` and `0ms` as the same zero duration. The documents define how local and production execution differ. |
+| Lower — skim or defer | `phases.md` and `decisions-log.md` | These preserve the measured budget, scope, and decision history without changing runtime behavior. |
+
+### Ten-question understanding check
+
+1. What evidence showed that cold development compilation, rather than the protected APIs, was the dominant remaining page delay?
+2. Which package script changed, and which production scripts deliberately remain unchanged?
+3. What happens during the first Dashboard visit after a fresh development compiler restart?
+4. What cold and warm timing budgets were used, and did every primary workspace route meet them?
+5. Why was only the Sentinel web container recreated, and which persistent services and user data stayed untouched?
+6. Why was a client-side API cache not added as part of this optimization?
+7. Why would using the production server for ordinary local development be a poor replacement for Turbopack?
+8. What compatibility risk comes from using one compiler in development and another for production, and which checks reduce that risk?
+9. Why should reduced-motion verification compare the numeric zero rather than require the exact string `0ms`?
+10. If page lag returns, how would you separately measure compiler time, API time, and client rendering before choosing another fix?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the `dev` script plus the cold/warm timing evidence before this refinement is considered fully understood.
+- Revisit data caching only if measured API latency becomes the dominant delay and an explicit freshness and mutation-invalidation contract is approved.
+
+**Learning status:** The local compiler change, clean-container timing, production build, and focused browser regression are complete. Owner answers remain pending.
