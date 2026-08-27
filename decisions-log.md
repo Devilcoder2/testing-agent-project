@@ -373,3 +373,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** React already toggled the correct `hidden` attributes, but the authored `.step-panel__expanded { display: flex; }` declaration overrode the browser's default `[hidden]` rule. The expanded timeline therefore remained rendered inside the 4rem collapsed rail and appeared as clipped text. Respecting `hidden` repairs the presentation without changing component state or discarding the mounted timeline DOM.
 - **Impact:** Collapse leaves only the accessible restore control and gives the browser the intended width; expansion restores the same mounted Step Log. Recording steps, browser sessions, full-screen restoration, persistence, APIs, authorization, and Guided Runs are unchanged.
 - **Status:** Implemented and pushed on 2026-08-27. Screenshot-sized visual measurement, the focused rail regression, lint, strict TypeScript, the 18-page production build, and all four applicable recording browser workflows pass. Owner learning answers remain pending.
+
+## D-046 — Reuse shared SVG chevrons for Step Log controls
+
+- **Date:** 2026-08-27
+- **Decision:** Keep the expanded Step Log title block in place, align the non-wrapping step count and collapse control beside it, and replace the CSS border-corner marks with the existing shared left/right SVG chevrons inside circular buttons.
+- **Reason:** The previous actions container stacked the count above the control, allowing the label to wrap and making the hand-drawn corner mark feel visually unfinished. The shared icon system produces a consistent stroke, direction pair, and accessible control treatment without adding an asset or dependency.
+- **Impact:** The expanded order is title, count, then left-facing collapse control; the 4rem restore rail uses the matching right-facing control. Labels, tooltips, focus behavior, collapse state, full-screen restoration, browser sessions, recording data, and APIs remain unchanged.
+- **Status:** Implemented and pushed on 2026-08-27. Live geometry and visual review confirm one-line ordering, 18px SVG chevrons, circular 42px targets, and the unchanged 64px restore rail. Static checks, the 18-page production build, the focused workflow, and all four applicable recording regressions pass. Owner learning answers remain pending.
