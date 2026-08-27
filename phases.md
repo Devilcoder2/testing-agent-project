@@ -656,13 +656,15 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Outcome:** Collapsing the Recording Workspace Step Log hides all expanded timeline content and leaves only the intentional 4rem restore rail, so the browser receives the reclaimed width without clipped sidebar text.
 
-- [ ] Make the expanded and collapsed Step Log regions obey their semantic `hidden` state even when component display rules are present.
-- [ ] Preserve the existing 4rem rail, accessible Collapse/Expand names, focus behavior, full-screen restoration, recorded steps, browser session, and save/discard workflow.
-- [ ] Add a browser assertion that the expanded region is not rendered after collapse and returns after expansion.
-- [ ] Verify the expanded and collapsed geometry at the screenshot-sized desktop viewport, then run lint, type-check, production build, and the focused recording/browser regressions.
-- [ ] Review the diff in learning priority order and add exactly ten owner questions before closing the learning gate.
+- [x] Make the expanded and collapsed Step Log regions obey their semantic `hidden` state even when component display rules are present.
+- [x] Preserve the existing 4rem rail, accessible Collapse/Expand names, focus behavior, full-screen restoration, recorded steps, browser session, and save/discard workflow.
+- [x] Add a browser assertion that the expanded region is not rendered after collapse and returns after expansion.
+- [x] Verify the expanded and collapsed geometry at the screenshot-sized desktop viewport, then run lint, type-check, production build, and the focused recording/browser regressions.
+- [x] Review the diff in learning priority order and add exactly ten owner questions before closing the learning gate.
 
 **Out of scope:** Redesigning the Step Log, changing its width, persisting collapse state, changing remote-browser/noVNC behavior, or modifying APIs, authorization, recorded data, or Guided Runs.
+
+**Implementation verification (2026-08-27):** Before repair, the expanded region had `hidden=true` but computed `display:flex` and retained 155.421875px of content inside the 64px rail. The scoped hidden-state rule changes that region to `display:none` and zero width while retaining `64px 1216px` workspace columns at the visual-check viewport. The live layout shows only the accessible restore chevron with no clipped sidebar text, and the empty temporary draft used for visual verification was removed. Lint, strict TypeScript, and the 18-page production build pass. The focused rail workflow passes in 9.5 seconds, and all four applicable frontend/remote-recording browser workflows pass in 54.1 seconds. D-045, the priority review, and exactly ten owner questions are recorded; owner answers remain pending, so the learning review is not complete.
 
 ## Phase 19 — Responsive workspace navigation
 
