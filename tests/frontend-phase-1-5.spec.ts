@@ -107,14 +107,20 @@ test("uses compact icon controls for the recording Step Log rail", async ({ page
   await page.getByLabel("Test Name").fill(`Compact rail ${Date.now()}`);
   await page.getByRole("button", { name: "Create recording workspace" }).click();
 
+  const expandedStepLog = page.locator(".step-panel__expanded");
+  await expect(expandedStepLog).toBeVisible();
   const collapse = page.getByRole("button", { name: "Collapse Step Log" });
   await expect(collapse).toHaveCSS("font-size", "0px");
   await collapse.click();
   const expand = page.getByRole("button", { name: "Expand Step Log" });
+  await expect(expandedStepLog).toBeHidden();
+  await expect(page.locator(".step-panel")).toHaveCSS("width", "64px");
   await expect(expand).toBeVisible();
   await expect(expand).toHaveCSS("font-size", "0px");
   await expect(expand).toHaveCSS("writing-mode", "horizontal-tb");
   await expect(page.locator(".step-panel__rail-count")).toBeHidden();
+  await expand.click();
+  await expect(expandedStepLog).toBeVisible();
   await page.getByRole("button", { name: "Discard" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 });
