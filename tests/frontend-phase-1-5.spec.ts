@@ -109,15 +109,25 @@ test("uses compact icon controls for the recording Step Log rail", async ({ page
 
   const expandedStepLog = page.locator(".step-panel__expanded");
   await expect(expandedStepLog).toBeVisible();
+  const titleBlock = page.locator(".step-panel__head > div").first();
+  const stepCount = page.locator(".step-panel__head-actions .status-badge");
   const collapse = page.getByRole("button", { name: "Collapse Step Log" });
-  await expect(collapse).toHaveCSS("font-size", "0px");
+  await expect(stepCount).toHaveCSS("white-space", "nowrap");
+  await expect(collapse).toHaveAttribute("title", "Collapse Step Log");
+  await expect(collapse.locator("svg.icon")).toBeVisible();
+  const [titleBox, countBox, collapseBox] = await Promise.all([titleBlock.boundingBox(), stepCount.boundingBox(), collapse.boundingBox()]);
+  expect(titleBox).not.toBeNull();
+  expect(countBox).not.toBeNull();
+  expect(collapseBox).not.toBeNull();
+  expect(titleBox!.x + titleBox!.width).toBeLessThanOrEqual(countBox!.x);
+  expect(countBox!.x + countBox!.width).toBeLessThanOrEqual(collapseBox!.x);
   await collapse.click();
   const expand = page.getByRole("button", { name: "Expand Step Log" });
   await expect(expandedStepLog).toBeHidden();
   await expect(page.locator(".step-panel")).toHaveCSS("width", "64px");
   await expect(expand).toBeVisible();
-  await expect(expand).toHaveCSS("font-size", "0px");
-  await expect(expand).toHaveCSS("writing-mode", "horizontal-tb");
+  await expect(expand).toHaveAttribute("title", "Expand Step Log");
+  await expect(expand.locator("svg.icon")).toBeVisible();
   await expect(page.locator(".step-panel__rail-count")).toBeHidden();
   await expand.click();
   await expect(expandedStepLog).toBeVisible();
