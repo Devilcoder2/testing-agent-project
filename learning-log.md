@@ -2365,3 +2365,89 @@ The live visual check used an empty temporary draft at the screenshot-sized desk
 - The owner answers all ten questions and reviews the scoped hidden-state rule plus the focused browser assertions before this refinement is considered fully understood.
 
 **Learning status:** Root-cause diagnosis, scoped CSS repair, visual geometry verification, static checks, production build, focused regression, broader recording regression, cleanup, and priority review are complete. Owner answers remain pending.
+
+## Phase 18 UI refinement — Single-row Step Log controls
+
+### What changed and what user problem it solves
+
+The expanded Step Log header previously placed its step-count badge and collapse mark in a vertical stack. That made the count wrap onto another line and left the CSS-drawn corner mark looking inconsistent with the rest of Sentinel. The title block remains unchanged, while the count and collapse control now form one horizontal row beside it.
+
+The collapse button uses the shared `chevronLeft` SVG and the 4rem restore rail uses the matching `chevronRight` SVG. Both sit in circular 42px controls, retain explicit accessible labels and tooltips, and use an 18px icon with a consistent 2.25 stroke. The count uses `white-space: nowrap`, so labels such as `0 steps` remain one line.
+
+### Flow, technology, alternatives, and tradeoffs
+
+1. `RecordingWorkspaceView` renders the existing title block, step badge, and labelled collapse button in that order.
+2. The action container is a non-growing horizontal flex row, while the title block may shrink safely.
+3. The shared `Icon` component supplies the same SVG geometry already used elsewhere in Sentinel instead of inventing another asset.
+4. Collapse preserves the existing state transition and 64px rail; only the right-facing restore chevron remains visible.
+5. Expansion restores the original title, single-line count, and left-facing control.
+
+A new icon package or image asset was rejected because the repository already has a small accessible SVG system. Keeping the CSS pseudo-element and merely changing its border thickness was rejected because it would continue duplicating shared icon behavior. Moving the count into the title copy was rejected because the owner requested it as the middle element. The fixed 42px target is slightly larger than the 18px glyph, which improves pointer and keyboard usability without widening the Step Log.
+
+### Verification evidence and priority review
+
+```text
+Live expanded-header geometry:
+title right: 217.375px
+count left/right: 233.375px / 313px
+control left/right: 321px / 363px
+count: 0 steps
+count white-space: nowrap
+control: 42px circle
+SVG: 18px × 18px
+
+Live collapsed geometry:
+expanded display: none
+rail width: 64px
+control border radius: 999px
+SVG: 18px × 18px
+
+npm run lint && npx tsc --noEmit --incremental false && npm run build
+> sentinel@0.1.0 lint
+> eslint .
+✓ Compiled successfully in 3.4s
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/frontend-phase-1-5.spec.ts --grep "compact icon controls" --reporter=line
+Running 1 test using 1 worker
+1 passed (5.8s)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/frontend-phase-1-5.spec.ts tests/phase-1-recording.spec.ts --reporter=dot
+Running 4 tests using 1 worker
+····
+4 passed (56.2s)
+exit 0
+```
+
+The first focused test attempt correctly reached the new UI but failed because the new test used DOMRect `left/right` names against Playwright's `x/width` geometry object. The assertion was corrected to calculate each right edge as `x + width`, then the focused and broader suites passed. The empty zero-step draft used for live visual review was removed afterward.
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `components/sentinel-views.tsx` (`RecordingWorkspaceView`, `Icon` usage); `app/globals.css` (`.step-panel__head-actions`, count nowrap, icon controls) | These files define the semantic labels, visual order, sizing, and shared chevron pair. Read now. |
+| Medium — understand next | `tests/frontend-phase-1-5.spec.ts` (compact Step Log workflow) | This proves title → count → control ordering, one-line count behavior, SVG presence, 64px collapse, and restoration. Review its geometry calculation. |
+| Lower — skim or defer | `frontend.md`, `DESIGN.md`, `phases.md`, and `decisions-log.md` | These synchronize the design and decision boundary without adding runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why did the previous vertical action container make the step count look like a second line?
+2. What is the required left-to-right order of the three expanded Step Log header regions?
+3. Which CSS property guarantees that `0 steps` or a larger count remains on one line?
+4. Why does the title block have `min-width: 0` while the controls use `flex: 0 0 auto`?
+5. Why was the repository's shared `Icon` component preferred over another CSS-drawn mark or a new dependency?
+6. Which chevron direction represents collapse, and which direction represents restore?
+7. How do the icon-only buttons retain accessible names and pointer tooltips?
+8. Why is the clickable control 42px while the SVG itself is only 18px?
+9. Which test assertions prove horizontal ordering without depending on a screenshot comparison?
+10. Which recording, full-screen, browser-session, data, API, and authorization behaviors remain unchanged?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the shared SVG markup, single-row flex rules, and focused geometry assertions before this refinement is considered fully understood.
+
+**Learning status:** Design synchronization, shared-icon implementation, live visual/geometry review, static checks, production build, focused regression, broader recording regression, cleanup, and priority review are complete. Owner answers remain pending.
