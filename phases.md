@@ -671,3 +671,16 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Out of scope:** API or database optimization, a new state-management/data-fetching library, server-side rendering changes, permission changes, redesigning page content, or changing the standalone recording and Run workspaces.
 
 **Implementation verification (2026-08-26):** Lint and strict TypeScript checks pass. The production build compiles in 1923 ms and generates all 18 static pages. Deferring New Recording UI reduced first-load JavaScript from 136 kB to 117 kB for Releases and from 135 kB to 116 kB for Administration. The focused rapid-click regression passes in 2.7 seconds, and the combined frontend/global-search suite passes all four workflows in 22.3 seconds. The priority review, D-043, and exactly ten Phase 19 owner questions are recorded; owner answers remain pending, so the learning gate is not complete.
+
+### Phase 19 refinement — Fast local route compilation
+
+**Outcome:** The Docker-local pilot no longer makes a tester wait several seconds while visiting a section whose development bundle has not yet been compiled.
+
+- [ ] Use Next.js Turbopack for the local `dev` command while retaining the existing production `next build` and `next start` paths.
+- [ ] Confirm the temporary runtime starts successfully with the repository's current Next.js, React, Prisma, API, and client-component boundaries.
+- [ ] Measure every primary workspace route from a fresh compiler and require the initial shared Dashboard compilation to remain below 3.5 seconds, each subsequent cold section below 1 second, and warmed sections below 250 milliseconds on the current development machine.
+- [ ] Recreate only the Sentinel web container so PostgreSQL, Redis, MinIO, QA fixture, worker, evidence, and the user-owned active Guided Run remain untouched.
+- [ ] Re-run lint, type-check, the production build, rapid-navigation coverage, and the broader frontend/global-search regression.
+- [ ] Record raw timing evidence, update setup/runtime documentation, and add exactly ten owner learning questions before closing the refinement learning gate.
+
+**Out of scope:** Production bundler replacement, API-response caching, database schema/query changes, clearing user-owned Runs, or altering browser-worker behavior.
