@@ -15,6 +15,7 @@
 | Validation | Zod | 3.x or compatible stable major | Runtime validation at API and job boundaries. |
 | Testing | Vitest and Playwright Test | Current compatible majors pinned in Phase 1 | Fast unit tests plus real-browser acceptance tests. |
 | Global search | Existing Next.js API, Prisma, PostgreSQL, and React state | No additional dependency | Case-insensitive capped prefix queries and a debounced accessible combobox are sufficient for the controlled pilot while keeping authorization on the server. |
+| Local development compiler | Next.js Turbopack | Bundled with the pinned Next.js 15.x runtime | Reduces first-visit section compilation in the Docker-local pilot while preserving hot reload. Production validation continues to use the standard `next build` output. |
 
 ## 2. Persistence and execution
 
@@ -47,6 +48,7 @@
 ## 4. Development and operations
 
 - Git and GitHub `origin` on `main`.
+- `npm run dev` uses the Next.js-bundled Turbopack compiler. The production `build` and `start` scripts remain separate and unchanged.
 - `.env.example` for configuration names only; never commit secrets.
 - Docker Compose provides local PostgreSQL, separate QA-fixture PostgreSQL/API, private MinIO, Redis, Mailpit, Sentinel, and a two-concurrency browser worker with a separate notification queue.
 - Docker Desktop is required for Phases 1–2: Compose runs PostgreSQL, MinIO, Sentinel, the isolated demo target, and the browser-in-browser session.
