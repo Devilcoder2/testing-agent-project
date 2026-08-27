@@ -357,3 +357,11 @@ This log records non-obvious decisions, their reason, and their status. New deci
 - **Reason:** Each section currently recreates the same masthead, navigation, search, theme, and recording entry component tree. During route preparation Next.js leaves the previous page visible, so rapid navigation appears stuck and later clicks become visible only after the route commits. A persistent shell addresses the lifecycle problem without changing protected page or API behavior.
 - **Impact:** Workspace navigation remains available and gives immediate pending feedback while child content changes. Sign-in, account-link, Recording Workspace, and Run Workspace layouts stay standalone. No API, database, authorization, client state library, or route destination changes.
 - **Status:** Implemented and pushed on 2026-08-26. Lint, type-check, the 18-page production build, the focused rapid-click workflow, and the combined frontend/global-search browser regression pass. Phase 19 owner learning answers remain pending.
+
+## D-044 — Use Turbopack for the Docker-local development server
+
+- **Date:** 2026-08-27
+- **Decision:** Run `next dev --turbopack` for the local interactive Sentinel server. Keep the production `next build` and `next start` commands unchanged.
+- **Reason:** Live logs showed that the remaining page lag came from cold Webpack development compilation rather than protected API queries: Products took 5.54 seconds, Test Cases 4.58 seconds, Runs 4.02 seconds, and Test Data 6.64 seconds on first access. A temporary Turbopack server compiled subsequent cold sections in 0.37–0.81 seconds and served warmed sections in 0.08–0.19 seconds on the same machine.
+- **Impact:** Local hot reload and the isolated Docker `.next` volume remain. No application dependency, API, database, permission, worker, browser session, or production-bundling behavior changes. Recreating the Sentinel web container is required for the command change to take effect; persistent service volumes and the worker remain untouched.
+- **Status:** Approved for the Phase 19 cold-route refinement and full compatibility verification.
