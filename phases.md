@@ -652,6 +652,18 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Out of scope:** Browser-native Fullscreen API permission, noVNC toolbar exposure, remote browser/Chromium-policy changes, Guided Run changes, persisted layout preferences, native mobile recording, or any API/database change.
 
+### Phase 18 defect refinement — Step Log collapse visibility
+
+**Outcome:** Collapsing the Recording Workspace Step Log hides all expanded timeline content and leaves only the intentional 4rem restore rail, so the browser receives the reclaimed width without clipped sidebar text.
+
+- [ ] Make the expanded and collapsed Step Log regions obey their semantic `hidden` state even when component display rules are present.
+- [ ] Preserve the existing 4rem rail, accessible Collapse/Expand names, focus behavior, full-screen restoration, recorded steps, browser session, and save/discard workflow.
+- [ ] Add a browser assertion that the expanded region is not rendered after collapse and returns after expansion.
+- [ ] Verify the expanded and collapsed geometry at the screenshot-sized desktop viewport, then run lint, type-check, production build, and the focused recording/browser regressions.
+- [ ] Review the diff in learning priority order and add exactly ten owner questions before closing the learning gate.
+
+**Out of scope:** Redesigning the Step Log, changing its width, persisting collapse state, changing remote-browser/noVNC behavior, or modifying APIs, authorization, recorded data, or Guided Runs.
+
 ## Phase 19 — Responsive workspace navigation
 
 **Depends on:** Phase 16's command masthead and the delivered workspace routes.
