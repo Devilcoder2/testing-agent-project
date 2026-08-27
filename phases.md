@@ -666,6 +666,19 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Implementation verification (2026-08-27):** Before repair, the expanded region had `hidden=true` but computed `display:flex` and retained 155.421875px of content inside the 64px rail. The scoped hidden-state rule changes that region to `display:none` and zero width while retaining `64px 1216px` workspace columns at the visual-check viewport. The live layout shows only the accessible restore chevron with no clipped sidebar text, and the empty temporary draft used for visual verification was removed. Lint, strict TypeScript, and the 18-page production build pass. The focused rail workflow passes in 9.5 seconds, and all four applicable frontend/remote-recording browser workflows pass in 54.1 seconds. D-045, the priority review, and exactly ten owner questions are recorded; owner answers remain pending, so the learning review is not complete.
 
+### Phase 18 UI refinement — Single-row Step Log controls
+
+**Outcome:** The expanded Step Log header keeps its existing title block and presents the step count plus collapse control on one aligned row without wrapping, using a polished matching chevron pair for collapse and restore.
+
+- [ ] Preserve the existing **Live timeline / Step Log** copy and place the step count between that title block and the collapse control.
+- [ ] Keep the complete step-count label on one line at supported desktop widths.
+- [ ] Replace the CSS-drawn corner marks with the project's existing left/right SVG chevrons while retaining labelled buttons, tooltips, keyboard focus, and minimum target size.
+- [ ] Keep the 4rem collapsed rail, hidden expanded content, recording state, full-screen restoration, browser session, and save/discard behavior unchanged.
+- [ ] Add focused browser assertions for single-line count geometry, horizontal ordering, chevron rendering, collapse, and expansion.
+- [ ] Run lint, type-check, production build, focused visual verification, and applicable recording regressions; record the priority review and exactly ten owner questions.
+
+**Out of scope:** Changing Step Log copy or width, moving the title block, replacing the shared icon system, persisting layout state, or changing any API, recording, browser, authorization, or Guided Run behavior.
+
 ## Phase 19 — Responsive workspace navigation
 
 **Depends on:** Phase 16's command masthead and the delivered workspace routes.
