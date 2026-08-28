@@ -2451,3 +2451,88 @@ The first focused test attempt correctly reached the new UI but failed because t
 - The owner answers all ten questions and reviews the shared SVG markup, single-row flex rules, and focused geometry assertions before this refinement is considered fully understood.
 
 **Learning status:** Design synchronization, shared-icon implementation, live visual/geometry review, static checks, production build, focused regression, broader recording regression, cleanup, and priority review are complete. Owner answers remain pending.
+
+## Phase 20 — Dashboard Health overview column alignment
+
+### What changed and what problem it solves
+
+The Health overview looked like a four-column ledger, but every Product button created its own CSS grid. Its final column used `auto`, so status labels of different widths—such as `Passed`, `Failed`, `Interrupted`, and `No Runs`—caused each row to divide the remaining width differently. Product-name length was visually distracting, but measured status width was the actual cause of the shifting Tests and pass-rate columns.
+
+The parent `.health-overview` now owns one four-track grid, and every row inherits those exact tracks with CSS `subgrid`. Product names remain one line and use ellipsis only when they exceed their shared track. Tests, pass rate, and status labels remain non-wrapping and use identical horizontal starts across all rows.
+
+### Flow, technology, alternatives, and tradeoffs
+
+1. The Dashboard API returns the same authorized Product health items as before.
+2. React renders the same four children in every row: Product name, saved-Test count, pass rate, and latest status.
+3. The parent grid calculates the four desktop tracks once, including enough shared width for the widest status badge.
+4. Each row spans the parent and uses `grid-template-columns: subgrid`, so every child lands on the same column start.
+5. The existing mobile media rule replaces subgrid with its compact two-column presentation and continues hiding secondary metrics.
+
+Hard-coding pixel starts was rejected because the panel width changes with viewport and zoom. Repeating a four-fraction template in every row would improve consistency only if no intrinsic content changed track sizing; the previous `auto` column demonstrated that risk. A semantic HTML table was not introduced because these rows are interactive Product-filter buttons and changing markup would broaden keyboard and selection behavior. CSS subgrid fixes the measured layout while preserving those interactions.
+
+Subgrid requires the project's modern supported browsers. The complete Product name stays in the button's accessible text, but exceptionally long names visually truncate instead of increasing row height. No visible column headers were added because they were not requested; the existing content remains self-explanatory in this compact ledger.
+
+### Verification evidence and priority review
+
+```text
+Before repair, status-dependent starts included:
+Tests: 601.4375px to 618.3984375px
+Pass rate: 836.046875px to 860.28125px
+Status: 1107.765625px to 1140.484375px
+
+After repair across 10 Product rows:
+Product starts: [70]
+Tests starts: [596.921875]
+Pass-rate starts: [832.03125]
+Status starts: [1105]
+Row heights: [56]
+
+npm run lint && npx tsc --noEmit --incremental false && npm run build
+> sentinel@0.1.0 lint
+> eslint .
+✓ Compiled successfully in 2.4s
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/phase-6-dashboard-notifications.spec.ts --reporter=line
+Running 1 test using 1 worker
+1 passed (15.2s)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/frontend-phase-1-5.spec.ts --grep "workspace shell responsive" --reporter=line
+Running 1 test using 1 worker
+1 passed (8.6s)
+exit 0
+```
+
+The combined dashboard/frontend run completed three of four workflows. Its only remaining failure was outside this CSS change: the recording workflow's five-second post-discard URL assertion expired even though service logs showed `DELETE /api/recordings/... 200`; that deletion took 5.292 seconds. A targeted repeat reached the same successful deletion but again exceeded the five-second redirect assertion. The focused dashboard workflow, its Product fixture cleanup, compact Step Log workflow, and rapid navigation workflow pass. The existing recording test timeout remains an explicit follow-up rather than being hidden by this dashboard change.
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `app/globals.css` (`.health-overview`, `.health-overview__row`, Product overflow) | This contains the shared-track behavior and mobile override interaction. Read now, especially why the parent owns sizing. |
+| Medium — understand next | `tests/phase-6-dashboard-notifications.spec.ts` (`overviewGeometry`) | This proves all four starts and row heights are identical across real short/long Product and status labels. Review the geometry loop and bounded data wait. |
+| Lower — skim or defer | `frontend.md`, `DESIGN.md`, `phases.md`, and `decisions-log.md` | These preserve the approved visual and technical boundary without changing runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why could identical per-row grid declarations still produce different column starts?
+2. Which content-width difference was measured as the primary cause of the shifting columns?
+3. What does CSS subgrid inherit from the parent Health overview grid?
+4. Why does defining the tracks once on the parent guarantee alignment across all Product rows?
+5. How are very long Product names handled visually, and what complete information remains accessible?
+6. Why are Tests, pass-rate, and status cells prevented from wrapping?
+7. Why was a hard-coded pixel-column solution rejected?
+8. How does the existing mobile media rule avoid being forced into the four-column desktop presentation?
+9. Which browser assertions prove alignment without relying on screenshot comparison?
+10. Which dashboard data, filtering, selection, API, database, and authorization behaviors remain unchanged?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the parent/subgrid CSS plus the four-column geometry assertions before Phase 20 is considered fully understood.
+- Investigate or harden the separate recording workflow's post-discard five-second navigation expectation if local API cleanup continues to exceed that budget.
+
+**Learning status:** Root-cause measurement, shared-column repair, live visual review, design synchronization, static checks, production build, focused dashboard regression, cleanup, and priority review are complete. Owner answers and the unrelated recording timeout follow-up remain pending.
