@@ -790,3 +790,22 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Completion note (2026-08-28):** Header metadata, labelled icon actions, outside-dismissable aligned overflow actions, ownership modal persistence, conditional GitHub routing, compact native step disclosures, and distinct checkpoint presentation are implemented. Lint, strict TypeScript, and the 18-page production build pass. The focused Test Case, Release, Suggestions, recording, Auto Run, and no-integration GitHub workflows pass. The Guided Run regression could not start a second live browser because an existing user-owned session holds the intentional single-session boundary; this remains an explicit follow-up. D-050, the priority review, and exactly ten owner questions are recorded. Owner answers remain pending, so the learning review is not complete.
 
 **Out of scope:** Editing recorded step data from the detail page, changing Run behavior, changing suggestion or ownership permissions, changing GitHub connection/routing APIs, or adding a new UI/icon dependency.
+
+## Phase 24 — Tabular Test Data and row-driven Runs
+
+**Depends on:** Phases 4, 16, 19, and 23
+**Outcome:** Authorized users can prepare Product Test Data as a secure multi-row table manually or from Excel, edit eligible tables without revealing stored values, and use each row as one independently managed Run input.
+
+- [x] Resolve the value-visibility, row lifecycle, Auto batch, Guided single-row, Excel privacy, Product filtering, editing authorization, and compatibility boundaries in `srd.md`, `architecture.md`, `frontend.md`, and `techstack.md`.
+- [ ] Add ordered encrypted Test Data rows, row-level lifecycle/reservation, exact Run-binding row attribution, and a migration from every existing single-record set.
+- [ ] Add authorized all-Product list, masked detail, create, edit, and invalidate APIs with row/column/cell limits, canonical fields, secret rejection, duplicate-name handling, and in-transaction masked retention.
+- [ ] Update Guided Run binding to choose one safe row and Auto Run binding to transactionally create one Run per safe row from one pooled table while preserving static/manual and legacy single-run behavior.
+- [ ] Add a locally parsed `.xlsx` import path that never uploads the workbook and uses the same draft and server validation as manual table entry.
+- [ ] Replace the Test Data page with the All accessible Products filter, concise inventory rows, labelled icon actions, and a responsive spreadsheet-style create/edit dialog.
+- [ ] Keep create/edit validation inside the open dialog and never expose stored values in list/detail responses, DOM, logs, audit details, queues, evidence, or Run Detail.
+- [ ] Add migration/API tests for encryption, row lifecycle, authorization, editing, all-Product isolation, validation, atomic batch creation, rollback, and existing-data compatibility.
+- [ ] Add browser coverage for All Products, concise rows, tooltips/accessibility, manual grid editing, Excel import, modal errors, masked edit retention, and row-count-driven Auto Runs.
+- [ ] Run migration deployment, lint, strict type-check, production build, focused API/browser coverage, and applicable Product/Test/Run/global-search regression with exact raw output.
+- [ ] Review the diff by learning priority, record every non-obvious decision, and append exactly ten owner understanding questions before closing the learning gate.
+
+**Out of scope:** Revealing or exporting stored plaintext, legacy `.xls` parsing, formulas/macros/multiple-sheet joins, spreadsheet formulas inside Sentinel, cross-data-set Cartesian products, simultaneous Guided Runs, scheduling, external data providers, or changing Release batch eligibility.
