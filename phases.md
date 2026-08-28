@@ -765,3 +765,20 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Completion note (2026-08-28):** Implementation, migration, static/build checks, real MinIO/database cascade coverage, Release regression, and Product browser workflows pass. Representative asynchronous deletion completed in 3.11 seconds; the focused keyboard/delete browser workflow passed in 7.5 seconds. The Phase 22 learning entry records priority review and exactly ten questions; owner answers remain an explicit follow-up, so the learning review is not yet complete.
 
 **Out of scope:** Product archival/restore, scheduled deletion, bulk deletion, deleting Releases, retaining Product Test/Run history, changing the eight-hour session policy, or adding a separate worker service.
+
+## Phase 23 — Focused Test Case detail interface
+
+**Outcome:** A saved Test Case is faster to scan and operate: core metadata replaces generic copy, primary actions use labelled icons, unavailable GitHub automation disappears, and each recorded step expands only when its annotations are needed.
+
+- [x] Confirm the existing Test Case, Run, suggestions, ownership, Review, GitHub-routing, and immutable-step API contracts remain unchanged.
+- [ ] Move Product, owner, and step count into the header description and remove the duplicate metadata row and generic read-only sentence.
+- [ ] Replace Guided/Auto text actions with labelled icons and More actions with the shared three-dot icon.
+- [ ] Make the text-only overflow actions full-width and left-aligned, close on outside pointer/focus or Escape, and preserve ownership-transfer modal visibility.
+- [ ] Hide GitHub routing while unavailable or when no active Product repository is connected.
+- [ ] Replace always-expanded step cards with keyboard-operable compact disclosures that retain action/target context and distinctly label checkpoints.
+- [ ] Remove the redundant current-version timeline explanatory sentence and preserve empty/version/variable behavior.
+- [ ] Add focused browser coverage for metadata, icon labels/tooltips, outside-click dismissal, aligned overflow items, conditional GitHub visibility, step expansion, and checkpoint distinction.
+- [ ] Run lint, strict type-check, production build, focused Test Case browser coverage, and relevant Test/Run/GitHub regression with exact output.
+- [ ] Record the decision, priority diff review, and exactly ten owner understanding questions; keep unanswered learning items explicit.
+
+**Out of scope:** Editing recorded step data from the detail page, changing Run behavior, changing suggestion or ownership permissions, changing GitHub connection/routing APIs, or adding a new UI/icon dependency.
