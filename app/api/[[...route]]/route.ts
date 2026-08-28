@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { AccountStatus, AuthTokenKind, ChangeProposalStatus, DatabaseDiagnosticKind, DatabaseDiagnosticStatus, EvidenceKind, GitHubDeliveryStatus, GitHubRepositoryConnectionStatus, JiraFilingStatus, OrganizationRole, Prisma, ProductDeletionStatus, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, SourceAnalysisTrigger, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
+import { AccountStatus, AuthTokenKind, ChangeProposalStatus, DatabaseDiagnosticKind, DatabaseDiagnosticStatus, EvidenceKind, GitHubDeliveryStatus, GitHubRepositoryConnectionStatus, JiraFilingStatus, MessagingInboundUpdateKind, MessagingInboundUpdateStatus, MessagingProvider, OrganizationRole, Prisma, ProductDeletionStatus, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, SourceAnalysisTrigger, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { consumeAuthToken, createSession, hashPassword, issueAuthToken, readSession, revokeUserSessions, validPassword, verifyPassword, type SessionUser } from "@/lib/auth";
@@ -11,7 +11,7 @@ import { buildJiraDraftWithDiagnostic, isAllowedJiraPriority, JiraAdapterError, 
 import { notifyChangeProposalResolved, notifyChangeProposalSubmitted, notifyRunFailure } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { pilotReadiness } from "@/lib/pilot-readiness";
-import { enqueueAutoRun, enqueueJiraFiling, enqueueProductDeletion } from "@/lib/queue";
+import { enqueueAutoRun, enqueueJiraFiling, enqueueMessagingUpdate, enqueueProductDeletion } from "@/lib/queue";
 import { enqueueGitHubDelivery } from "@/lib/queue";
 import { GitHubIntegrationError, githubIsConfigured, normalizeBranches, parseGitHubPushDelivery, repositoryDetailsForApp, validBranchName, verifyGitHubSignature } from "@/lib/github";
 import { requestSourceAnalysis } from "@/lib/github-runs";
@@ -21,6 +21,8 @@ import { proposedValueIsSafe, suggestionsForSteps, type SuggestionKind } from "@
 import { sendAccountLink } from "@/lib/account-email";
 import { isSearchSection, searchWorkspace } from "@/lib/global-search";
 import { productDeletionImpact } from "@/lib/product-deletion";
+import { createTelegramLink, linkTelegramChat, telegramIdentityForChat, telegramIdentityStatus, telegramInboundAllowed, unlinkTelegram } from "@/lib/messaging-service";
+import { acknowledgeTelegramCallback, deleteTelegramWebhook, parseTelegramUpdate, sendTelegramMessage, setTelegramWebhook, telegramDeepLink, telegramIsConfigured, verifyTelegramWebhookSecret } from "@/lib/telegram";
 
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
@@ -328,6 +330,67 @@ async function route(request: Request, context: Context) {
       return json({ error: "GitHub delivery queue is temporarily unavailable." }, 503);
     }
   }
+  if (request.method === "POST" && path.join("/") === "internal/telegram/webhook") {
+    if (!telegramIsConfigured()) return json({ error: "Telegram integration is not configured." }, 503);
+    if (!verifyTelegramWebhookSecret(request.headers.get("x-telegram-bot-api-secret-token"))) return json({ error: "Telegram webhook secret is invalid." }, 401);
+    const integration = await prisma.messagingIntegrationConfig.findUnique({ where: { provider: MessagingProvider.TELEGRAM } });
+    if (!integration?.isActive) return json({ accepted: true, disabled: true }, 202);
+    const parsed = parseTelegramUpdate(await request.json().catch(() => null));
+    if (!parsed) return json({ accepted: true, ignored: true }, 202);
+    if (parsed.kind === "CALLBACK_QUERY") acknowledgeTelegramCallback(parsed.callbackId).catch(() => undefined);
+    let identity = await telegramIdentityForChat(parsed.chatId);
+    if (parsed.kind === "MESSAGE" && parsed.command === "START" && parsed.linkToken) {
+      try {
+        identity = await linkTelegramChat(parsed.linkToken, parsed.chatId);
+      } catch {
+        await sendTelegramMessage(parsed.chatId, "This Telegram link is invalid, expired, or no longer available. Generate a new link from Sentinel.").catch(() => undefined);
+        return json({ accepted: true, rejected: true }, 202);
+      }
+    }
+    if (!identity || identity.status !== "ACTIVE") {
+      await prisma.messagingInboundUpdate.upsert({
+        where: { provider_providerUpdateId: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId } },
+        create: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId, kind: parsed.kind === "MESSAGE" ? MessagingInboundUpdateKind.MESSAGE : MessagingInboundUpdateKind.CALLBACK_QUERY, status: MessagingInboundUpdateStatus.REJECTED, safeReason: "UNLINKED_PRIVATE_CHAT", processedAt: new Date() },
+        update: {}
+      });
+      if (parsed.kind === "MESSAGE" && parsed.command === "START") await sendTelegramMessage(parsed.chatId, "Link Telegram from Sentinel Account integrations before using this bot.").catch(() => undefined);
+      return json({ accepted: true, rejected: true }, 202);
+    }
+    if (!(await telegramInboundAllowed(identity))) {
+      await prisma.messagingInboundUpdate.upsert({
+        where: { provider_providerUpdateId: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId } },
+        create: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId, kind: parsed.kind === "MESSAGE" ? MessagingInboundUpdateKind.MESSAGE : MessagingInboundUpdateKind.CALLBACK_QUERY, identityId: identity.id, status: MessagingInboundUpdateStatus.REJECTED, safeReason: "RATE_LIMITED", processedAt: new Date() },
+        update: {}
+      });
+      return json({ accepted: true, rateLimited: true }, 202);
+    }
+    const existingUpdate = await prisma.messagingInboundUpdate.findUnique({ where: { provider_providerUpdateId: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId } } });
+    if (existingUpdate) return json({ accepted: true, duplicate: true }, 202);
+    let update;
+    try {
+      update = await prisma.messagingInboundUpdate.create({
+        data: {
+          provider: MessagingProvider.TELEGRAM,
+          providerUpdateId: parsed.updateId,
+          kind: parsed.kind === "MESSAGE" ? MessagingInboundUpdateKind.MESSAGE : MessagingInboundUpdateKind.CALLBACK_QUERY,
+          identityId: identity.id,
+          command: parsed.kind === "MESSAGE" ? parsed.command : null,
+          callbackActionId: parsed.kind === "CALLBACK_QUERY" ? parsed.callbackData.slice(2) : null,
+          status: MessagingInboundUpdateStatus.QUEUED
+        }
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return json({ accepted: true, duplicate: true }, 202);
+      throw error;
+    }
+    try {
+      await enqueueMessagingUpdate({ updateId: update.id });
+      return json({ accepted: true }, 202);
+    } catch {
+      await prisma.messagingInboundUpdate.update({ where: { id: update.id }, data: { status: MessagingInboundUpdateStatus.FAILED, safeReason: "DELIVERY_QUEUE_UNAVAILABLE", processedAt: new Date() } });
+      return json({ error: "Telegram processing is temporarily unavailable." }, 503);
+    }
+  }
   const body = request.method === "GET" ? {} : await request.json().catch(() => ({}));
 
   if (request.method === "OPTIONS" && path.join("/") === "internal/events") return recorderJson({});
@@ -412,6 +475,47 @@ async function route(request: Request, context: Context) {
     const user = await requireUser();
     if (request.method === "GET" && path.join("/") === "auth/me") {
       return json({ user: { id: user.id, email: user.email, displayName: user.displayName, role: user.role, organizationId: user.organizationId } });
+    }
+    if (path[0] === "account" && path[1] === "telegram") {
+      if (request.method === "GET" && path.length === 2) return json({ ...(await telegramIdentityStatus(user)), configured: telegramIsConfigured() });
+      if (request.method === "POST" && path[2] === "link") {
+        if (!telegramIsConfigured()) return json({ error: "Telegram is not configured for this Sentinel deployment." }, 503);
+        const token = await createTelegramLink(user);
+        return json({ deepLink: telegramDeepLink(token), expiresInSeconds: 600 }, 201);
+      }
+      if (request.method === "DELETE") {
+        await unlinkTelegram(user);
+        return new NextResponse(null, { status: 204 });
+      }
+    }
+    if (path[0] === "admin" && path[1] === "telegram") {
+      if (user.role !== OrganizationRole.ADMIN) return json({ error: "Telegram integration administration is restricted to Admins." }, 403);
+      if (request.method === "GET") {
+        const [config, linkedIdentities, recentDeliveries] = await Promise.all([
+          prisma.messagingIntegrationConfig.findUnique({ where: { provider: MessagingProvider.TELEGRAM } }),
+          prisma.messagingIdentity.count({ where: { provider: MessagingProvider.TELEGRAM, status: "ACTIVE" } }),
+          prisma.messagingDelivery.count({ where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, status: "FAILED" } })
+        ]);
+        return json({ configured: telegramIsConfigured(), active: Boolean(config?.isActive), webhookActiveAt: config?.webhookActiveAt ?? null, lastCheckedAt: config?.lastCheckedAt ?? null, safeError: config?.safeError ?? null, linkedIdentities, failedDeliveriesLast24Hours: recentDeliveries });
+      }
+      if (request.method === "POST" && (path[2] === "activate" || path[2] === "deactivate")) {
+        const activate = path[2] === "activate";
+        if (activate && !telegramIsConfigured()) return json({ error: "Set all server-only Telegram configuration values before activation." }, 503);
+        try {
+          if (activate) await setTelegramWebhook();
+          else await deleteTelegramWebhook();
+          const config = await prisma.messagingIntegrationConfig.upsert({
+            where: { provider: MessagingProvider.TELEGRAM },
+            create: { provider: MessagingProvider.TELEGRAM, isActive: activate, webhookActiveAt: activate ? new Date() : null, lastCheckedAt: new Date(), safeError: null, updatedById: user.id },
+            update: { isActive: activate, webhookActiveAt: activate ? new Date() : null, lastCheckedAt: new Date(), safeError: null, updatedById: user.id }
+          });
+          await prisma.auditEvent.create({ data: { actorId: user.id, action: activate ? "TELEGRAM_WEBHOOK_ACTIVATED" : "TELEGRAM_WEBHOOK_DEACTIVATED", entityType: "MessagingIntegration", entityId: config.id } });
+          return json({ active: config.isActive });
+        } catch {
+          await prisma.messagingIntegrationConfig.upsert({ where: { provider: MessagingProvider.TELEGRAM }, create: { provider: MessagingProvider.TELEGRAM, isActive: false, lastCheckedAt: new Date(), safeError: "TELEGRAM_WEBHOOK_UNAVAILABLE", updatedById: user.id }, update: { lastCheckedAt: new Date(), safeError: "TELEGRAM_WEBHOOK_UNAVAILABLE", updatedById: user.id } });
+          return json({ error: "Telegram could not update the webhook. Check the server-only configuration and public webhook endpoint." }, 503);
+        }
+      }
     }
     if (request.method === "GET" && path.join("/") === "search") {
       const searchParams = new URL(request.url).searchParams;
