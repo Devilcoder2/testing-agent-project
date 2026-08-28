@@ -559,22 +559,26 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Out of scope:** Source-code writes, automated patches or commits, pull-request approval, workflow modification, unrestricted full-repository prompting, automatic baseline/Test Case modification, automatic Jira filing, and connections to non-GitHub source-control providers.
 
-## Phase 14 — Conversational agent integration
+## Phase 14 — Secure Telegram Run Assistant
 
-**Depends on:** Phase 12; may reuse Phase 13 Run traceability but must not require a GitHub connection.
-**Outcome:** An explicitly linked, authorized tester can safely use an approved WhatsApp or Telegram integration to discover Tests/Releases, request eligible Auto Runs, confirm the request, and receive a privacy-safe result without opening Sentinel on a laptop.
+**Depends on:** Phase 12 organization roles and authorization; Phase 3 Auto Run safety; Phase 4 static-variable eligibility; Phase 5 Releases; Phase 11 local-pilot hardening.
+**Outcome:** A user who explicitly links a private Telegram chat can browse only their authorized Tests or Release contents, confirm eligible individual Auto Runs, and receive requester-only safe outcomes. Sentinel remains localhost-only; only the provider webhook route is externally reachable through a dedicated gateway.
 
-- [ ] Confirm the first messaging provider, provider account ownership, webhook/authentication model, message-retention policy, identity-linking flow, and support/runbook before implementation. WhatsApp and Telegram are alternatives until the owner approves scope.
-- [ ] Require a one-time, authenticated Sentinel identity link and re-check current organization, role, and Product access for every command. A phone number, chat ID, or forwarded message alone must never authorize an action.
-- [ ] Support a deliberately narrow command flow: list authorized Releases/Test Cases, select one or more eligible Tests, show a clear confirmation including scope, then request existing Auto Runs. Do not expose a generic administrative command surface.
-- [ ] Reuse existing Auto Run eligibility, variable/Test Data binding rules, checkpoints, queue limits, cancellation, retry, authorization, evidence redaction, and audit boundaries. Ineligible Tests must return a clear safe reason rather than being silently skipped.
-- [ ] Send only privacy-safe chat replies: names, states, timestamps, safe failure reason, and protected Sentinel links. Never send credentials, variables, Test Data values, screenshots, raw logs, evidence URLs, database results beyond existing safe summaries, or unrestricted Run controls.
-- [ ] Make inbound messages and outbound status notifications idempotent, rate-limited, auditable, and recoverable from provider/worker failures. Explicitly define confirmation expiry and how cancellation is authorized.
-- [ ] Provide a Sentinel integration/status screen for administrators: linked identities, safe connection status, last command state, revoke/unlink action, and audit history without message or secret leakage.
-- [ ] Add unit, integration, provider-webhook, queue, authorization, redaction, confirmation, retry, and browser tests—including revoked access, stale confirmation, duplicate message, unauthorized chat, and failed-provider cases.
-- [ ] Update all required documentation, add an append-only learning-log entry with exactly 10 owner questions, run full regression, and complete owner manual sandbox-provider testing.
+- [ ] Add one shared, deployment-owned Telegram bot integration. Telegram is the sole provider in this phase; WhatsApp and natural-language chat control remain deferred.
+- [ ] Add server/worker-only `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_WEBHOOK_URL`, and `MESSAGING_ENCRYPTION_KEY` configuration. Do not return or log these values.
+- [ ] Add a dedicated route-restricted webhook gateway and `telegram-tunnel` profile that forwards only `/api/internal/telegram/webhook`; never expose the normal Sentinel web application through this tunnel.
+- [ ] Issue a one-time, hashed `TELEGRAM_LINK` token from an authenticated Account integrations screen. It must expire after ten minutes, be single-use, bind one active private chat to one user/organization, and support immediate self-unlinking.
+- [ ] Persist encrypted chat identifiers, deterministic lookup hashes, deduplicated safe update metadata, server-side guided selection/confirmation state, selected Test references, durable outbound deliveries, and safe audit events. Retain terminal command/delivery metadata for thirty days only; never store message text or provider payloads.
+- [ ] Implement a Telegram webhook that verifies the secret header, accepts only private-chat `message` and `callback_query` updates, deduplicates `update_id`, promptly acknowledges callbacks, rate-limits linked identities to thirty inbound updates/minute, and queues durable processing.
+- [ ] Build the guided button flow: `/start`/`/menu`, authorized Product-filtered Test browsing, browse-only Release contents, opaque callback actions, paging, multi-Test selection, review, five-minute Confirm, and pre-confirm Cancel.
+- [ ] On confirmation atomically re-check active account, organization role, Product membership, current Test version, target allowlist, no-checkpoint policy, and static-only-variable eligibility. Queue all selected existing Auto Runs or none; never silently skip an ineligible Test.
+- [ ] Reuse the existing two-concurrency Auto Run worker, evidence, retry, audit, and authorization behavior. Telegram cannot supply values, start a Release batch, expose evidence/links, start checkpoints/manual/pool-variable Tests, or cancel a confirmed Run.
+- [ ] Create requester-only terminal delivery records and safe Telegram results for Passed, Failed, and Interrupted Runs. Limit outbound pacing to one delivery/second/chat, retry one transient send failure, and never let delivery affect Run truth.
+- [ ] Add Account link/unlink UI and Admin integration status/activate/deactivate UI, with only safe activity/status data. Non-Admins must not reach administration controls.
+- [ ] Add unit, integration, mocked-provider, queue, authorization, redaction, expiry, rate-limit, cleanup, and Playwright coverage. Perform the documented private Telegram sandbox acceptance after server-only provider configuration exists.
+- [ ] Update all required documentation and append the Phase 14 learning-log entry with exactly ten owner questions. Owner answers and the live provider sandbox remain explicit follow-up acceptance work.
 
-**Out of scope:** Unrestricted natural-language administration, autonomous Test selection, direct evidence delivery in chat, production customer support, multi-provider implementation in the first iteration, and bypassing Sentinel's approved browser/Run policies.
+**Out of scope:** WhatsApp, unrestricted natural-language administration, autonomous Test selection, Release batch starts, chat-supplied values, direct evidence/Sentinel link delivery, checkpoints, cancellation after confirmation, production customer support, and bypassing Sentinel's approved browser/Run policies.
 
 ## Phase 15 — Product-wide UI/UX revamp
 
