@@ -11,6 +11,7 @@ test("keeps optional GitHub controls safe when no repository integration is conf
 
   await page.goto(`${baseUrl}/products`);
   await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
+  await page.getByRole("button", { name: /^More actions for / }).first().click();
   await page.getByRole("button", { name: "GitHub", exact: true }).first().click();
   const dialog = page.getByRole("dialog", { name: "GitHub repositories" });
   await expect(dialog).toBeVisible();
