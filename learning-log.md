@@ -2797,3 +2797,57 @@ The focused browser test verifies header metadata, removed copy, absent unavaila
 - Re-run the Guided Run browser regression after the existing live browser session is intentionally finished by its owner; do not clear user-owned work merely to satisfy the test.
 
 **Learning status:** Requirements, implementation, focused and applicable regression coverage, static/build verification, decision record, and priority diff review are complete. The existing single-live-browser session blocks only the second Guided Run exercise. Owner answers remain pending, so the learning review is not complete.
+
+## Phase 14 — Secure Telegram Run Assistant
+
+### What changed and why
+
+Phase 14 adds a deliberately narrow Telegram assistant for people who need to launch an existing eligible Auto Run away from Sentinel. The bot does not become a general controller: it accepts only linked private chats, uses guided buttons instead of free-form commands, starts only individual eligible Auto Runs, and returns only a requester-safe terminal summary. This gives a tester a convenient remote entry point without weakening the existing organization, Product, variable, evidence, browser, and Run safeguards.
+
+### End-to-end flow and implementation
+
+1. An authenticated Sentinel user opens **Account → Integrations** and asks for a Telegram link. The server creates a one-time `TELEGRAM_LINK` token hash with a ten-minute expiry; the browser sees the deep link but the database never stores the plaintext token.
+2. Telegram delivers the deep-link `/start` update to the route-restricted webhook gateway. Sentinel checks Telegram's secret header, rejects non-private chat types, stores no text/payload, deduplicates the provider update ID, encrypts the private chat identifier using the distinct messaging AES-256-GCM key, and queues safe processing.
+3. The worker binds the chat to the active user and organization. Later `/start`/`/menu` and callback updates look up this identity through a deterministic hash and re-check that the account, organization role, and relevant Product membership are still active.
+4. Server-side selection state drives opaque inline-button callbacks. The user can browse authorized Test Cases or the members of a Release, select eligible Tests, review the list, cancel before confirmation, or confirm within five minutes. No chat value is used as Test Data or a selector.
+5. Confirmation re-evaluates the current Test version, target allowlist, checkpoint state, and static-only variable policy for every selected Test in one transaction. If any Test is ineligible, Sentinel queues none. Otherwise it delegates to the canonical Auto Run queueing path and attributes each Run to the linked user.
+6. Existing worker execution, evidence, retries, and Run outcome remain authoritative. At terminal completion, a durable outbox records one requester-only result delivery. The delivery worker decrypts the chat ID only long enough to call Telegram's `sendMessage`, follows one-message-per-second pacing, retries one transient failure, and persists only safe status/reason metadata.
+7. A daily maintenance task removes terminal messaging command and delivery metadata after thirty days. Unlinking immediately revokes the usable chat endpoint while retaining safe audit history.
+
+The important technologies are PostgreSQL/Prisma for encrypted identity and durable command/outbox records; Node `crypto` AES-256-GCM for chat IDs; Redis/BullMQ for asynchronous inbound/outbound work, idempotency, retry, pacing, and rate limits; native `fetch` for Telegram's HTTPS API; and Nginx plus a dedicated Cloudflare Tunnel profile to make only the webhook route reachable. These choices reuse established Sentinel boundaries instead of adding a Telegram SDK, a second automation engine, or a public frontend deployment.
+
+The main tradeoff is intentional capability reduction. The assistant cannot take free-form instructions, direct evidence, arbitrary values, Release batches, checkpoints, cancellation after confirmation, or administrative actions. That makes chat less flexible, but keeps it auditable, avoids sensitive-data leakage, and means every actual Run uses the existing proven Auto Run policy. A real production rollout would still need provider monitoring, key rotation, compliance review, stronger abuse controls, and possibly an approved second provider; those are outside this Docker-local phase.
+
+### References
+
+- `prisma/schema.prisma` — linked identity, safe update, selection, and delivery persistence.
+- `lib/telegram.ts`, `lib/messaging-service.ts`, and `lib/queue.ts` — provider validation, safe command processing, and durable queues.
+- `app/api/[[...route]]/route.ts` — public webhook plus protected Account/Admin APIs.
+- `worker.ts` — inbound processing, terminal delivery, retry, pacing, and thirty-day cleanup.
+- `telegram-gateway/nginx.conf` and `docker-compose.yml` — webhook-only exposure boundary.
+- `tests/telegram*.test.ts` and `tests/phase-14-telegram.spec.ts` — provider, authorization, lifetime, and UI acceptance coverage.
+- `srd.md`, `architecture.md`, `phases.md`, `techstack.md`, `frontend.md`, and `decisions-log.md` — approved scope and decisions.
+
+### Ten-question understanding check
+
+1. Why is a private Telegram chat ID encrypted and separately indexed by a deterministic hash instead of stored in plaintext?
+2. Which exact conditions must a Telegram webhook update meet before Sentinel queues its processing, and why must callback acknowledgement happen quickly?
+3. How does the one-time Telegram deep-link token differ from an ordinary session, and what expiry/single-use protections apply?
+4. Why do callback buttons contain opaque action references rather than Test IDs, names, or user-controlled instructions?
+5. Which authorization and eligibility checks are repeated at confirmation time, even if the user saw the Test earlier in chat?
+6. Why does a multi-Test confirmation queue every selection or none of them, rather than silently skip Tests that became ineligible?
+7. Which existing Auto Run capabilities and policies are reused, and which otherwise available Sentinel actions are intentionally unavailable through Telegram?
+8. What data is retained for thirty days, what is deliberately never retained, and how does unlinking change the persisted identity state?
+9. How do database uniqueness, BullMQ job IDs, inbound rate limits, outbound pacing, and one retry work together to make provider delivery safe?
+10. Why is a dedicated Nginx gateway and Telegram-only tunnel safer than exposing the normal Sentinel service through a public tunnel?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the highest-priority webhook, encryption, authorization/queueing, worker-delivery, schema migration, and gateway files before Phase 14 is considered fully understood.
+- Complete the manual BotFather sandbox acceptance with a disposable private-chat bot and untracked credentials. Verify group rejection, stale/revoked link denial, multi-Test all-or-nothing confirmation, ineligible-Test explanations, terminal delivery retry, and absence of raw message data in the database/audit output.
+
+**Learning status:** Requirements and architecture are approved. Implementation, migration, provider-adapter tests, browser checks, full regression, and live Telegram sandbox acceptance remain pending. Owner answers are also pending.
