@@ -448,10 +448,9 @@ export function TestCaseDetailView({ testCaseId }: { testCaseId: string }) {
   useEffect(() => {
     request(`test-cases/${testCaseId}`).then((result) => setTestCase(result as SavedTestCase)).catch((loadError) => {
       const error = errorMessage(loadError, "Could not open this Test Case.");
-      if (error.toLowerCase().includes("access") || error.toLowerCase().includes("sign in")) router.replace("/");
-      else setMessage(error);
+      setMessage(error);
     });
-  }, [router, testCaseId]);
+  }, [testCaseId]);
 
   async function startRun(mode: "GUIDED" | "AUTO", bindings?: Record<string, unknown>) {
     setStartingRun(mode);
