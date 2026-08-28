@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { apiRequest } from "@/lib/client-api";
 import { Button, Card, Dialog, EmptyState, Feedback, Field, PageHeader, SelectInput, StatusBadge, TextArea, TextInput } from "./ui";
 
 type Product = { id: string; name: string };
@@ -37,10 +38,7 @@ type ChangeProposal = {
 };
 
 async function request(path: string, method = "GET", body?: unknown) {
-  const response = await fetch(`/api/${path}`, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
-  const payload = response.status === 204 ? null : await response.json();
-  if (!response.ok) throw new Error(payload?.error ?? "Request failed.");
-  return payload;
+  return apiRequest(path, { method, body });
 }
 
 function statusTone(status: SuggestionStatus) {
