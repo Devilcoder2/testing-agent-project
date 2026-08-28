@@ -5,10 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "@/lib/client-api";
 import { ThemeControl } from "./theme-control";
-import { Button, Card, Dialog, EmptyState, Feedback, Field, Icon, Pagination, PageHeader, SelectInput, SentinelMark, Skeleton, StatusBadge, TextArea, TextInput } from "./ui";
+import { Button, Card, Dialog, EmptyState, Feedback, Field, Icon, IconButton, Pagination, PageHeader, SelectInput, SentinelMark, Skeleton, StatusBadge, TextArea, TextInput } from "./ui";
 import { OwnershipTransfer } from "./ownership-transfer";
 
-type Product = { id: string; name: string; createdById?: string };
+type ProductDeletionStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
+type ProductDeletionImpact = { recordings: number; testCases: number; testCaseVersions: number; runs: number; evidence: number; testDataSets: number; reviews: number; notifications: number; integrations: number; releases: number; activeWork: number };
+type ProductDeletionRequest = { id: string; productId: string | null; productName: string; status: ProductDeletionStatus; impact: ProductDeletionImpact; attemptCount: number; failureCode?: string | null; queuedAt: string; startedAt?: string | null; completedAt?: string | null };
+type Product = { id: string; name: string; createdById?: string; canDelete?: boolean; deletionRequest?: Pick<ProductDeletionRequest, "id" | "status" | "failureCode" | "queuedAt" | "startedAt"> | null };
 type Step = { id: string; order: number; kind: string; target: Record<string, string>; value?: string | null; isRedacted: boolean; description?: string | null; expectedOutcome?: string | null; variableName?: string | null; isCheckpoint?: boolean };
 type FeatureLabel = { featureLabel: { id: string; name: string } };
 type TestCaseSummary = { id: string; name: string; ownerId: string; currentVersion: number; product: Product; owner: { displayName: string }; updatedAt: string; featureLabels?: FeatureLabel[] };
@@ -188,11 +191,35 @@ export function DashboardView() {
 }
 
 export function ProductsView() {
-  const { products, testCases, setProducts, loading, error } = useDashboardData();
+  const { products, testCases, setProducts, loading, error, load } = useDashboardData();
   const [newProductName, setNewProductName] = useState("");
   const [productMessage, setProductMessage] = useState("");
   const [isCreateProductOpen, setIsCreateProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deletions, setDeletions] = useState<ProductDeletionRequest[]>([]);
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<ProductDeletionImpact | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteMessage, setDeleteMessage] = useState("");
+  const [deleteWorking, setDeleteWorking] = useState(false);
+
+  async function refreshDeletions(reloadCompleted = false) {
+    try {
+      const next = await request("product-deletions") as ProductDeletionRequest[];
+      const completedWhileOpen = reloadCompleted && deletions.some((previous) => (previous.status === "QUEUED" || previous.status === "PROCESSING") && next.some((current) => current.id === previous.id && current.status === "COMPLETED"));
+      setDeletions(next);
+      if (completedWhileOpen) await load();
+    } catch {
+      // This endpoint is intentionally Admin-only. Other roles simply have no deletion status UI.
+    }
+  }
+
+  useEffect(() => { void refreshDeletions(); }, []);
+  useEffect(() => {
+    if (!deletions.some((deletion) => deletion.status === "QUEUED" || deletion.status === "PROCESSING")) return;
+    const timer = window.setTimeout(() => void refreshDeletions(true), 1500);
+    return () => window.clearTimeout(timer);
+  }, [deletions]);
 
   function openProductModal(product?: Product) {
     setEditingProduct(product ?? null);
@@ -225,12 +252,58 @@ export function ProductsView() {
     }
   }
 
+  async function openDeleteDialog(product: Product) {
+    setDeletingProduct(product);
+    setDeleteImpact(null);
+    setDeleteConfirmation("");
+    setDeleteMessage("");
+    try {
+      const result = await request(`products/${product.id}/deletion-impact`) as { impact: ProductDeletionImpact };
+      setDeleteImpact(result.impact);
+    } catch (impactError) {
+      setDeleteMessage(errorMessage(impactError, "Could not calculate the deletion impact."));
+    }
+  }
+
+  async function confirmProductDeletion() {
+    if (!deletingProduct || deleteConfirmation !== "DELETE") return;
+    setDeleteWorking(true);
+    setDeleteMessage("");
+    try {
+      const deletion = await request(`products/${deletingProduct.id}`, "DELETE", { confirmation: deleteConfirmation }) as ProductDeletionRequest;
+      setDeletions((current) => [deletion, ...current.filter((item) => item.id !== deletion.id)]);
+      setProducts((current) => current.map((product) => product.id === deletingProduct.id ? { ...product, deletionRequest: deletion } : product));
+      setDeletingProduct(null);
+      setDeleteConfirmation("");
+    } catch (deleteError) {
+      setDeleteMessage(errorMessage(deleteError, "Could not queue Product deletion."));
+    } finally {
+      setDeleteWorking(false);
+    }
+  }
+
   const isEditing = Boolean(editingProduct);
+  const latestDeletion = deletions[0];
   return <div className="dashboard-grid">
     <PageHeader eyebrow="Product configuration" title="Products" detail="Create and manage the Product contexts available for guided Test Case recording." actions={<Button className="product-create-action" type="button" onClick={() => openProductModal()}>New product <span aria-hidden="true">+</span></Button>} />
     {error && <Feedback tone="danger">{error}</Feedback>}{productMessage && !isCreateProductOpen && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}
-    <section className="products-layout products-layout--single"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Accessible Products</p><h2>Your Product contexts</h2><p>Products are private to their members and persist between sessions.</p></div><StatusBadge tone="info">{products.length} total</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading Products</StatusBadge> : products.length === 0 ? <EmptyState title="No Products yet" detail="Create your first Product to start a guided recording." /> : <div className="product-list">{products.map((product) => { const testCount = testCases.filter((testCase) => testCase.product.id === product.id).length; return <article className="product-list__item" key={product.id}><div><h3>{product.name}</h3><p>{testCount} saved Test Case{testCount === 1 ? "" : "s"}</p></div><div className="product-list__actions"><GitHubProjectSettings product={product} /><JiraProjectSettings product={product} /><Button type="button" variant="secondary" onClick={() => openProductModal(product)}>Edit</Button>{product.createdById && <OwnershipTransfer label="Product" currentOwnerId={product.createdById} membersPath={`products/${product.id}/members`} transferPath={`products/${product.id}/owner`} onTransferred={() => window.location.reload()} />}<Link className="button button--secondary" href={`/test-cases?productId=${product.id}`}>View Test Cases</Link></div></article>; })}</div>}</Card></section>
+    {latestDeletion && <Feedback tone={latestDeletion.status === "FAILED" ? "danger" : latestDeletion.status === "COMPLETED" ? "success" : "info"}>{latestDeletion.status === "QUEUED" ? `Deleting “${latestDeletion.productName}” has been queued. You can continue working or leave this page.` : latestDeletion.status === "PROCESSING" ? `Deleting “${latestDeletion.productName}” is in progress. This page will update automatically.` : latestDeletion.status === "COMPLETED" ? `“${latestDeletion.productName}” and its related data were deleted. Releases were preserved.` : `“${latestDeletion.productName}” could not be deleted safely. No partial database deletion was committed; use Delete to retry.`}</Feedback>}
+    <section className="products-layout products-layout--single"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Accessible Products</p><h2>Your Product contexts</h2><p>Products are private to their members and persist between sessions.</p></div><StatusBadge tone="info">{products.length} total</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading Products</StatusBadge> : products.length === 0 ? <EmptyState title="No Products yet" detail="Create your first Product to start a guided recording." /> : <div className="product-list">{products.map((product) => { const testCount = testCases.filter((testCase) => testCase.product.id === product.id).length; const deletion = deletions.find((item) => item.productId === product.id) ?? product.deletionRequest; const deleting = deletion?.status === "QUEUED" || deletion?.status === "PROCESSING"; return <article className={`product-list__item ${deleting ? "product-list__item--deleting" : ""}`} key={product.id}><div><h3>{product.name}</h3><p>{testCount} saved Test Case{testCount === 1 ? "" : "s"}</p>{deleting && <StatusBadge tone="warning">{deletion.status === "QUEUED" ? "Deletion queued" : "Deleting"}</StatusBadge>}</div><ProductActions product={product} disabled={deleting} onEdit={() => openProductModal(product)} onDelete={() => void openDeleteDialog(product)} /></article>; })}</div>}</Card></section>
     {isCreateProductOpen && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title"><div className="modal__header"><div><p className="eyebrow">{isEditing ? "Product settings" : "New Product"}</p><h2 id="product-modal-title">{isEditing ? "Edit Product" : "Create new Product"}</h2><p>{isEditing ? "Update the Product name used to organize your Test Cases." : "A Product needs a name and is immediately available for your next recording."}</p></div><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Close</Button></div><form className="form-stack" onSubmit={saveProduct}><Field label="Product name"><TextInput value={newProductName} onChange={(event) => setNewProductName(event.target.value)} placeholder="e.g. Billing Portal" autoFocus required /></Field>{productMessage && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}<div className="modal__actions"><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Cancel</Button><Button type="submit">{isEditing ? "Save changes" : "Create Product"} <span aria-hidden="true">{isEditing ? "→" : "+"}</span></Button></div></form></section></div>}
+    {deletingProduct && <Dialog className="product-delete-dialog" eyebrow="Permanent deletion" title={`Delete “${deletingProduct.name}”?`} detail="This runs safely in the background. You can keep using Sentinel and the status will update here." onClose={() => { if (!deleteWorking) setDeletingProduct(null); }} actions={<><Button type="button" variant="ghost" onClick={() => setDeletingProduct(null)} disabled={deleteWorking}>Cancel</Button><Button type="button" variant="danger" onClick={() => void confirmProductDeletion()} disabled={!deleteImpact || deleteConfirmation !== "DELETE" || deleteWorking}>{deleteWorking ? "Queueing…" : "Delete Product"}</Button></>}>
+      {deleteImpact ? <><div className="product-delete-impact"><p><strong>This will permanently delete</strong></p><div><span><b>{deleteImpact.testCases}</b> Test Cases</span><span><b>{deleteImpact.runs}</b> Runs</span><span><b>{deleteImpact.reviews}</b> Reviews</span><span><b>{deleteImpact.notifications}</b> Notifications</span><span><b>{deleteImpact.evidence}</b> Evidence files</span><span><b>{deleteImpact.testDataSets}</b> Test data sets</span><span><b>{deleteImpact.recordings}</b> Recordings</span><span><b>{deleteImpact.integrations}</b> Integrations</span></div><p><strong>{deleteImpact.releases} affected Release{deleteImpact.releases === 1 ? "" : "s"} will be kept.</strong> Only this Product’s Test Cases and Run items will be removed from them.</p>{deleteImpact.activeWork > 0 && <Feedback tone="warning">{deleteImpact.activeWork} active or queued recording/Run will be cancelled before deletion.</Feedback>}</div><Field label="Type DELETE to confirm"><TextInput value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" spellCheck={false} /></Field></> : !deleteMessage && <Skeleton lines={4} />}
+      {deleteMessage && <Feedback tone="danger">{deleteMessage}</Feedback>}
+    </Dialog>}
+  </div>;
+}
+
+function ProductActions({ product, disabled, onEdit, onDelete }: { product: Product; disabled: boolean; onEdit: () => void; onDelete: () => void }) {
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  const closeMenu = () => { if (menuRef.current) menuRef.current.open = false; };
+  return <div className="product-list__actions">
+    <IconButton type="button" label={`Edit ${product.name}`} onClick={onEdit} disabled={disabled}><Icon name="edit" /></IconButton>
+    {product.canDelete && <IconButton type="button" className="icon-button--danger" label={`Delete ${product.name}`} onClick={onDelete} disabled={disabled}><Icon name="delete" /></IconButton>}
+    <details ref={menuRef} className="product-action-menu"><summary className="icon-button" aria-label={`More actions for ${product.name}`} title={`More actions for ${product.name}`}><Icon name="more" /></summary><div className="product-action-menu__panel" onClick={closeMenu}><Link className="button button--ghost" href={`/test-cases?productId=${product.id}`}>View Test Cases</Link><GitHubProjectSettings product={product} /><JiraProjectSettings product={product} />{product.createdById && <OwnershipTransfer label="Product" currentOwnerId={product.createdById} membersPath={`products/${product.id}/members`} transferPath={`products/${product.id}/owner`} onTransferred={() => window.location.reload()} />}</div></details>
   </div>;
 }
 
