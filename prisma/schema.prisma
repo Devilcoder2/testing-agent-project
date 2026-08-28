@@ -827,26 +827,40 @@ model ReleaseRunItem {
 }
 
 model TestDataSet {
+  id          String               @id @default(cuid())
+  productId   String
+  ownerId     String?
+  name        String
+  fieldNames  String[]
+  reusePolicy TestDataReusePolicy  @default(REUSABLE)
+  product     Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  owner       User?                @relation("TestDataSetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  rows        TestDataRow[]
+  bindings    RunVariableBinding[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@unique([productId, name])
+  @@index([productId, createdAt])
+  @@index([ownerId])
+}
+
+model TestDataRow {
   id              String               @id @default(cuid())
-  productId       String
-  ownerId         String?
-  name            String
-  fieldNames      String[]
+  dataSetId       String
+  order           Int
   encryptedFields String
   status          TestDataStatus       @default(SAFE)
-  reusePolicy     TestDataReusePolicy  @default(REUSABLE)
   reservedByRunId String?
-  product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
-  owner           User?                @relation("TestDataSetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  reservedByRun   Run?                 @relation("ReservedDataSet", fields: [reservedByRunId], references: [id], onDelete: SetNull)
+  dataSet         TestDataSet          @relation(fields: [dataSetId], references: [id], onDelete: Cascade)
+  reservedByRun   Run?                 @relation("ReservedTestDataRow", fields: [reservedByRunId], references: [id], onDelete: SetNull)
   bindings        RunVariableBinding[]
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
-  @@unique([productId, name])
-  @@index([productId, status])
+  @@unique([dataSetId, order])
+  @@index([dataSetId, status, order])
   @@index([reservedByRunId])
-  @@index([ownerId])
 }
 
 model Run {
@@ -879,7 +893,7 @@ model Run {
   attempts            RunAttempt[]
   evidence            EvidenceItem[]
   variableBindings    RunVariableBinding[]
-  reservedDataSets    TestDataSet[]        @relation("ReservedDataSet")
+  reservedDataRows    TestDataRow[]        @relation("ReservedTestDataRow")
   releaseRunItem      ReleaseRunItem?      @relation("ReleaseRunItemRun")
   notifications       Notification[]
   jiraFiling          JiraFiling?
@@ -1014,12 +1028,15 @@ model RunVariableBinding {
   source         VariableSource
   valueEncrypted String
   dataSetId      String?
+  dataSetRowId   String?
   run            Run            @relation(fields: [runId], references: [id], onDelete: Cascade)
   dataSet        TestDataSet?   @relation(fields: [dataSetId], references: [id], onDelete: SetNull)
+  dataSetRow     TestDataRow?   @relation(fields: [dataSetRowId], references: [id], onDelete: SetNull)
   createdAt      DateTime       @default(now())
 
   @@unique([runId, name])
   @@index([dataSetId])
+  @@index([dataSetRowId])
 }
 
 model RunAttempt {
