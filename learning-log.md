@@ -2618,3 +2618,89 @@ The combined browser run's single global-search failure is recorded rather than 
 - If the combined global-search data-readiness timeout recurs, replace its fixed five-second Product selector expectation with an explicit authorized-data readiness condition as a separate test-hardening change.
 
 **Learning status:** Requirements, architecture, implementation, static checks, production build, focused session browser coverage, relevant navigation/search regression, decision record, and priority diff review are complete. Owner answers remain pending, so the learning review is not complete.
+
+## Phase 22 — Compact Product actions and asynchronous deletion
+
+### What changed and what user problem it solves
+
+Product rows previously exposed every operation as a text button, so routine scanning was noisy and long labels consumed most of each row. Edit is now a labelled pencil icon, Delete is an Admin-only labelled trash icon, and View Test Cases, GitHub, Jira, and eligible ownership transfer live in a three-dot menu. Labels and titles keep the icon controls understandable to keyboard and assistive-technology users.
+
+Permanent Product deletion is now a durable background workflow. The warning dialog retrieves current counts from the server, explains that Product-owned Test Cases, Runs, reviews, notifications, evidence, Test Data, recordings, and integrations are removed, explicitly says affected Releases are preserved, and enables confirmation only after exact `DELETE`. The page immediately reports queued/processing/completed/failed state and polls the persisted request, so navigation is never held open by the cascade.
+
+### Complete flow, technology, alternatives, and tradeoffs
+
+1. The protected Products API marks returned Products with the current Admin's delete capability. Non-Admins never receive a delete control, and every impact/status/delete endpoint independently rechecks the Admin role and organization.
+2. Clicking Delete requests a fresh server-derived impact snapshot. The dialog renders those counts and requires exact case-sensitive confirmation.
+3. The DELETE endpoint persists one `ProductDeletionRequest`, writes an audit event, and enqueues a BullMQ job with a stable request ID. It returns HTTP 202 immediately; repeated active submissions reuse that request/job.
+4. A single-concurrency worker claims the request. Queued Auto Run jobs are removed, active recordings and Guided Runs are interrupted, and running Auto Runs receive a bounded cancellation window. Work that cannot stop safely fails and retries instead of forcing deletion.
+5. Evidence object keys are loaded in bounded batches and deleted from MinIO first. If any object deletion fails, relational deletion does not begin.
+6. One ordered PostgreSQL transaction removes Product-owned notifications, suggestions/change proposals, Runs, Test Cases, recordings, Test Data, memberships, integrations, and remaining cascaded relations. It removes only this Product's `ReleaseTest` and `ReleaseRunItem` records, recalculates affected Release Run readiness, and never deletes the Release.
+7. The transaction deletes the Product, leaves the deletion request with a null Product relation, marks it completed, and writes a completion audit event. Failures retain a safe code for retry/status UI without exposing internal details.
+8. The Products page polls only while work is queued or processing, reloads authorized inventories on completion, and tells the Admin that they may keep working or leave the page.
+
+A direct synchronous DELETE was rejected because network interruption would make a long request look failed and invite duplicate submissions. Database cascading alone was rejected because it cannot remove MinIO objects first, cancel live work, preserve only selected Release records, or expose progress. Soft-delete/archive was not selected because the requirement is permanent removal and restore semantics would materially expand scope. A new worker service was unnecessary; the existing worker process can host a separate queue with isolated concurrency.
+
+The durable request and safe ordering add schema, queue, worker, and retry complexity. Deletion is intentionally irreversible, and object deletion cannot be rolled back after MinIO succeeds but before a later database failure; retries remain safe because deleting a missing object is idempotent. Very large Products still process serial database phases, although object removal is batched by eight and normal representative deletion completed in about three seconds. Completion is shown persistently on the Products page; no new email/notification type was added.
+
+### Verification evidence
+
+```text
+npm run lint && npx tsc --noEmit --incremental false && npm run build
+> sentinel@0.1.0 lint
+> eslint .
+✓ Compiled successfully in 1135ms
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T -e SENTINEL_BASE_URL=http://127.0.0.1:3000 sentinel npx vitest run tests/product-deletion.test.ts tests/release-api.test.ts --reporter=verbose
+✓ tests/release-api.test.ts (3 tests)
+✓ tests/product-deletion.test.ts (1 test, 3113ms)
+Test Files  2 passed (2)
+Tests  4 passed (4)
+Duration  10.38s
+exit 0
+
+docker compose exec -T -e SENTINEL_BASE_URL=http://127.0.0.1:3000 sentinel npx playwright test tests/product-creation.spec.ts --reporter=line
+Running 2 tests using 1 worker
+2 passed (18.7s)
+exit 0
+```
+
+The database test proves Admin-only authorization, exact confirmation, server impact counts, one retained deletion request, real MinIO object removal, Product-owned Run/review/notification/Test Data deletion, cross-Product isolation, Release and retained Product-item preservation, and completion in ordinary seconds. The browser test proves the three labelled icon controls, overflow navigation, warning copy, exact confirmation gating, non-blocking progress, and final completion feedback.
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `lib/product-deletion.ts` (`productDeletionImpact`, `stopProductWork`, `deleteEvidenceObjects`, `deleteProductRecords`, `processProductDeletion`) | This is the irreversible orchestration boundary. Read the cancellation, MinIO-before-database ordering, transaction sequence, Release repair, and failure codes now. |
+| Highest — understand now | `app/api/[[...route]]/route.ts` (Product deletion impact/status/DELETE routes) | This enforces Admin and organization boundaries, exact confirmation, impact snapshots, persistence, audit, idempotent acceptance, and safe HTTP responses. Read now. |
+| Highest — understand now | `prisma/schema.prisma` (`ProductDeletionRequest`, `ProductDeletionStatus`) and `prisma/migrations/20260828120000_add_product_deletion_requests/migration.sql` | These make deletion durable across navigation/restarts and retain history after Product removal. Review the nullable unique Product relation and indexes now; most unrelated schema diff is formatter-only. |
+| Highest — understand now | `lib/queue.ts` (`PRODUCT_DELETION_QUEUE`, `enqueueProductDeletion`) and `worker.ts` (`productDeletionWorker`) | These control duplicate jobs, retries, concurrency, and worker lifecycle. Review stable IDs and the one-job-at-a-time limit now. |
+| Medium — understand next | `components/sentinel-views.tsx` (`ProductsView`, `ProductActions`) and `app/globals.css` (Product action/menu/delete styles) | These implement capability-driven controls, warning/progress state, polling, and responsive presentation. Review exact confirmation and why integration dialogs remain mounted inside the open menu. |
+| Medium — understand next | `tests/product-deletion.test.ts` and `tests/product-creation.spec.ts` | These encode the destructive safety contract and visible behavior. Read the MinIO assertion, Release cross-Product fixture, and exact input/button checks next. |
+| Lower — skim or defer | `components/ui.tsx` (edit/delete SVG paths) | Shared icons only; accessible names come from their callers. |
+| Lower — skim or defer | `srd.md`, `architecture.md`, `frontend.md`, `phases.md`, and `decisions-log.md` | These preserve scope, design, acceptance criteria, and rationale without adding runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why is Product deletion restricted to organization Admins in both the UI and every server endpoint?
+2. What information does the impact endpoint calculate, and why must the server—not the browser—calculate it?
+3. Why does the DELETE endpoint return HTTP 202 instead of waiting for every related record and evidence object to be removed?
+4. How do the persistent deletion request and stable queue job ID prevent duplicate active deletion work?
+5. What happens to draft recordings, Guided Runs, queued Auto Runs, and running Auto Runs before relational deletion begins?
+6. Why are MinIO evidence objects deleted before the PostgreSQL transaction, and what happens when an object deletion fails?
+7. Which Release records are removed, which Release records are preserved, and how is affected Release Run readiness repaired?
+8. Why is the deletion request's Product relation nullable, and which history remains after the Product itself is gone?
+9. Which automated assertions prove cross-Product isolation, evidence cleanup, exact confirmation, and non-blocking completion?
+10. What are the main tradeoffs and limitations of permanent asynchronous deletion compared with synchronous cascade or soft-delete/archive?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the highest-priority orchestration, API authorization, migration, and queue files before Phase 22 is considered fully understood.
+- Run a representative high-volume benchmark before setting a production deletion service-level objective; the current evidence proves ordinary fixture completion, not an upper bound for very large Products.
+
+**Learning status:** Requirements, architecture, migration, implementation, real MinIO/database/API coverage, Release regression, browser coverage, production build, decision record, and priority diff review are complete. Owner answers remain pending, so the learning review is not complete.
