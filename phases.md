@@ -771,14 +771,16 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Outcome:** A saved Test Case is faster to scan and operate: core metadata replaces generic copy, primary actions use labelled icons, unavailable GitHub automation disappears, and each recorded step expands only when its annotations are needed.
 
 - [x] Confirm the existing Test Case, Run, suggestions, ownership, Review, GitHub-routing, and immutable-step API contracts remain unchanged.
-- [ ] Move Product, owner, and step count into the header description and remove the duplicate metadata row and generic read-only sentence.
-- [ ] Replace Guided/Auto text actions with labelled icons and More actions with the shared three-dot icon.
-- [ ] Make the text-only overflow actions full-width and left-aligned, close on outside pointer/focus or Escape, and preserve ownership-transfer modal visibility.
-- [ ] Hide GitHub routing while unavailable or when no active Product repository is connected.
-- [ ] Replace always-expanded step cards with keyboard-operable compact disclosures that retain action/target context and distinctly label checkpoints.
-- [ ] Remove the redundant current-version timeline explanatory sentence and preserve empty/version/variable behavior.
-- [ ] Add focused browser coverage for metadata, icon labels/tooltips, outside-click dismissal, aligned overflow items, conditional GitHub visibility, step expansion, and checkpoint distinction.
-- [ ] Run lint, strict type-check, production build, focused Test Case browser coverage, and relevant Test/Run/GitHub regression with exact output.
-- [ ] Record the decision, priority diff review, and exactly ten owner understanding questions; keep unanswered learning items explicit.
+- [x] Move Product, owner, and step count into the header description and remove the duplicate metadata row and generic read-only sentence.
+- [x] Replace Guided/Auto text actions with labelled icons and More actions with the shared three-dot icon.
+- [x] Make the text-only overflow actions full-width and left-aligned, close on outside pointer/focus or Escape, and preserve ownership-transfer modal visibility.
+- [x] Hide GitHub routing while unavailable or when no active Product repository is connected.
+- [x] Replace always-expanded step cards with keyboard-operable compact disclosures that retain action/target context and distinctly label checkpoints.
+- [x] Remove the redundant current-version timeline explanatory sentence and preserve empty/version/variable behavior.
+- [x] Add focused browser coverage for metadata, icon labels/tooltips, outside-click dismissal, aligned overflow items, conditional GitHub visibility, step expansion, and checkpoint distinction.
+- [x] Run lint, strict type-check, production build, focused Test Case browser coverage, and relevant Test/Run/GitHub regression with exact output.
+- [x] Record the decision, priority diff review, and exactly ten owner understanding questions; keep unanswered learning items explicit.
+
+**Completion note (2026-08-28):** Header metadata, labelled icon actions, outside-dismissable aligned overflow actions, ownership modal persistence, conditional GitHub routing, compact native step disclosures, and distinct checkpoint presentation are implemented. Lint, strict TypeScript, and the 18-page production build pass. The focused Test Case, Release, Suggestions, recording, Auto Run, and no-integration GitHub workflows pass. The Guided Run regression could not start a second live browser because an existing user-owned session holds the intentional single-session boundary; this remains an explicit follow-up. D-050, the priority review, and exactly ten owner questions are recorded. Owner answers remain pending, so the learning review is not complete.
 
 **Out of scope:** Editing recorded step data from the detail page, changing Run behavior, changing suggestion or ownership permissions, changing GitHub connection/routing APIs, or adding a new UI/icon dependency.
