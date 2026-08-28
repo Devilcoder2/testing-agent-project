@@ -7,6 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ProductDeletionStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 enum RecordingStatus {
   DRAFT
   ACTIVE
@@ -257,97 +264,123 @@ enum SourceAnalysisConfidence {
 }
 
 model User {
-  id                   String              @id @default(cuid())
-  email                String              @unique
-  displayName          String
-  passwordHash         String?
-  accountStatus        AccountStatus       @default(ACTIVE)
-  organizationMemberships OrganizationMember[]
-  sessions             UserSession[]
-  authTokens           AuthToken[]
-  memberships          ProductMembership[]
-  products             Product[]
-  recordings           RecordingSession[]  @relation("RecordingOwner")
-  testCases            TestCase[]          @relation("TestCaseOwner")
-  runs                 Run[]               @relation("RunInitiator")
-  ownedReleases        Release[]           @relation("ReleaseOwner")
-  releaseRuns          ReleaseRun[]        @relation("ReleaseRunInitiator")
-  notifications        Notification[]      @relation("NotificationRecipient")
-  approvedSuggestions  TestSuggestion[]    @relation("SuggestionApprover")
-  dismissedSuggestions TestSuggestion[]    @relation("SuggestionDismisser")
-  jiraFilings          JiraFiling[]        @relation("JiraFilingRequester")
-  proposedChanges      ChangeProposal[]    @relation("ChangeProposalCreator")
-  approvalRequests     ChangeProposal[]    @relation("ChangeProposalOwner")
-  databaseDiagnostics  DatabaseDiagnostic[] @relation("DatabaseDiagnosticRequester")
-  ownedTestDataSets    TestDataSet[]        @relation("TestDataSetOwner")
-  requestedSourceAnalyses SourceAnalysis[]  @relation("SourceAnalysisRequester")
-  auditEvents          AuditEvent[]        @relation("AuditActor")
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  id                        String                   @id @default(cuid())
+  email                     String                   @unique
+  displayName               String
+  passwordHash              String?
+  accountStatus             AccountStatus            @default(ACTIVE)
+  organizationMemberships   OrganizationMember[]
+  sessions                  UserSession[]
+  authTokens                AuthToken[]
+  memberships               ProductMembership[]
+  products                  Product[]
+  recordings                RecordingSession[]       @relation("RecordingOwner")
+  testCases                 TestCase[]               @relation("TestCaseOwner")
+  runs                      Run[]                    @relation("RunInitiator")
+  ownedReleases             Release[]                @relation("ReleaseOwner")
+  releaseRuns               ReleaseRun[]             @relation("ReleaseRunInitiator")
+  notifications             Notification[]           @relation("NotificationRecipient")
+  approvedSuggestions       TestSuggestion[]         @relation("SuggestionApprover")
+  dismissedSuggestions      TestSuggestion[]         @relation("SuggestionDismisser")
+  jiraFilings               JiraFiling[]             @relation("JiraFilingRequester")
+  proposedChanges           ChangeProposal[]         @relation("ChangeProposalCreator")
+  approvalRequests          ChangeProposal[]         @relation("ChangeProposalOwner")
+  databaseDiagnostics       DatabaseDiagnostic[]     @relation("DatabaseDiagnosticRequester")
+  ownedTestDataSets         TestDataSet[]            @relation("TestDataSetOwner")
+  requestedSourceAnalyses   SourceAnalysis[]         @relation("SourceAnalysisRequester")
+  requestedProductDeletions ProductDeletionRequest[] @relation("ProductDeletionRequester")
+  auditEvents               AuditEvent[]             @relation("AuditActor")
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
 }
 
 model Product {
-  id              String              @id @default(cuid())
-  organizationId  String?
-  name            String
-  createdById     String
-  createdBy       User                @relation(fields: [createdById], references: [id])
-  organization    Organization?       @relation(fields: [organizationId], references: [id])
-  memberships     ProductMembership[]
-  recordings      RecordingSession[]
-  testCases       TestCase[]
-  featureLabels   FeatureLabel[]
-  runs            Run[]
-  releaseRunItems ReleaseRunItem[]
-  testDataSets    TestDataSet[]
-  notifications   Notification[]
-  suggestions     TestSuggestion[]
-  jiraConfig      JiraProjectConfig?
-  jiraIssues      JiraIssue[]
-  jiraFilings     JiraFiling[]
-  changeProposals ChangeProposal[]
+  id                          String                        @id @default(cuid())
+  organizationId              String?
+  name                        String
+  createdById                 String
+  createdBy                   User                          @relation(fields: [createdById], references: [id])
+  organization                Organization?                 @relation(fields: [organizationId], references: [id])
+  memberships                 ProductMembership[]
+  recordings                  RecordingSession[]
+  testCases                   TestCase[]
+  featureLabels               FeatureLabel[]
+  runs                        Run[]
+  releaseRunItems             ReleaseRunItem[]
+  testDataSets                TestDataSet[]
+  notifications               Notification[]
+  suggestions                 TestSuggestion[]
+  jiraConfig                  JiraProjectConfig?
+  jiraIssues                  JiraIssue[]
+  jiraFilings                 JiraFiling[]
+  changeProposals             ChangeProposal[]
   githubRepositoryConnections ProductRepositoryConnection[]
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  deletionRequest             ProductDeletionRequest?
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
 
   @@unique([createdById, name])
   @@index([organizationId, name])
 }
 
+model ProductDeletionRequest {
+  id             String                @id @default(cuid())
+  productId      String?               @unique
+  organizationId String
+  requestedById  String
+  productName    String
+  status         ProductDeletionStatus @default(QUEUED)
+  impact         Json
+  attemptCount   Int                   @default(0)
+  failureCode    String?
+  queuedAt       DateTime              @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  product        Product?              @relation(fields: [productId], references: [id], onDelete: SetNull)
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestedBy    User                  @relation("ProductDeletionRequester", fields: [requestedById], references: [id])
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([organizationId, status, createdAt])
+  @@index([requestedById, createdAt])
+}
+
 model Organization {
-  id          String               @id @default(cuid())
-  name        String               @unique
-  memberships OrganizationMember[]
-  products    Product[]
-  authTokens  AuthToken[]
-  sessions    UserSession[]
+  id                  String                   @id @default(cuid())
+  name                String                   @unique
+  memberships         OrganizationMember[]
+  products            Product[]
+  authTokens          AuthToken[]
+  sessions            UserSession[]
   githubInstallations GitHubInstallation[]
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  productDeletions    ProductDeletionRequest[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
 }
 
 model OrganizationMember {
   organizationId String
   userId         String
   role           OrganizationRole
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@id([organizationId, userId])
   @@index([userId, role])
 }
 
 model UserSession {
-  id        String   @id @default(cuid())
-  userId    String
+  id             String       @id @default(cuid())
+  userId         String
   organizationId String
-  tokenHash String   @unique
-  expiresAt DateTime
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  tokenHash      String       @unique
+  expiresAt      DateTime
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
 
   @@index([userId, expiresAt])
   @@index([organizationId, expiresAt])
@@ -428,27 +461,27 @@ model RecordingVariable {
 }
 
 model TestCase {
-  id                  String                 @id @default(cuid())
+  id                  String                   @id @default(cuid())
   productId           String
   ownerId             String
-  recordingSessionId  String                 @unique
+  recordingSessionId  String                   @unique
   name                String
-  currentVersion      Int                    @default(1)
-  product             Product                @relation(fields: [productId], references: [id])
-  owner               User                   @relation("TestCaseOwner", fields: [ownerId], references: [id])
-  recordingSession    RecordingSession       @relation(fields: [recordingSessionId], references: [id])
+  currentVersion      Int                      @default(1)
+  product             Product                  @relation(fields: [productId], references: [id])
+  owner               User                     @relation("TestCaseOwner", fields: [ownerId], references: [id])
+  recordingSession    RecordingSession         @relation(fields: [recordingSessionId], references: [id])
   versions            TestCaseVersion[]
   runs                Run[]
   featureLabels       TestCaseFeatureLabel[]
   releaseTests        ReleaseTest[]
   releaseRunItems     ReleaseRunItem[]
-  sourceSuggestions   TestSuggestion[]       @relation("SuggestionSourceTestCase")
-  approvedSuggestions TestSuggestion[]       @relation("SuggestionApprovedTestCase")
+  sourceSuggestions   TestSuggestion[]         @relation("SuggestionSourceTestCase")
+  approvedSuggestions TestSuggestion[]         @relation("SuggestionApprovedTestCase")
   jiraIssues          JiraIssue[]
   changeProposals     ChangeProposal[]
   repositoryLinks     TestCaseRepositoryLink[]
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
 }
 
 model TestCaseVersion {
@@ -468,19 +501,19 @@ model TestCaseVersion {
 }
 
 model TestStep {
-  id                String           @id @default(cuid())
+  id                String               @id @default(cuid())
   testCaseVersionId String
   order             Int
   kind              StepKind
   timestamp         DateTime
   target            Json
   value             String?
-  isRedacted        Boolean          @default(false)
+  isRedacted        Boolean              @default(false)
   description       String?
   expectedOutcome   String?
   variableName      String?
-  isCheckpoint      Boolean          @default(false)
-  testCaseVersion   TestCaseVersion  @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+  isCheckpoint      Boolean              @default(false)
+  testCaseVersion   TestCaseVersion      @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
   runStepResults    RunStepResult[]
   suggestions       TestSuggestion[]
   proposalChanges   ChangeProposalStep[]
@@ -643,45 +676,45 @@ model TestDataSet {
 }
 
 model Run {
-  id                 String               @id @default(cuid())
-  testCaseId         String
-  testCaseVersionId  String
-  productId          String
-  initiatedById      String
-  targetUrl          String
-  mode               RunMode              @default(GUIDED)
-  status             RunStatus            @default(QUEUED)
-  outcome            RunOutcome?
-  evidenceStatus     EvidenceStatus       @default(COMPLETE)
-  activeStepOrder    Int?
-  failureReason      RunFailureReason?
-  queuedAt           DateTime             @default(now())
-  startedAt          DateTime?
-  pausedAt           DateTime?
-  cancellingAt       DateTime?
-  checkpointDeadline DateTime?
-  completedAt        DateTime?
-  activeDurationMs   Int?
-  benchmarkMedianMs  Int?
-  durationDeltaMs    Int?
-  testCase           TestCase             @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  testCaseVersion    TestCaseVersion      @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
-  product            Product              @relation(fields: [productId], references: [id])
-  initiatedBy        User                 @relation("RunInitiator", fields: [initiatedById], references: [id])
-  stepResults        RunStepResult[]
-  attempts           RunAttempt[]
-  evidence           EvidenceItem[]
-  variableBindings   RunVariableBinding[]
-  reservedDataSets   TestDataSet[]        @relation("ReservedDataSet")
-  releaseRunItem     ReleaseRunItem?      @relation("ReleaseRunItemRun")
-  notifications      Notification[]
-  jiraFiling         JiraFiling?
-  changeProposal     ChangeProposal?
+  id                  String               @id @default(cuid())
+  testCaseId          String
+  testCaseVersionId   String
+  productId           String
+  initiatedById       String
+  targetUrl           String
+  mode                RunMode              @default(GUIDED)
+  status              RunStatus            @default(QUEUED)
+  outcome             RunOutcome?
+  evidenceStatus      EvidenceStatus       @default(COMPLETE)
+  activeStepOrder     Int?
+  failureReason       RunFailureReason?
+  queuedAt            DateTime             @default(now())
+  startedAt           DateTime?
+  pausedAt            DateTime?
+  cancellingAt        DateTime?
+  checkpointDeadline  DateTime?
+  completedAt         DateTime?
+  activeDurationMs    Int?
+  benchmarkMedianMs   Int?
+  durationDeltaMs     Int?
+  testCase            TestCase             @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  testCaseVersion     TestCaseVersion      @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+  product             Product              @relation(fields: [productId], references: [id])
+  initiatedBy         User                 @relation("RunInitiator", fields: [initiatedById], references: [id])
+  stepResults         RunStepResult[]
+  attempts            RunAttempt[]
+  evidence            EvidenceItem[]
+  variableBindings    RunVariableBinding[]
+  reservedDataSets    TestDataSet[]        @relation("ReservedDataSet")
+  releaseRunItem      ReleaseRunItem?      @relation("ReleaseRunItemRun")
+  notifications       Notification[]
+  jiraFiling          JiraFiling?
+  changeProposal      ChangeProposal?
   databaseDiagnostics DatabaseDiagnostic[]
-  githubRunLink      GitHubRunLink?
-  sourceAnalyses     SourceAnalysis[]
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  githubRunLink       GitHubRunLink?
+  sourceAnalyses      SourceAnalysis[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@index([productId, createdAt])
   @@index([testCaseId, createdAt])
@@ -689,18 +722,18 @@ model Run {
 }
 
 model DatabaseDiagnostic {
-  id           String                   @id @default(cuid())
-  runId        String
-  kind         DatabaseDiagnosticKind
-  status       DatabaseDiagnosticStatus
+  id            String                   @id @default(cuid())
+  runId         String
+  kind          DatabaseDiagnosticKind
+  status        DatabaseDiagnosticStatus
   requestedById String
-  safeMetadata Json?
-  errorCode    String?
-  completedAt  DateTime?
-  run          Run                      @relation(fields: [runId], references: [id], onDelete: Cascade)
-  requestedBy  User                     @relation("DatabaseDiagnosticRequester", fields: [requestedById], references: [id])
-  createdAt    DateTime                 @default(now())
-  updatedAt    DateTime                 @updatedAt
+  safeMetadata  Json?
+  errorCode     String?
+  completedAt   DateTime?
+  run           Run                      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  requestedBy   User                     @relation("DatabaseDiagnosticRequester", fields: [requestedById], references: [id])
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 
   @@unique([runId, kind])
   @@index([runId, createdAt])
@@ -708,18 +741,18 @@ model DatabaseDiagnostic {
 }
 
 model MaintenanceRun {
-  id                       String            @id @default(cuid())
-  kind                     MaintenanceKind
-  status                   MaintenanceStatus @default(RUNNING)
-  deletedEvidenceCount     Int               @default(0)
-  deletedScreenshotCount   Int               @default(0)
-  deletedDiagnosticCount   Int               @default(0)
-  deletedSourceAnalysisCount Int             @default(0)
-  errorCode                String?
-  startedAt                DateTime          @default(now())
-  completedAt              DateTime?
-  createdAt                DateTime          @default(now())
-  updatedAt                DateTime          @updatedAt
+  id                         String            @id @default(cuid())
+  kind                       MaintenanceKind
+  status                     MaintenanceStatus @default(RUNNING)
+  deletedEvidenceCount       Int               @default(0)
+  deletedScreenshotCount     Int               @default(0)
+  deletedDiagnosticCount     Int               @default(0)
+  deletedSourceAnalysisCount Int               @default(0)
+  errorCode                  String?
+  startedAt                  DateTime          @default(now())
+  completedAt                DateTime?
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
 
   @@index([kind, completedAt])
 }
@@ -784,14 +817,14 @@ model ChangeProposal {
 }
 
 model ChangeProposalStep {
-  id                    String         @id @default(cuid())
-  changeProposalId      String
-  sourceStepId          String
-  order                 Int
-  proposedDescription   String?
+  id                      String         @id @default(cuid())
+  changeProposalId        String
+  sourceStepId            String
+  order                   Int
+  proposedDescription     String?
   proposedExpectedOutcome String?
-  proposal              ChangeProposal @relation(fields: [changeProposalId], references: [id], onDelete: Cascade)
-  sourceStep            TestStep       @relation(fields: [sourceStepId], references: [id], onDelete: Cascade)
+  proposal                ChangeProposal @relation(fields: [changeProposalId], references: [id], onDelete: Cascade)
+  sourceStep              TestStep       @relation(fields: [sourceStepId], references: [id], onDelete: Cascade)
 
   @@unique([changeProposalId, sourceStepId])
   @@index([sourceStepId])
@@ -882,13 +915,13 @@ model AuditEvent {
 }
 
 model JiraProjectConfig {
-  id          String   @id @default(cuid())
-  productId   String   @unique
+  id          String    @id @default(cuid())
+  productId   String    @unique
   projectKey  String
   validatedAt DateTime?
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model JiraIssue {
@@ -910,42 +943,42 @@ model JiraIssue {
 }
 
 model JiraFiling {
-  id            String           @id @default(cuid())
-  runId         String           @unique
+  id            String            @id @default(cuid())
+  runId         String            @unique
   productId     String
   requestedById String
   jiraIssueId   String?
-  status        JiraFilingStatus @default(DRAFT)
+  status        JiraFilingStatus  @default(DRAFT)
   action        JiraFilingAction?
   summary       String
   description   String
-  priority      String           @default("Medium")
-  attemptCount  Int              @default(0)
+  priority      String            @default("Medium")
+  attemptCount  Int               @default(0)
   deliveryError String?
   queuedAt      DateTime?
   filedAt       DateTime?
-  run           Run              @relation(fields: [runId], references: [id], onDelete: Cascade)
-  product       Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
-  requestedBy   User             @relation("JiraFilingRequester", fields: [requestedById], references: [id])
-  jiraIssue     JiraIssue?       @relation(fields: [jiraIssueId], references: [id], onDelete: SetNull)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  run           Run               @relation(fields: [runId], references: [id], onDelete: Cascade)
+  product       Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  requestedBy   User              @relation("JiraFilingRequester", fields: [requestedById], references: [id])
+  jiraIssue     JiraIssue?        @relation(fields: [jiraIssueId], references: [id], onDelete: SetNull)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([productId, createdAt])
   @@index([jiraIssueId, createdAt])
 }
 
 model GitHubInstallation {
-  id             String                   @id @default(cuid())
+  id             String                        @id @default(cuid())
   organizationId String
-  installationId String                   @unique
+  installationId String                        @unique
   accountLogin   String
   accountType    String?
-  status         GitHubInstallationStatus @default(ACTIVE)
-  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         GitHubInstallationStatus      @default(ACTIVE)
+  organization   Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   connections    ProductRepositoryConnection[]
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
+  createdAt      DateTime                      @default(now())
+  updatedAt      DateTime                      @updatedAt
 
   @@index([organizationId, status])
 }
@@ -987,8 +1020,8 @@ model TestCaseRepositoryLink {
 }
 
 model GitHubDelivery {
-  id                 String               @id @default(cuid())
-  deliveryId         String               @unique
+  id                 String                 @id @default(cuid())
+  deliveryId         String                 @unique
   event              String
   installationNumber String?
   repositoryId       String?
@@ -997,84 +1030,84 @@ model GitHubDelivery {
   branch             String?
   beforeSha          String?
   afterSha           String?
-  status             GitHubDeliveryStatus @default(RECEIVED)
+  status             GitHubDeliveryStatus   @default(RECEIVED)
   safeError          String?
-  receivedAt         DateTime             @default(now())
+  receivedAt         DateTime               @default(now())
   processedAt        DateTime?
   targets            GitHubDeliveryTarget[]
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 
   @@index([repositoryId, branch, receivedAt])
   @@index([installationNumber, receivedAt])
 }
 
 model GitHubDeliveryTarget {
-  id             String                     @id @default(cuid())
+  id             String                      @id @default(cuid())
   deliveryId     String
   connectionId   String
-  status         GitHubDeliveryTargetStatus @default(QUEUED)
+  status         GitHubDeliveryTargetStatus  @default(QUEUED)
   decisionReason String?
-  queuedRunCount Int                        @default(0)
+  queuedRunCount Int                         @default(0)
   excludedTests  Json?
-  delivery       GitHubDelivery             @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  delivery       GitHubDelivery              @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
   connection     ProductRepositoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   runLinks       GitHubRunLink[]
-  createdAt      DateTime                   @default(now())
-  updatedAt      DateTime                   @updatedAt
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
 
   @@unique([deliveryId, connectionId])
   @@index([connectionId, createdAt])
 }
 
 model GitHubRunLink {
-  id                 String                     @id @default(cuid())
-  runId              String                     @unique
+  id                 String                      @id @default(cuid())
+  runId              String                      @unique
   connectionId       String
   deliveryTargetId   String?
   repositoryFullName String
   branch             String
   commitSha          String
   parentSha          String?
-  run                Run                        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  run                Run                         @relation(fields: [runId], references: [id], onDelete: Cascade)
   connection         ProductRepositoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  deliveryTarget     GitHubDeliveryTarget?      @relation(fields: [deliveryTargetId], references: [id], onDelete: SetNull)
-  createdAt          DateTime                   @default(now())
+  deliveryTarget     GitHubDeliveryTarget?       @relation(fields: [deliveryTargetId], references: [id], onDelete: SetNull)
+  createdAt          DateTime                    @default(now())
 
   @@index([connectionId, commitSha])
   @@index([deliveryTargetId])
 }
 
 model SourceAnalysis {
-  id                String                     @id @default(cuid())
-  runId             String
-  connectionId      String
-  requestedById     String?
-  trigger           SourceAnalysisTrigger
-  commitSha         String
-  parentSha         String?
-  status            SourceAnalysisStatus      @default(QUEUED)
-  confidence        SourceAnalysisConfidence  @default(NONE)
-  provider          String?
-  model             String?
-  attemptCount      Int                        @default(0)
-  observations      Json?
-  hypotheses        Json?
-  likelyCause       String?
-  remediation       String?
-  suggestedPatch    String?
-  sourceReferences  Json?
-  limitations       String?
-  errorCode         String?
-  queuedAt          DateTime                   @default(now())
-  startedAt         DateTime?
-  completedAt       DateTime?
-  expiresAt         DateTime
-  run               Run                        @relation(fields: [runId], references: [id], onDelete: Cascade)
-  connection        ProductRepositoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  requestedBy       User?                      @relation("SourceAnalysisRequester", fields: [requestedById], references: [id], onDelete: SetNull)
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
+  id               String                      @id @default(cuid())
+  runId            String
+  connectionId     String
+  requestedById    String?
+  trigger          SourceAnalysisTrigger
+  commitSha        String
+  parentSha        String?
+  status           SourceAnalysisStatus        @default(QUEUED)
+  confidence       SourceAnalysisConfidence    @default(NONE)
+  provider         String?
+  model            String?
+  attemptCount     Int                         @default(0)
+  observations     Json?
+  hypotheses       Json?
+  likelyCause      String?
+  remediation      String?
+  suggestedPatch   String?
+  sourceReferences Json?
+  limitations      String?
+  errorCode        String?
+  queuedAt         DateTime                    @default(now())
+  startedAt        DateTime?
+  completedAt      DateTime?
+  expiresAt        DateTime
+  run              Run                         @relation(fields: [runId], references: [id], onDelete: Cascade)
+  connection       ProductRepositoryConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  requestedBy      User?                       @relation("SourceAnalysisRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
 
   @@unique([runId, connectionId, commitSha])
   @@index([runId, createdAt])
