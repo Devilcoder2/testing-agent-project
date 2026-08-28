@@ -133,6 +133,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
         <div className="command-masthead__actions">
           <ThemeControl />
           <Link className="icon-button command-notifications" href="/notifications" aria-label="Open notifications" title="Notifications"><Icon name="bell" /></Link>
+          <Link className="icon-button" href="/account/integrations" aria-label="Open account integrations" title="Account integrations"><Icon name="admin" /></Link>
           <button className="button button--primary command-record" type="button" onClick={() => setIsNewRecordingOpen(true)}><Icon name="plus" /> New recording</button>
           <IconButton className="command-sign-out" label="Sign out" onClick={signOut}><Icon name="signOut" /></IconButton>
         </div>
