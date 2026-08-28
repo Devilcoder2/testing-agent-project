@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { apiRequest } from "@/lib/client-api";
 import { Button, Card, EmptyState, Feedback, Pagination, PageHeader, Skeleton, StatusBadge } from "./ui";
 
 type NotificationItem = {
@@ -20,10 +21,7 @@ type NotificationItem = {
 };
 
 async function request(path: string, method = "GET") {
-  const response = await fetch(`/api/${path}`, { method });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload?.error ?? "Request failed.");
-  return payload;
+  return apiRequest(path, { method });
 }
 
 function label(notification: NotificationItem) {
