@@ -43,6 +43,17 @@ test("shows an authorized health drill-down and lets the tester read a failure n
     await page.getByLabel("Product drill-down").selectOption("");
     await expect(page.getByLabel("Product drill-down")).toHaveValue("");
     await expect(page.getByRole("heading", { name: "All accessible Products", exact: true })).toBeVisible();
+    const overviewRows = page.locator(".health-overview__row");
+    await expect.poll(() => overviewRows.count()).toBeGreaterThan(1);
+    const overviewGeometry = await overviewRows.evaluateAll((rows) => rows.map((row) => ({
+      height: row.getBoundingClientRect().height,
+      columnStarts: [...row.children].map((cell) => cell.getBoundingClientRect().left),
+    })));
+    expect(new Set(overviewGeometry.map((row) => row.height)).size).toBe(1);
+    for (const columnIndex of [0, 1, 2, 3]) {
+      expect(new Set(overviewGeometry.map((row) => row.columnStarts[columnIndex])).size).toBe(1);
+    }
+    await expect(overviewRows.first().locator("strong")).toHaveCSS("white-space", "nowrap");
 
     await page.getByRole("navigation", { name: "Workspace sections" }).getByRole("link", { name: "Notifications" }).click();
     await expect(page.getByRole("heading", { name: "Notifications", exact: true })).toBeVisible();
