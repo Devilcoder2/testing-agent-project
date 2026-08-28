@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { apiRequest } from "@/lib/client-api";
 import { ThemeControl } from "./theme-control";
 import { Button, Card, Dialog, EmptyState, Feedback, Field, Icon, Pagination, PageHeader, SelectInput, SentinelMark, Skeleton, StatusBadge, TextArea, TextInput } from "./ui";
 import { OwnershipTransfer } from "./ownership-transfer";
@@ -23,10 +24,7 @@ const recordingStorageKey = (id: string) => `sentinel-recording:${id}`;
 const preferredProductStorageKey = "sentinel-preferred-product";
 
 async function request(path: string, method = "GET", body?: unknown) {
-  const response = await fetch(`/api/${path}`, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
-  const payload = response.status === 204 ? null : await response.json();
-  if (!response.ok) throw new Error(payload?.error ?? "Request failed.");
-  return payload;
+  return apiRequest(path, { method, body, redirectOnUnauthorized: path !== "auth/login" });
 }
 
 function errorMessage(error: unknown, fallback: string) {
