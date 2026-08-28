@@ -250,3 +250,17 @@ The overflow is a controlled disclosure rather than a permanently open native de
 `RepositoryRouting` renders nothing while loading or when no active Product repository exists. Once at least one active connection exists, the current routing card, selected state, authorization feedback, and save behavior render unchanged. This avoids advertising optional GitHub automation where it cannot be used.
 
 Recorded steps use compact native disclosures. The summary is a full-width row with the numbered timeline rail, normalized action label, target/value preview, chevron, and an explicit Checkpoint label where applicable. The expanded region contains only optional annotations and a plain fallback when no additional annotation was captured. Checkpoint disclosures use the warning token, dashed border, and label in both themes; ordinary steps retain the neutral border. The timeline introduction has no redundant explanatory sentence.
+
+## 12. Phase 14 Telegram integration surfaces
+
+Phase 14 adds two small protected surfaces to the Phase 16 dual-theme system. They expose only connection state and safe operational metadata; neither page renders a bot token, webhook URL, chat ID, message text, evidence, or a Telegram conversation transcript.
+
+### Account integrations
+
+The Account menu exposes **Integrations** for every signed-in user. Its Telegram card explains the private-chat-only boundary, shows either **Not linked** or a neutral **Linked** state, and offers one deliberate primary action: **Get Telegram link**. Generating the link presents a short-lived deep-link dialog with its ten-minute expiry, a copy action, and a clear note that it binds the next private Telegram chat only. A linked state replaces it with an explicit destructive-style **Unlink Telegram** action using the shared confirmation dialog. Status feedback must be plain-language, keyboard reachable, announced, and never show a chat identifier or provider payload.
+
+### Administration integration status
+
+Only Admins see the Telegram status card in Administration. It uses the existing compact operational-row pattern to show disabled/configuration-needed/webhook-active/degraded state, safe counts for linked identities and recent delivery outcomes, and last safe activity timestamp/reason. **Activate webhook** and **Deactivate webhook** are explicit confirmed actions; they must visibly distinguish missing server configuration from provider communication failure. Managers and Testers receive no control or inferred integration metadata, including by direct route navigation.
+
+The Telegram provider itself remains button-driven outside the web UI. Sentinel pages never attempt to recreate a chat interface, show evidence in a preview, or promise a browser-free administrative workflow. These cards inherit both theme palettes, tokenized status colors plus text labels, 44px controls, reduced motion, visible focus, and responsive dialog behavior from the established primitives.
