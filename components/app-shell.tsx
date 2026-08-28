@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { signOutAndRedirect } from "@/lib/client-api";
 import { ThemeControl } from "./theme-control";
 import { GlobalSearch } from "./global-search";
 import { Icon, IconButton, SentinelMark, type IconName } from "./ui";
@@ -94,8 +95,7 @@ function AppShellFrame({ children }: { children: ReactNode }) {
   }, [navigationOpen]);
 
   async function signOut() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.assign("/");
+    await signOutAndRedirect();
   }
 
   function beginNavigation(event: MouseEvent<HTMLAnchorElement>, href: string) {
