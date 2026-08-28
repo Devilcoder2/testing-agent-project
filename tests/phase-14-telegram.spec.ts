@@ -25,3 +25,17 @@ test("shows safe Telegram integration status without exposing provider configura
   await expect(page.getByRole("heading", { name: "Telegram Run Assistant" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Activate webhook|Deactivate webhook/ })).toBeVisible();
 });
+
+test("keeps Telegram administration controls unavailable to a Tester", async ({ page }) => {
+  await page.goto(baseUrl);
+  await page.getByLabel("Email").fill("ben.tester@example.test");
+  await page.getByLabel("Password").fill("sentinel-dev");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.goto(`${baseUrl}/admin`);
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", { name: "People and access" })).toHaveCount(0);
+
+  const status = await page.evaluate(async () => (await fetch("/api/admin/telegram")).status);
+  expect(status).toBe(403);
+});
