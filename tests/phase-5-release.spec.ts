@@ -46,7 +46,7 @@ test("edits an immutable Test Case version and starts a visible excluded Release
     await page.getByRole("button", { name: "Save Version 2" }).click();
     await expect(page.getByRole("heading", { name: "Version 2" })).toBeVisible();
     await expect(page.getByText("Version history", { exact: true })).toBeVisible();
-    await page.getByRole("navigation", { name: "Workspace sections" }).getByRole("link", { name: "Test Cases" }).click();
+    await page.goto(`${baseUrl}/test-cases`);
     await page.getByLabel("Find a Test Case").fill(name);
     await expect(page.locator(".test-list__item").filter({ hasText: name })).toBeVisible();
 
