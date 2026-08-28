@@ -66,7 +66,6 @@ export function ReleasesView() {
 }
 
 export function ReleaseDetailView({ releaseId }: { releaseId: string }) {
-  const router = useRouter();
   const [release, setRelease] = useState<Release | null>(null);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -82,8 +81,7 @@ export function ReleaseDetailView({ releaseId }: { releaseId: string }) {
       setSelected(nextRelease.tests.map((item) => item.testCase.id));
     } catch (error) {
       const text = message(error);
-      if (text.toLowerCase().includes("access")) router.replace("/releases");
-      else setFeedback(text);
+      setFeedback(text);
     }
   }
   useEffect(() => { void load(); }, [releaseId]);
