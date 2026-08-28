@@ -39,7 +39,7 @@ test("edits an immutable Test Case version and starts a visible excluded Release
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
     await page.goto(`${baseUrl}/test-cases/${created.testCaseId}`);
     await page.getByRole("button", { name: "More Test Case actions" }).click();
-    await page.getByRole("link", { name: "Edit Test" }).click();
+    await page.getByRole("menuitem", { name: "Edit Test" }).click();
     await page.getByLabel("Feature labels").fill("authentication, customer management");
     await page.locator(".step-editor > summary").nth(1).click();
     await page.getByLabel("Description").nth(1).fill("Open the signed-in dashboard");
