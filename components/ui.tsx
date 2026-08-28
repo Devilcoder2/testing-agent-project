@@ -6,12 +6,14 @@ function classes(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
-export type IconName = "admin" | "bell" | "check" | "chevronLeft" | "chevronRight" | "close" | "dashboard" | "data" | "delete" | "edit" | "menu" | "more" | "plus" | "products" | "releases" | "review" | "runs" | "search" | "signOut" | "testCases";
+export type IconName = "admin" | "autoRun" | "bell" | "check" | "chevronDown" | "chevronLeft" | "chevronRight" | "close" | "dashboard" | "data" | "delete" | "edit" | "guidedRun" | "menu" | "more" | "plus" | "products" | "releases" | "review" | "runs" | "search" | "signOut" | "testCases";
 
 const iconPaths: Record<IconName, ReactNode> = {
   admin: <><circle cx="12" cy="8" r="3" /><path d="M5.5 20a6.5 6.5 0 0 1 13 0M19 4v4M17 6h4" /></>,
+  autoRun: <path d="m13 2-8 12h6l-1 8 9-13h-6V2Z" />,
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
   check: <path d="m5 12 4 4L19 6" />,
+  chevronDown: <path d="m6 9 6 6 6-6" />,
   chevronLeft: <path d="m15 18-6-6 6-6" />,
   chevronRight: <path d="m9 18 6-6-6-6" />,
   close: <path d="m6 6 12 12M18 6 6 18" />,
@@ -19,6 +21,7 @@ const iconPaths: Record<IconName, ReactNode> = {
   data: <><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></>,
   delete: <><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></>,
   edit: <><path d="M4 20h4l11-11-4-4L4 16v4Z" /><path d="m13.5 6.5 4 4" /></>,
+  guidedRun: <><path d="M7 3v10l3-2 3 6 3-1.5-3-6 4-.5L7 3Z" /><circle cx="18" cy="5" r="2" /></>,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   more: <><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
