@@ -6,6 +6,7 @@ import { prisma } from "./prisma";
 const scrypt = promisify(crypto.scrypt);
 const SESSION_HOURS = 8;
 const TOKEN_HOURS = 24;
+const TELEGRAM_LINK_MINUTES = 10;
 
 export type SessionUser = { id: string; email: string; displayName: string; organizationId: string; role: OrganizationRole };
 
@@ -56,7 +57,8 @@ export async function revokeUserSessions(userId: string) {
 
 export async function issueAuthToken(userId: string, kind: AuthTokenKind, organizationId?: string | null) {
   const value = crypto.randomBytes(32).toString("base64url");
-  await prisma.authToken.create({ data: { userId, organizationId: organizationId ?? null, kind, tokenHash: tokenHash(value), expiresAt: new Date(Date.now() + TOKEN_HOURS * 60 * 60 * 1000) } });
+  const durationMs = kind === AuthTokenKind.TELEGRAM_LINK ? TELEGRAM_LINK_MINUTES * 60 * 1000 : TOKEN_HOURS * 60 * 60 * 1000;
+  await prisma.authToken.create({ data: { userId, organizationId: organizationId ?? null, kind, tokenHash: tokenHash(value), expiresAt: new Date(Date.now() + durationMs) } });
   return value;
 }
 
