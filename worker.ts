@@ -6,13 +6,14 @@ import { deliverJiraFiling, JiraAdapterError } from "./lib/jira";
 import { deliverNotification, notifyAutoRunCheckpoint, notifyRunFailure } from "./lib/notifications";
 import { runEvidenceRetention } from "./lib/maintenance";
 import { prisma } from "./lib/prisma";
-import { GITHUB_DELIVERY_QUEUE, JIRA_FILING_QUEUE, NOTIFICATION_QUEUE, PRODUCT_DELETION_QUEUE, SOURCE_ANALYSIS_QUEUE, AUTO_RUN_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData, type GitHubDeliveryJobData, type JiraFilingJobData, type NotificationJobData, type ProductDeletionJobData, type SourceAnalysisJobData } from "./lib/queue";
+import { GITHUB_DELIVERY_QUEUE, JIRA_FILING_QUEUE, MESSAGING_DELIVERY_QUEUE, MESSAGING_UPDATE_QUEUE, NOTIFICATION_QUEUE, PRODUCT_DELETION_QUEUE, SOURCE_ANALYSIS_QUEUE, AUTO_RUN_QUEUE, createRedisConnection, enqueueAutoRun, enqueueMessagingDelivery, type AutoRunJobData, type GitHubDeliveryJobData, type JiraFilingJobData, type MessagingDeliveryJobData, type MessagingUpdateJobData, type NotificationJobData, type ProductDeletionJobData, type SourceAnalysisJobData } from "./lib/queue";
 import { canRetryAutoRun, initialReplayState, ReplayError, replayStep, type ReplayStep } from "./lib/replay";
 import { decryptVariableValue } from "./lib/variables";
 import { markReleaseRunItemRunning, syncReleaseRunItemForRun } from "./lib/releases";
 import { processGitHubDelivery, requestAutomaticSourceAnalysis } from "./lib/github-runs";
 import { processSourceAnalysis } from "./lib/source-analysis";
 import { processProductDeletion } from "./lib/product-deletion";
+import { cleanupTelegramMetadata, deliverTelegramRunResult, processTelegramUpdate } from "./lib/messaging-service";
 
 const CHECKPOINT_TIMEOUT_MS = 10 * 60 * 1000;
 const MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -131,6 +132,18 @@ async function durationBenchmark(runId: string, activeDurationMs: number) {
   return { benchmarkMedianMs, durationDeltaMs: activeDurationMs - benchmarkMedianMs };
 }
 
+async function queueTelegramTerminalDelivery(runId: string) {
+  const delivery = await prisma.messagingDelivery.findFirst({ where: { runId, status: "PENDING" }, select: { id: true } });
+  if (!delivery) return;
+  await prisma.messagingDelivery.update({ where: { id: delivery.id }, data: { terminalAt: now() } });
+  try {
+    await enqueueMessagingDelivery({ deliveryId: delivery.id });
+    await prisma.auditEvent.create({ data: { actorId: (await prisma.run.findUniqueOrThrow({ where: { id: runId }, select: { initiatedById: true } })).initiatedById, action: "TELEGRAM_DELIVERY_QUEUED", entityType: "MessagingDelivery", entityId: delivery.id } });
+  } catch {
+    // The durable delivery remains pending and may be requeued by a later worker pass.
+  }
+}
+
 async function completeRun(runId: string, attemptId: string, outcome: RunOutcome, reason: RunFailureReason | null, activeDurationMs: number) {
   const completedAt = now();
   const comparison = outcome === RunOutcome.PASSED ? await durationBenchmark(runId, activeDurationMs) : {};
@@ -153,6 +166,7 @@ async function completeRun(runId: string, attemptId: string, outcome: RunOutcome
     await notifyRunFailure(run.id);
     await requestAutomaticSourceAnalysis(run.id);
   }
+  await queueTelegramTerminalDelivery(run.id);
 }
 
 async function retryRun(runId: string, attemptId: string, activeDurationMs: number, reason: RunFailureReason) {
@@ -273,15 +287,24 @@ const jiraFilingWorker = new Worker<JiraFilingJobData>(JIRA_FILING_QUEUE, async 
 const githubDeliveryWorker = new Worker<GitHubDeliveryJobData>(GITHUB_DELIVERY_QUEUE, async (job) => processGitHubDelivery(job.data.deliveryId), { connection: createRedisConnection(), concurrency: 2 });
 const sourceAnalysisWorker = new Worker<SourceAnalysisJobData>(SOURCE_ANALYSIS_QUEUE, async (job) => processSourceAnalysis(job.data.analysisId), { connection: createRedisConnection(), concurrency: 1 });
 const productDeletionWorker = new Worker<ProductDeletionJobData>(PRODUCT_DELETION_QUEUE, async (job) => processProductDeletion(job.data.deletionRequestId), { connection: createRedisConnection(), concurrency: 1 });
+const messagingUpdateWorker = new Worker<MessagingUpdateJobData>(MESSAGING_UPDATE_QUEUE, async (job) => processTelegramUpdate(job.data.updateId), { connection: createRedisConnection(), concurrency: 2 });
+const messagingDeliveryWorker = new Worker<MessagingDeliveryJobData>(MESSAGING_DELIVERY_QUEUE, async (job) => deliverTelegramRunResult(job.data.deliveryId), { connection: createRedisConnection(), concurrency: 1 });
 const heartbeatConnection = createRedisConnection();
 
 async function refreshWorkerHeartbeat() {
   await heartbeatConnection.set(WORKER_HEARTBEAT_KEY, String(Date.now()), "EX", WORKER_HEARTBEAT_TTL_SECONDS).catch((error) => console.error("Sentinel worker heartbeat failed", error));
 }
 
-void runEvidenceRetention();
+async function runMaintenance() {
+  await runEvidenceRetention();
+  await cleanupTelegramMetadata();
+  const pendingDeliveries = await prisma.messagingDelivery.findMany({ where: { status: "PENDING", terminalAt: { not: null } }, select: { id: true }, take: 100 });
+  for (const delivery of pendingDeliveries) await enqueueMessagingDelivery({ deliveryId: delivery.id }).catch(() => undefined);
+}
+
+void runMaintenance();
 void refreshWorkerHeartbeat();
-const maintenanceTimer = setInterval(() => void runEvidenceRetention(), MAINTENANCE_INTERVAL_MS);
+const maintenanceTimer = setInterval(() => void runMaintenance(), MAINTENANCE_INTERVAL_MS);
 const heartbeatTimer = setInterval(() => void refreshWorkerHeartbeat(), WORKER_HEARTBEAT_INTERVAL_MS);
 
 autoRunWorker.on("failed", (job, error) => console.error("Sentinel Auto Run worker job failed", job?.id, error));
@@ -296,11 +319,15 @@ sourceAnalysisWorker.on("failed", (job, error) => console.error("Sentinel source
 sourceAnalysisWorker.on("error", (error) => console.error("Sentinel source-analysis worker error", error));
 productDeletionWorker.on("failed", (job, error) => console.error("Sentinel Product deletion worker job failed", job?.id, error));
 productDeletionWorker.on("error", (error) => console.error("Sentinel Product deletion worker error", error));
+messagingUpdateWorker.on("failed", (job, error) => console.error("Sentinel Telegram update worker job failed", job?.id, error));
+messagingUpdateWorker.on("error", (error) => console.error("Sentinel Telegram update worker error", error));
+messagingDeliveryWorker.on("failed", (job, error) => console.error("Sentinel Telegram delivery worker job failed", job?.id, error));
+messagingDeliveryWorker.on("error", (error) => console.error("Sentinel Telegram delivery worker error", error));
 
 async function shutdown() {
   clearInterval(maintenanceTimer);
   clearInterval(heartbeatTimer);
-  await Promise.all([autoRunWorker.close(), notificationWorker.close(), jiraFilingWorker.close(), githubDeliveryWorker.close(), sourceAnalysisWorker.close(), productDeletionWorker.close()]);
+  await Promise.all([autoRunWorker.close(), notificationWorker.close(), jiraFilingWorker.close(), githubDeliveryWorker.close(), sourceAnalysisWorker.close(), productDeletionWorker.close(), messagingUpdateWorker.close(), messagingDeliveryWorker.close()]);
   await heartbeatConnection.quit();
   await prisma.$disconnect();
 }
