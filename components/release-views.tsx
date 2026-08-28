@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { apiRequest } from "@/lib/client-api";
 import { Button, Card, EmptyState, Feedback, Field, PageHeader, StatusBadge, TextInput } from "./ui";
 import { OwnershipTransfer } from "./ownership-transfer";
 
@@ -13,10 +14,7 @@ type ReleaseRun = { id: string; status: string; readiness: "IN_PROGRESS" | "READ
 type Release = { id: string; name: string; ownerId: string; owner?: { displayName: string }; tests: Array<{ testCase: TestCase }>; runs: ReleaseRun[] };
 
 async function request(path: string, method = "GET", body?: unknown) {
-  const response = await fetch(`/api/${path}`, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload?.error ?? "Request failed.");
-  return payload;
+  return apiRequest(path, { method, body });
 }
 
 function message(error: unknown) {
