@@ -730,3 +730,17 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Out of scope:** Adding visible column headings, changing Product names or health calculations, sorting rows, changing the mobile information density, or modifying APIs, database queries, authorization, or dashboard filtering.
 
 **Implementation verification (2026-08-28):** Before repair, independently sized status badges shifted the Tests start from 601.4375–618.3984375px, pass rate from 836.046875–860.28125px, and status from 1107.765625–1140.484375px. Live review after the parent/subgrid repair measured exactly one start for each column across ten rows: Product 70px, Tests 596.921875px, pass rate 832.03125px, and status 1105px; every row is 56px high. Lint, strict TypeScript, and the 18-page production build pass. The focused authorized dashboard/notification workflow passes in 15.2 seconds and the isolated rapid-navigation workflow passes in 8.6 seconds. A combined broader run passed three of four workflows; its unrelated recording test exceeded a five-second post-discard URL assertion even though service logs recorded the DELETE as HTTP 200 after 5.292 seconds. D-047, synchronized design documents, priority review, and exactly ten owner questions are recorded. Owner answers and that separate recording-timeout follow-up remain pending, so the learning review is not complete.
+
+## Phase 21 — Expired-session return to sign-in
+
+**Outcome:** When an eight-hour session expires—or is revoked while a protected page remains open—the next protected request logs the user out and replaces the stale workspace with the sign-in page instead of displaying `Sign in required.` inside that page.
+
+- [x] Confirm that the existing eight-hour server-managed session policy remains unchanged and distinguish authentication failure from an authenticated permission denial.
+- [x] Define one protected-client request boundary that coalesces concurrent HTTP 401 responses, requests cookie cleanup once, and replaces the current browser location with sign-in.
+- [ ] Route every protected workspace request, including command search and standalone recording/Run screens, through the shared boundary while keeping public sign-in and account-recovery errors local.
+- [ ] Preserve HTTP 403 and non-authentication errors as feature-level feedback and preserve the explicit Sign out action.
+- [ ] Add focused browser coverage for expired-session redirect, logout coalescing, absent `Sign in required.` feedback, invalid-credential feedback, and ordinary permission denial.
+- [ ] Run lint, strict type-check, production build, focused auth/browser coverage, and relevant workspace regression with exact output.
+- [ ] Review the actual diff in learning priority order, record the decision, and append exactly ten owner understanding questions before closing the learning gate.
+
+**Out of scope:** Extending the eight-hour session lifetime, silent refresh, remember-me behavior, changing password or role policy, changing API authorization status codes, or adding an identity provider.
