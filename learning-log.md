@@ -2664,6 +2664,11 @@ docker compose exec -T -e SENTINEL_BASE_URL=http://127.0.0.1:3000 sentinel npx p
 Running 2 tests using 1 worker
 2 passed (18.7s)
 exit 0
+
+docker compose exec -T -e SENTINEL_BASE_URL=http://127.0.0.1:3000 sentinel npx playwright test tests/product-creation.spec.ts --grep "requires explicit" --reporter=line
+Running 1 test using 1 worker
+1 passed (7.5s)
+exit 0
 ```
 
 The database test proves Admin-only authorization, exact confirmation, server impact counts, one retained deletion request, real MinIO object removal, Product-owned Run/review/notification/Test Data deletion, cross-Product isolation, Release and retained Product-item preservation, and completion in ordinary seconds. The browser test proves the three labelled icon controls, overflow navigation, warning copy, exact confirmation gating, non-blocking progress, and final completion feedback.
