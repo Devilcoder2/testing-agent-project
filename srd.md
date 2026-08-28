@@ -238,6 +238,14 @@ The workspace also provides a labelled full-screen control. Entering this applic
 
 Both controls must be keyboard operable, expose their state through accessible labels or pressed state, retain visible focus treatment, respect reduced-motion preferences, and remain available only at the supported desktop-sized workspace width. The existing narrow-screen guidance remains unchanged.
 
+### F16. Administrative Product retirement
+
+The Products inventory uses compact, labelled icon controls for Edit and Admin-only Delete, plus an accessible overflow menu for GitHub, Jira, ownership transfer, and the Product-filtered Test Case link. Icon-only controls retain tooltips, visible focus, minimum target size, and screen-reader names; the overflow menu supports keyboard dismissal and does not hide primary Product identity or status.
+
+Only an active organization Admin may request permanent Product deletion. Before confirmation Sentinel returns an authorized impact summary covering recordings, Test Cases and versions, Runs and evidence, Test Data, Review suggestions/proposals, Product notifications, integrations, and affected Releases. The confirmation dialog states that Releases remain while Product Test links and Product Release Run items are removed. The Admin must enter exactly `DELETE`; Product name text alone is insufficient.
+
+Deletion is a durable background job rather than a blocking HTTP transaction. A queued Product becomes read-only and visibly reports queued/processing/failed state. The worker interrupts active Product work, removes queued work, deletes private evidence objects before relational records, removes all Product-owned records, removes only the Product-linked Test Cases and Run items from cross-Product Releases, then deletes the Product. Releases, users, organizations, unrelated Product records, and audit history remain. The requester can leave and later see the persisted outcome on Products. Duplicate requests are idempotent, failures are safe and retryable, and ordinary local-pilot deletion should complete in seconds rather than minutes.
+
 ## 7. Cross-cutting requirements
 
 ### Security and privacy
