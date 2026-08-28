@@ -720,11 +720,13 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Outcome:** Every Product row in **All accessible Products / Health overview** uses the same Product, Tests, pass-rate, and latest-status column positions regardless of Product-name or status-label length.
 
-- [ ] Replace independently calculated status-width tracks with one shared four-column desktop ledger.
-- [ ] Keep short and long Product names on one row, truncate only visual overflow, and preserve the complete accessible button name.
-- [ ] Keep Tests, pass rate, and latest status non-wrapping and aligned to identical horizontal starts across every visible Product row.
-- [ ] Preserve row selection, keyboard focus, hover/selected styling, dashboard filtering, API data, and the existing compact mobile presentation.
-- [ ] Add a focused browser regression that compares every desktop row's four column starts and row height.
-- [ ] Run lint, type-check, production build, dashboard/browser regressions, live visual measurement, priority diff review, and exactly ten owner learning questions.
+- [x] Replace independently calculated status-width tracks with one shared four-column desktop ledger.
+- [x] Keep short and long Product names on one row, truncate only visual overflow, and preserve the complete accessible button name.
+- [x] Keep Tests, pass rate, and latest status non-wrapping and aligned to identical horizontal starts across every visible Product row.
+- [x] Preserve row selection, keyboard focus, hover/selected styling, dashboard filtering, API data, and the existing compact mobile presentation.
+- [x] Add a focused browser regression that compares every desktop row's four column starts and row height.
+- [x] Run lint, type-check, production build, dashboard/browser regressions, live visual measurement, priority diff review, and exactly ten owner learning questions.
 
 **Out of scope:** Adding visible column headings, changing Product names or health calculations, sorting rows, changing the mobile information density, or modifying APIs, database queries, authorization, or dashboard filtering.
+
+**Implementation verification (2026-08-28):** Before repair, independently sized status badges shifted the Tests start from 601.4375–618.3984375px, pass rate from 836.046875–860.28125px, and status from 1107.765625–1140.484375px. Live review after the parent/subgrid repair measured exactly one start for each column across ten rows: Product 70px, Tests 596.921875px, pass rate 832.03125px, and status 1105px; every row is 56px high. Lint, strict TypeScript, and the 18-page production build pass. The focused authorized dashboard/notification workflow passes in 15.2 seconds and the isolated rapid-navigation workflow passes in 8.6 seconds. A combined broader run passed three of four workflows; its unrelated recording test exceeded a five-second post-discard URL assertion even though service logs recorded the DELETE as HTTP 200 after 5.292 seconds. D-047, synchronized design documents, priority review, and exactly ten owner questions are recorded. Owner answers and that separate recording-timeout follow-up remain pending, so the learning review is not complete.
