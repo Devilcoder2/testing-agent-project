@@ -493,6 +493,8 @@ model MessagingInboundUpdate {
   providerUpdateId String
   kind             MessagingInboundUpdateKind
   identityId       String?
+  command          String?
+  callbackActionId String?
   status           MessagingInboundUpdateStatus @default(RECEIVED)
   safeReason       String?
   receivedAt       DateTime                     @default(now())
