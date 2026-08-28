@@ -133,6 +133,11 @@ services:
       SENTINEL_PUBLIC_WEBHOOK_URL: ${SENTINEL_PUBLIC_WEBHOOK_URL:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      MESSAGING_ENCRYPTION_KEY: ${MESSAGING_ENCRYPTION_KEY:-}
       GUIDED_RUN_DEMO_PASSWORD: ${GUIDED_RUN_DEMO_PASSWORD:?Set GUIDED_RUN_DEMO_PASSWORD in an untracked .env file}
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
     command: sh -c "npm ci --ignore-scripts && npm run db:generate && npm run db:migrate && npm run db:seed && npm run dev"
@@ -189,6 +194,11 @@ services:
       SENTINEL_PUBLIC_WEBHOOK_URL: ${SENTINEL_PUBLIC_WEBHOOK_URL:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      MESSAGING_ENCRYPTION_KEY: ${MESSAGING_ENCRYPTION_KEY:-}
       AUTO_RUN_DEMO_EMAIL: qa.tester@example.test
       AUTO_RUN_DEMO_PASSWORD: TestPassword!
       VARIABLE_ENCRYPTION_KEY: ${VARIABLE_ENCRYPTION_KEY:?Set VARIABLE_ENCRYPTION_KEY in an untracked .env file}
@@ -205,6 +215,23 @@ services:
       sentinel:
         condition: service_started
     command: tunnel --no-autoupdate --url http://sentinel:3000
+
+  telegram-webhook-gateway:
+    image: nginx:1.27-alpine
+    profiles: ["telegram-tunnel"]
+    depends_on:
+      sentinel:
+        condition: service_started
+    volumes:
+      - ./telegram-gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  telegram-cloudflared:
+    image: cloudflare/cloudflared:2025.8.0
+    profiles: ["telegram-tunnel"]
+    depends_on:
+      telegram-webhook-gateway:
+        condition: service_started
+    command: tunnel --no-autoupdate --url http://telegram-webhook-gateway:8080
 
 volumes:
   sentinel-postgres:
