@@ -102,11 +102,16 @@ test("requires explicit confirmation and reports background Product deletion", a
     await page.getByRole("button", { name: "New product" }).click();
     await page.getByLabel("Product name").fill(productName);
     await page.getByRole("button", { name: "Create Product" }).click();
+    await expect(page.getByRole("heading", { name: productName })).toBeVisible({ timeout: 10_000 });
 
     const product = page.locator(".product-list__item").filter({ hasText: productName });
     await expect(product.getByRole("button", { name: `Edit ${productName}` })).toBeVisible();
     await expect(product.getByRole("button", { name: `Delete ${productName}` })).toBeVisible();
-    await expect(product.getByRole("button", { name: `More actions for ${productName}` })).toBeVisible();
+    const moreActions = product.getByRole("button", { name: `More actions for ${productName}` });
+    await expect(moreActions).toBeVisible();
+    await moreActions.press("Enter");
+    await expect(product.getByRole("link", { name: "View Test Cases" })).toBeVisible();
+    await moreActions.press("Enter");
     await product.getByRole("button", { name: `Delete ${productName}` }).click();
 
     const dialog = page.getByRole("dialog", { name: `Delete “${productName}”?` });
