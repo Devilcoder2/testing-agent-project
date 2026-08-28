@@ -58,7 +58,7 @@ test("generates, edits, approves, dismisses, and reopens a reviewable negative-T
     await page.getByRole("button", { name: "More Test Case actions" }).click();
     await page.getByRole("menuitem", { name: "Generate suggestions" }).click();
     await expect(page.getByText(/Suggestions generated: 5 new, 0 already known/)).toBeVisible();
-    await page.locator(".app-main").getByRole("link", { name: "Review" }).click();
+    await page.goto(`${baseUrl}/review`);
     await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
     const invalidEmail = page.locator(".review-item").filter({ hasText: "invalid email" });
     await invalidEmail.getByRole("button", { name: "Edit draft" }).click();
