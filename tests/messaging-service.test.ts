@@ -29,6 +29,9 @@ describe("Phase 14 Telegram identity lifecycle", () => {
 
     expect(await unlinkTelegram(sessionUser)).toBe(true);
     expect((await telegramIdentityStatus(sessionUser)).linked).toBe(false);
-    expect(await prisma.messagingIdentity.findUniqueOrThrow({ where: { id: identity.id }, select: { status: true, revokedAt: true } })).toMatchObject({ status: "REVOKED" });
+    const revoked = await prisma.messagingIdentity.findUniqueOrThrow({ where: { id: identity.id }, select: { status: true, revokedAt: true, chatIdEncrypted: true } });
+    expect(revoked).toMatchObject({ status: "REVOKED" });
+    expect(revoked.chatIdEncrypted).toMatch(/^revoked:/);
+    expect(revoked.chatIdEncrypted).not.toContain(chatId);
   });
 });
