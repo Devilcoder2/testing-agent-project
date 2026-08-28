@@ -168,7 +168,7 @@ The prior persistent sidebar is replaced with a two-level top workspace system.
 ## 8. Screen compositions
 
 - **Authentication:** split editorial entry canvas on large screens and a single-column form on mobile; theme switch remains available before sign-in.
-- **Dashboard:** a top “attention rail,” compact health ledger, result trend, latest activity, and collapsed environment readiness.
+- **Dashboard:** a top “attention rail,” compact health ledger, result trend, latest activity, and collapsed environment readiness. Health overview rows share fixed Product, Tests, pass-rate, and latest-status tracks on desktop; long Product names truncate within their track instead of shifting later columns.
 - **Products:** product ledger with test coverage, source/integration state, and a focused configuration drawer.
 - **Test Cases:** search-led inventory with Product filter, version/owner context, and direct Run affordances.
 - **Test Case Detail:** an immutable journey header followed by local tabs for Journey, Variables, Versions, and Repository routing.
