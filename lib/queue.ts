@@ -132,8 +132,16 @@ export function productDeletionQueue() {
 }
 
 export async function enqueueProductDeletion(data: ProductDeletionJobData) {
-  const job = await productDeletionQueue().add("delete", data, {
-    jobId: `product-deletion-${data.deletionRequestId}`,
+  const queue = productDeletionQueue();
+  const jobId = `product-deletion-${data.deletionRequestId}`;
+  const existing = await queue.getJob(jobId);
+  if (existing) {
+    const state = await existing.getState();
+    if (state === "completed" || state === "failed") await existing.remove();
+    else return String(existing.id);
+  }
+  const job = await queue.add("delete", data, {
+    jobId,
     attempts: 3,
     backoff: { type: "fixed", delay: 1_000 },
     removeOnComplete: 100,
