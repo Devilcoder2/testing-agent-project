@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { AccountStatus, AuthTokenKind, ChangeProposalStatus, DatabaseDiagnosticKind, DatabaseDiagnosticStatus, EvidenceKind, GitHubDeliveryStatus, GitHubRepositoryConnectionStatus, JiraFilingStatus, OrganizationRole, Prisma, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, SourceAnalysisTrigger, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
+import { AccountStatus, AuthTokenKind, ChangeProposalStatus, DatabaseDiagnosticKind, DatabaseDiagnosticStatus, EvidenceKind, GitHubDeliveryStatus, GitHubRepositoryConnectionStatus, JiraFilingStatus, OrganizationRole, Prisma, ProductDeletionStatus, RecordingStatus, ReleaseRunItemReason, ReleaseRunItemStatus, ReleaseRunStatus, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, RunStepStatus, SourceAnalysisTrigger, StepKind, TestDataReusePolicy, TestDataStatus, TestSuggestionKind, TestSuggestionStatus, VariableSource } from "@prisma/client";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { consumeAuthToken, createSession, hashPassword, issueAuthToken, readSession, revokeUserSessions, validPassword, verifyPassword, type SessionUser } from "@/lib/auth";
@@ -11,7 +11,7 @@ import { buildJiraDraftWithDiagnostic, isAllowedJiraPriority, JiraAdapterError, 
 import { notifyChangeProposalResolved, notifyChangeProposalSubmitted, notifyRunFailure } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { pilotReadiness } from "@/lib/pilot-readiness";
-import { enqueueAutoRun, enqueueJiraFiling } from "@/lib/queue";
+import { enqueueAutoRun, enqueueJiraFiling, enqueueProductDeletion } from "@/lib/queue";
 import { enqueueGitHubDelivery } from "@/lib/queue";
 import { GitHubIntegrationError, githubIsConfigured, normalizeBranches, parseGitHubPushDelivery, repositoryDetailsForApp, validBranchName, verifyGitHubSignature } from "@/lib/github";
 import { requestSourceAnalysis } from "@/lib/github-runs";
@@ -20,6 +20,7 @@ import { markReleaseRunItemQueueFailure, refreshReleaseRun, syncReleaseRunItemFo
 import { proposedValueIsSafe, suggestionsForSteps, type SuggestionKind } from "@/lib/suggestions";
 import { sendAccountLink } from "@/lib/account-email";
 import { isSearchSection, searchWorkspace } from "@/lib/global-search";
+import { productDeletionImpact } from "@/lib/product-deletion";
 
 type Context = { params: Promise<{ route?: string[] }> };
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
@@ -541,8 +542,20 @@ async function route(request: Request, context: Context) {
       }
       return json({ count: permittedIds.length });
     }
+    if (request.method === "GET" && path.join("/") === "product-deletions") {
+      if (user.role !== OrganizationRole.ADMIN) return json({ error: "Only organization Admins can view Product deletion status." }, 403);
+      const deletions = await prisma.productDeletionRequest.findMany({ where: { organizationId: user.organizationId }, orderBy: { createdAt: "desc" }, take: 10 });
+      return json(deletions.map(({ id, productId, productName, status, impact, attemptCount, failureCode, queuedAt, startedAt, completedAt }) => ({ id, productId, productName, status, impact, attemptCount, failureCode, queuedAt, startedAt, completedAt })));
+    }
+    if (request.method === "GET" && path[0] === "product-deletions" && path[1]) {
+      if (user.role !== OrganizationRole.ADMIN) return json({ error: "Only organization Admins can view Product deletion status." }, 403);
+      const deletion = await prisma.productDeletionRequest.findFirst({ where: { id: path[1], organizationId: user.organizationId } });
+      if (!deletion) return json({ error: "Product deletion request not found." }, 404);
+      return json(deletion);
+    }
     if (request.method === "GET" && path.join("/") === "products") {
-      return json(await prisma.product.findMany({ where: { organizationId: user.organizationId, ...(user.role === OrganizationRole.ADMIN ? {} : { memberships: { some: { userId: user.id } } }) }, orderBy: { name: "asc" } }));
+      const products = await prisma.product.findMany({ where: { organizationId: user.organizationId, ...(user.role === OrganizationRole.ADMIN ? {} : { memberships: { some: { userId: user.id } } }) }, include: { deletionRequest: { select: { id: true, status: true, failureCode: true, queuedAt: true, startedAt: true } } }, orderBy: { name: "asc" } });
+      return json(products.map((product) => ({ ...product, canDelete: user.role === OrganizationRole.ADMIN })));
     }
     if (request.method === "POST" && path.join("/") === "products") {
       if (user.role === OrganizationRole.TESTER) return json({ error: "Only Admins and Managers can create Products." }, 403);
@@ -550,13 +563,46 @@ async function route(request: Request, context: Context) {
       if (!name) return json({ error: "Product name is required." }, 400);
       try {
         const product = await prisma.product.create({ data: { name, createdById: user.id, organizationId: user.organizationId, memberships: { create: { userId: user.id } } } });
-        return json(product, 201);
+        return json({ ...product, canDelete: user.role === OrganizationRole.ADMIN, deletionRequest: null }, 201);
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
           return json({ error: "You already have a Product with this name." }, 409);
         }
         throw error;
       }
+    }
+    if (request.method === "GET" && path[0] === "products" && path[1] && path[2] === "deletion-impact") {
+      if (user.role !== OrganizationRole.ADMIN) return json({ error: "Only organization Admins can delete Products." }, 403);
+      const product = await prisma.product.findFirst({ where: { id: path[1], organizationId: user.organizationId } });
+      if (!product) return json({ error: "Product not found." }, 404);
+      return json({ product: { id: product.id, name: product.name }, impact: await productDeletionImpact(product.id) });
+    }
+    if (request.method === "DELETE" && path[0] === "products" && path[1] && path.length === 2) {
+      if (user.role !== OrganizationRole.ADMIN) return json({ error: "Only organization Admins can delete Products." }, 403);
+      if (body.confirmation !== "DELETE") return json({ error: "Enter DELETE exactly to confirm permanent Product deletion." }, 400);
+      const product = await prisma.product.findFirst({ where: { id: path[1], organizationId: user.organizationId }, include: { deletionRequest: true } });
+      if (!product) return json({ error: "Product not found." }, 404);
+      if (product.deletionRequest && (product.deletionRequest.status === ProductDeletionStatus.QUEUED || product.deletionRequest.status === ProductDeletionStatus.PROCESSING)) return json(product.deletionRequest, 202);
+      const impact = await productDeletionImpact(product.id);
+      const deletion = await prisma.$transaction(async (tx) => {
+        const created = await tx.productDeletionRequest.upsert({
+          where: { productId: product.id },
+          create: { productId: product.id, organizationId: user.organizationId, requestedById: user.id, productName: product.name, impact },
+          update: { status: ProductDeletionStatus.QUEUED, impact, attemptCount: 0, failureCode: null, queuedAt: new Date(), startedAt: null, completedAt: null }
+        });
+        await tx.auditEvent.create({ data: { actorId: user.id, action: "PRODUCT_DELETION_QUEUED", entityType: "Product", entityId: product.id, details: { productName: product.name, impact, deletionRequestId: created.id } } });
+        return created;
+      });
+      try {
+        await enqueueProductDeletion({ deletionRequestId: deletion.id });
+      } catch {
+        await prisma.$transaction([
+          prisma.productDeletionRequest.update({ where: { id: deletion.id }, data: { status: ProductDeletionStatus.FAILED, failureCode: "PRODUCT_DELETION_QUEUE_UNAVAILABLE" } }),
+          prisma.auditEvent.create({ data: { actorId: user.id, action: "PRODUCT_DELETION_QUEUE_FAILED", entityType: "Product", entityId: product.id, details: { deletionRequestId: deletion.id } } })
+        ]);
+        return json({ error: "Product deletion could not be queued. Try again." }, 503);
+      }
+      return json(deletion, 202);
     }
     if (path[0] === "products" && path[1] && path[2] === "github") {
       const product = await prisma.product.findUnique({ where: { id: path[1] }, select: { id: true, name: true, organizationId: true } });
