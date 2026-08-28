@@ -60,6 +60,7 @@ test("generates, edits, approves, dismisses, and reopens a reviewable negative-T
     await expect(page.getByText(/Suggestions generated: 5 new, 0 already known/)).toBeVisible();
     await page.goto(`${baseUrl}/review`);
     await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
+    await page.getByLabel("Filter by Product").selectOption(fixture.productId);
     const invalidEmail = page.locator(".review-item").filter({ hasText: "invalid email" });
     await invalidEmail.getByRole("button", { name: "Edit draft" }).click();
     await page.getByLabel("Suggestion name").fill("Reject malformed CRM email");
