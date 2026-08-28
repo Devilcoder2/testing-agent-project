@@ -240,3 +240,13 @@ Add one global command-search combobox to the Phase 16 masthead rather than sepa
 The desktop field occupies the flexible center of the masthead. At narrower widths it becomes a full-width second masthead row while retaining the identity, New recording, and theme controls. The result panel uses the Signal Canvas flat ledger language, five rows per category, clear section headings, a cobalt active trace, explicit loading/no-result/error states, and equal light/dark treatment.
 
 Interaction follows the accessible combobox pattern: `Ctrl+K`/`Cmd+K` focuses search, input is debounced by 250 milliseconds, stale requests are cancelled, Arrow keys move the active result, Enter follows it, Escape closes the panel, and pointer/touch input remains equivalent. Query state is transient and clears when a result is selected or the user signs out.
+
+## 11. Test Case detail focus refinement
+
+The saved Test Case header replaces the generic read-only sentence with one compact metadata line: Product, owner, and recorded-step count. Feature labels remain secondary metadata. Version stays a status badge, while Guided Run and Auto Run use the internal SVG system inside 44px labelled icon buttons. The overflow trigger is the shared horizontal three-dot icon; its panel contains text-only Edit Test, Generate suggestions, Open Review, and eligible Transfer Test Case ownership actions with identical full-width, left-aligned rows.
+
+The overflow is a controlled disclosure rather than a permanently open native details block. Pointer or focus movement outside its boundary and Escape close it, focus remains recoverable, and opening ownership transfer closes the menu without hiding the modal. No action availability, permission, destination, or Run-start behavior changes.
+
+`RepositoryRouting` renders nothing while loading or when no active Product repository exists. Once at least one active connection exists, the current routing card, selected state, authorization feedback, and save behavior render unchanged. This avoids advertising optional GitHub automation where it cannot be used.
+
+Recorded steps use compact native disclosures. The summary is a full-width row with the numbered timeline rail, normalized action label, target/value preview, chevron, and an explicit Checkpoint label where applicable. The expanded region contains only optional annotations and a plain fallback when no additional annotation was captured. Checkpoint disclosures use the warning token, dashed border, and label in both themes; ordinary steps retain the neutral border. The timeline introduction has no redundant explanatory sentence.
