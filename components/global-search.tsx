@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { apiRequest } from "@/lib/client-api";
 import type { SearchResponse, SearchResult, SearchSection } from "@/lib/global-search";
 import { Icon } from "./ui";
 
@@ -68,11 +69,9 @@ export function GlobalSearch() {
       try {
         const parameters = new URLSearchParams({ q: normalized });
         if (currentSection) parameters.set("section", currentSection);
-        const result = await fetch(`/api/search?${parameters}`, { signal: controller.signal });
-        const payload = await result.json();
-        if (!result.ok) throw new Error(payload?.error ?? "Search is temporarily unavailable.");
+        const payload = await apiRequest<SearchResponse>(`search?${parameters}`, { signal: controller.signal });
         if (currentRequest !== requestNumber.current) return;
-        setResponse(payload as SearchResponse);
+        setResponse(payload);
         setState("ready");
         setActiveIndex(-1);
       } catch {
