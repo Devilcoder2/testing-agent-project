@@ -1,6 +1,7 @@
 import { MaintenanceKind, MaintenanceStatus, RunStatus, SourceAnalysisStatus } from "@prisma/client";
 import { deleteEvidenceObject } from "./evidence";
 import { prisma } from "./prisma";
+import { cleanupTelegramMetadata } from "./messaging-service";
 
 export function evidenceRetentionDays() {
   const configured = Number.parseInt(process.env.EVIDENCE_RETENTION_DAYS ?? "30", 10);
@@ -60,4 +61,14 @@ export async function runEvidenceRetention(now = new Date()) {
 
 export async function latestEvidenceRetentionRun() {
   return prisma.maintenanceRun.findFirst({ where: { kind: MaintenanceKind.EVIDENCE_RETENTION }, orderBy: { startedAt: "desc" } });
+}
+
+export async function runMessagingRetention(now = new Date()) {
+  const maintenance = await prisma.maintenanceRun.create({ data: { kind: MaintenanceKind.MESSAGING_RETENTION } });
+  try {
+    const deletedMessagingCount = await cleanupTelegramMetadata(now);
+    return prisma.maintenanceRun.update({ where: { id: maintenance.id }, data: { status: MaintenanceStatus.COMPLETED, deletedMessagingCount, completedAt: new Date() } });
+  } catch {
+    return prisma.maintenanceRun.update({ where: { id: maintenance.id }, data: { status: MaintenanceStatus.PARTIAL, errorCode: "MESSAGING_RETENTION_FAILED", completedAt: new Date() } });
+  }
 }
