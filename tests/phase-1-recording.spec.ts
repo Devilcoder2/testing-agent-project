@@ -17,6 +17,11 @@ async function signIn(page: Page, email = "ava.tester@example.test", navigate = 
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 }
 
+async function expandSavedSteps(page: Page) {
+  const summaries = page.locator(".timeline-item summary");
+  for (let index = 0; index < await summaries.count(); index += 1) await summaries.nth(index).click();
+}
+
 async function readSteps(page: Page, recordingId: string): Promise<Step[]> {
   return page.evaluate(async (id) => {
     const response = await fetch(`/api/recordings/${id}/steps`);
@@ -130,6 +135,7 @@ test("records the remote demo journey and preserves saved annotations after refr
     await page.getByRole("button", { name: "Save Test" }).click();
     await expect(page.getByRole("heading", { name: testName })).toBeVisible();
     await expect(page.locator(".timeline-item")).toHaveCount(capturedStepCount);
+    await expandSavedSteps(page);
     await expect(page.getByText("Description: Enter the secret test password")).toBeVisible();
     await expect(page.getByText("Expected outcome: The password stays redacted")).toBeVisible();
     await expect(page.getByText("Variable: demoemail")).toBeVisible();
@@ -141,6 +147,7 @@ test("records the remote demo journey and preserves saved annotations after refr
     const savedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await savedTest.getByRole("link", { name: "Open" }).click();
     await expect(page.locator(".timeline-item")).toHaveCount(capturedStepCount);
+    await expandSavedSteps(page);
     await expect(page.getByText("Variable: demoemail")).toBeVisible();
 
     await page.reload();
@@ -151,10 +158,11 @@ test("records the remote demo journey and preserves saved annotations after refr
     const reopenedTest = page.locator(".test-list__item").filter({ hasText: testName }).first();
     await reopenedTest.getByRole("link", { name: "Open" }).click();
     await expect(page.locator(".timeline-item")).toHaveCount(capturedStepCount);
+    await expandSavedSteps(page);
     await expect(page.getByText("Description: Enter the secret test password")).toBeVisible();
     await expect(page.getByText("Expected outcome: The password stays redacted")).toBeVisible();
     await expect(page.getByText("Variable: demoemail")).toBeVisible();
-    await expect(page.getByText("Value: [REDACTED]")).toBeVisible();
+    await expect(page.getByText("[REDACTED]", { exact: true })).toBeVisible();
     await expect(page.getByText("TestPassword!")).toHaveCount(0);
   } finally {
     await remoteDriver?.quit().catch(() => undefined);
