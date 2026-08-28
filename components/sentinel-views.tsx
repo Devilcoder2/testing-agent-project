@@ -84,7 +84,6 @@ export function SignInView() {
 }
 
 function useDashboardData() {
-  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [testCases, setTestCases] = useState<TestCaseSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,8 +99,7 @@ function useDashboardData() {
       return { products: nextProducts, testCases: nextTestCases };
     } catch (loadError) {
       const message = errorMessage(loadError, "Could not load the workspace.");
-      if (message.toLowerCase().includes("access") || message.toLowerCase().includes("sign in")) router.replace("/");
-      else setError(message);
+      setError(message);
       return { products: [], testCases: [] };
     } finally {
       setLoading(false);
