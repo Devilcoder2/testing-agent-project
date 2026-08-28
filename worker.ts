@@ -6,12 +6,13 @@ import { deliverJiraFiling, JiraAdapterError } from "./lib/jira";
 import { deliverNotification, notifyAutoRunCheckpoint, notifyRunFailure } from "./lib/notifications";
 import { runEvidenceRetention } from "./lib/maintenance";
 import { prisma } from "./lib/prisma";
-import { GITHUB_DELIVERY_QUEUE, JIRA_FILING_QUEUE, NOTIFICATION_QUEUE, SOURCE_ANALYSIS_QUEUE, AUTO_RUN_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData, type GitHubDeliveryJobData, type JiraFilingJobData, type NotificationJobData, type SourceAnalysisJobData } from "./lib/queue";
+import { GITHUB_DELIVERY_QUEUE, JIRA_FILING_QUEUE, NOTIFICATION_QUEUE, PRODUCT_DELETION_QUEUE, SOURCE_ANALYSIS_QUEUE, AUTO_RUN_QUEUE, createRedisConnection, enqueueAutoRun, type AutoRunJobData, type GitHubDeliveryJobData, type JiraFilingJobData, type NotificationJobData, type ProductDeletionJobData, type SourceAnalysisJobData } from "./lib/queue";
 import { canRetryAutoRun, initialReplayState, ReplayError, replayStep, type ReplayStep } from "./lib/replay";
 import { decryptVariableValue } from "./lib/variables";
 import { markReleaseRunItemRunning, syncReleaseRunItemForRun } from "./lib/releases";
 import { processGitHubDelivery, requestAutomaticSourceAnalysis } from "./lib/github-runs";
 import { processSourceAnalysis } from "./lib/source-analysis";
+import { processProductDeletion } from "./lib/product-deletion";
 
 const CHECKPOINT_TIMEOUT_MS = 10 * 60 * 1000;
 const MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -271,6 +272,7 @@ const jiraFilingWorker = new Worker<JiraFilingJobData>(JIRA_FILING_QUEUE, async 
 });
 const githubDeliveryWorker = new Worker<GitHubDeliveryJobData>(GITHUB_DELIVERY_QUEUE, async (job) => processGitHubDelivery(job.data.deliveryId), { connection: createRedisConnection(), concurrency: 2 });
 const sourceAnalysisWorker = new Worker<SourceAnalysisJobData>(SOURCE_ANALYSIS_QUEUE, async (job) => processSourceAnalysis(job.data.analysisId), { connection: createRedisConnection(), concurrency: 1 });
+const productDeletionWorker = new Worker<ProductDeletionJobData>(PRODUCT_DELETION_QUEUE, async (job) => processProductDeletion(job.data.deletionRequestId), { connection: createRedisConnection(), concurrency: 1 });
 const heartbeatConnection = createRedisConnection();
 
 async function refreshWorkerHeartbeat() {
@@ -292,11 +294,13 @@ githubDeliveryWorker.on("failed", (job, error) => console.error("Sentinel GitHub
 githubDeliveryWorker.on("error", (error) => console.error("Sentinel GitHub delivery worker error", error));
 sourceAnalysisWorker.on("failed", (job, error) => console.error("Sentinel source-analysis worker job failed", job?.id, error));
 sourceAnalysisWorker.on("error", (error) => console.error("Sentinel source-analysis worker error", error));
+productDeletionWorker.on("failed", (job, error) => console.error("Sentinel Product deletion worker job failed", job?.id, error));
+productDeletionWorker.on("error", (error) => console.error("Sentinel Product deletion worker error", error));
 
 async function shutdown() {
   clearInterval(maintenanceTimer);
   clearInterval(heartbeatTimer);
-  await Promise.all([autoRunWorker.close(), notificationWorker.close(), jiraFilingWorker.close(), githubDeliveryWorker.close(), sourceAnalysisWorker.close()]);
+  await Promise.all([autoRunWorker.close(), notificationWorker.close(), jiraFilingWorker.close(), githubDeliveryWorker.close(), sourceAnalysisWorker.close(), productDeletionWorker.close()]);
   await heartbeatConnection.quit();
   await prisma.$disconnect();
 }
