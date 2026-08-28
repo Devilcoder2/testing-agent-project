@@ -55,7 +55,7 @@ test("generates, edits, approves, dismisses, and reopens a reviewable negative-T
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
     await page.goto(`${baseUrl}/test-cases/${fixture.testCaseId}`);
-    await page.getByText("More actions", { exact: true }).click();
+    await page.getByRole("button", { name: "More Test Case actions" }).click();
     await page.getByRole("button", { name: "Generate suggestions" }).click();
     await expect(page.getByText(/Suggestions generated: 5 new, 0 already known/)).toBeVisible();
     await page.locator(".app-main").getByRole("link", { name: "Review" }).click();
