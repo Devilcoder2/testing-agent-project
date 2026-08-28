@@ -245,3 +245,32 @@ The optional integration is implemented but intentionally unavailable until ever
 5. For a manual failed Run, enter an explicit connected repository plus a full 40-character commit SHA and confirm the same advisory-only boundary.
 
 The normal complete suite includes Guided Run checks. It may correctly reject those checks with HTTP 409 while an existing Guided Run owns Sentinel's one visible browser session; finish that Run through the product before rerunning the complete suite.
+
+## Phase 14 scope
+
+Phase 14 adds an optional **Telegram Run Assistant** for private chats only. A signed-in Sentinel user opens **Account → Integrations**, generates a one-time Telegram link that expires after ten minutes, then opens it in a private chat with the deployment-owned bot. The bot offers guided buttons to browse only the user's authorized Test Cases or Release contents, select eligible individual Tests, review them, and confirm within five minutes. It starts existing Auto Runs only; a Release is never batch-run from Telegram.
+
+Chat-run eligibility deliberately matches the safe Auto Run boundary: no checkpoints and either no variables or encrypted static defaults. Telegram cannot accept a value, use Test Data pools, start Guided Runs, start Release batches, expose evidence/screenshots/logs/Sentinel links, run administrative commands, or cancel a Run after confirmation. Terminal Pass/Fail/Interrupted results go only to the requester and contain only Test/Product names, outcome, timestamp, evidence-completeness state, and a safe failure reason.
+
+### Phase 14 local Telegram sandbox
+
+Create a disposable BotFather test bot first. Keep all values below in the untracked `.env`; do not add them to Git or paste them into the browser:
+
+```text
+TELEGRAM_BOT_TOKEN="your-bot-token"
+TELEGRAM_BOT_USERNAME="your_bot_username"
+TELEGRAM_WEBHOOK_SECRET="long-random-secret"
+TELEGRAM_WEBHOOK_URL="https://your-telegram-tunnel.example/api/internal/telegram/webhook"
+MESSAGING_ENCRYPTION_KEY="base64-encoded-32-byte-key"
+```
+
+Start the normal local stack, then start only the Telegram webhook tunnel profile. It is intentionally separate from the existing GitHub tunnel and forwards only the Telegram webhook route through an internal gateway:
+
+```text
+docker compose up --build -d
+docker compose --profile telegram-tunnel up telegram-cloudflared
+```
+
+As an Admin, open **Administration** and activate the Telegram webhook once the server-only configuration and public HTTPS endpoint are ready. Then use **Account → Integrations** as a Tester to generate a fresh deep link. Confirm that `/start` in an unlinked private chat gives only linking guidance, group messages cannot execute anything, a linked chat sees only authorized Tests, and a checkpoint/manual/pool-variable Test is refused with a safe reason. Unlinking or disabling the account must immediately deny later callbacks.
+
+Telegram webhook configuration is intentionally unavailable until every value is present. The main Sentinel application remains at `http://localhost:3001` throughout this local pilot and must never be exposed through the Telegram tunnel. Provider payloads and inbound/outbound message text are never retained; safe terminal command and delivery metadata expires after 30 days.
