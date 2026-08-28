@@ -338,6 +338,8 @@ async function route(request: Request, context: Context) {
     const parsed = parseTelegramUpdate(await request.json().catch(() => null));
     if (!parsed) return json({ accepted: true, ignored: true }, 202);
     if (parsed.kind === "CALLBACK_QUERY") acknowledgeTelegramCallback(parsed.callbackId).catch(() => undefined);
+    const existingUpdate = await prisma.messagingInboundUpdate.findUnique({ where: { provider_providerUpdateId: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId } } });
+    if (existingUpdate) return json({ accepted: true, duplicate: true }, 202);
     let identity = await telegramIdentityForChat(parsed.chatId);
     if (parsed.kind === "MESSAGE" && parsed.command === "START" && parsed.linkToken) {
       try {
@@ -348,24 +350,16 @@ async function route(request: Request, context: Context) {
       }
     }
     if (!identity || identity.status !== "ACTIVE") {
-      await prisma.messagingInboundUpdate.upsert({
-        where: { provider_providerUpdateId: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId } },
-        create: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId, kind: parsed.kind === "MESSAGE" ? MessagingInboundUpdateKind.MESSAGE : MessagingInboundUpdateKind.CALLBACK_QUERY, status: MessagingInboundUpdateStatus.REJECTED, safeReason: "UNLINKED_PRIVATE_CHAT", processedAt: new Date() },
-        update: {}
-      });
+      await prisma.messagingInboundUpdate.create({ data: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId, kind: parsed.kind === "MESSAGE" ? MessagingInboundUpdateKind.MESSAGE : MessagingInboundUpdateKind.CALLBACK_QUERY, status: MessagingInboundUpdateStatus.REJECTED, safeReason: "UNLINKED_PRIVATE_CHAT", processedAt: new Date() } });
+      if (identity) await prisma.auditEvent.create({ data: { actorId: identity.userId, action: "TELEGRAM_UPDATE_REJECTED", entityType: "MessagingIdentity", entityId: identity.id, details: { reason: "UNLINKED_PRIVATE_CHAT" } } });
       if (parsed.kind === "MESSAGE" && parsed.command === "START") await sendTelegramMessage(parsed.chatId, "Link Telegram from Sentinel Account integrations before using this bot.").catch(() => undefined);
       return json({ accepted: true, rejected: true }, 202);
     }
     if (!(await telegramInboundAllowed(identity))) {
-      await prisma.messagingInboundUpdate.upsert({
-        where: { provider_providerUpdateId: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId } },
-        create: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId, kind: parsed.kind === "MESSAGE" ? MessagingInboundUpdateKind.MESSAGE : MessagingInboundUpdateKind.CALLBACK_QUERY, identityId: identity.id, status: MessagingInboundUpdateStatus.REJECTED, safeReason: "RATE_LIMITED", processedAt: new Date() },
-        update: {}
-      });
+      const rateLimited = await prisma.messagingInboundUpdate.create({ data: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId, kind: parsed.kind === "MESSAGE" ? MessagingInboundUpdateKind.MESSAGE : MessagingInboundUpdateKind.CALLBACK_QUERY, identityId: identity.id, status: MessagingInboundUpdateStatus.REJECTED, safeReason: "RATE_LIMITED", processedAt: new Date() } });
+      await prisma.auditEvent.create({ data: { actorId: identity.userId, action: "TELEGRAM_UPDATE_REJECTED", entityType: "MessagingInboundUpdate", entityId: rateLimited.id, details: { reason: "RATE_LIMITED" } } });
       return json({ accepted: true, rateLimited: true }, 202);
     }
-    const existingUpdate = await prisma.messagingInboundUpdate.findUnique({ where: { provider_providerUpdateId: { provider: MessagingProvider.TELEGRAM, providerUpdateId: parsed.updateId } } });
-    if (existingUpdate) return json({ accepted: true, duplicate: true }, 202);
     let update;
     try {
       update = await prisma.messagingInboundUpdate.create({
