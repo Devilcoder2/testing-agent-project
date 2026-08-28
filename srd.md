@@ -254,6 +254,27 @@ GitHub repository routing is omitted entirely when the Product has no active con
 
 The current-version timeline shows each immutable recorded step as a compact disclosure. Its collapsed summary always exposes step order, normalized action, and the best available target/value without requiring expansion. Opening the step reveals any recorded value, description, expected outcome, variable, and checkpoint explanation. Checkpoints use a distinct dashed semantic-warning treatment plus a visible text label so checkpoint meaning is not conveyed by color alone. Expanding steps changes presentation only and never edits recorded data.
 
+### F18. Secure Telegram Run Assistant
+
+Phase 14 adds one deployment-owned Telegram bot as an optional private-chat assistant. Telegram is a narrow, guided entry point to existing individual Auto Runs; it is not a second Sentinel interface, a general chatbot, or a remote administration channel. WhatsApp and every other messaging provider remain deferred.
+
+A signed-in Sentinel user creates a one-time Telegram linking deep link from their Account integrations screen. The link token is hashed at rest, expires after ten minutes, is single-use, and binds one private Telegram chat to exactly one active Sentinel user and organization. A linked chat identifier is encrypted at rest and indexed only through a deterministic lookup hash. A user can unlink themselves at any time; unlinking immediately makes the chat unusable for future commands while preserving only safe audit history. An unlinked `/start`, group/supergroup/channel update, forwarded identifier, or chat-supplied claim must never authorize access.
+
+The Telegram webhook accepts only `message` and `callback_query` updates, validates Telegram's secret header, deduplicates the provider update identifier, acknowledges callbacks promptly, and queues durable processing. Sentinel retains only safe command/update/delivery metadata for thirty days: provider/update IDs, command type, timestamps, selected internal references, state, delivery attempts, and safe reason codes. It must never retain inbound or outbound message text, provider payloads, chat IDs in plaintext, credentials, variable/Test Data values, screenshots, evidence links, raw logs, source-analysis material, or direct Sentinel URLs.
+
+The guided private-chat flow is:
+
+1. `/start` or `/menu` presents opaque-button choices for **Test Cases** and **Releases** after the linked identity is re-authorized.
+2. The user browses only Products and Test Cases they may currently access. A Release is browse-only and exposes its member Test Cases for individual selection; Telegram never starts a Release batch.
+3. The user may select multiple eligible Tests, page through server-side choices, review the selection, and either cancel or confirm. Callback data contains only compact opaque action references.
+4. Confirmation shows the selected names/count and is valid for five minutes. Confirmation atomically re-checks account status, organization role, Product membership, the current immutable Test Case version, target allowlist, static-only variable eligibility, and the no-checkpoint rule. If any selected Test has become ineligible, Sentinel queues none and returns clear safe reasons.
+5. A successful confirmation creates existing Auto Runs atomically, attributes them to the linked user, and queues them through the existing two-concurrency worker. A confirmed Telegram Run cannot be cancelled from chat; authenticated Sentinel Run controls remain authoritative.
+6. Only the requester receives a terminal Passed, Failed, or Interrupted message through a durable outbound outbox. It contains Test name, Product, outcome, timestamp, evidence-completeness label, and a safe failure reason where appropriate. It contains no Sentinel link or evidence artifact.
+
+Telegram selection never accepts free-form test data or values. Eligible Tests have no checkpoint and either no variables or only encrypted static defaults. Manual values, pooled Test Data, secret-like values, screenshots, evidence, Jira, diagnostics, source analysis, generic Run controls, cancellation after confirmation, and all administrative commands remain unavailable in chat.
+
+Sentinel applies Redis-backed limits of thirty inbound updates per minute per linked identity and one outbound delivery per second per chat. Database uniqueness and BullMQ job IDs make inbound updates and terminal deliveries idempotent. One transient outbound provider failure retries once; a final delivery failure is persisted and audited without changing any Run outcome, evidence status, Release readiness, or notification truth. A route-restricted webhook gateway plus a dedicated Telegram tunnel may expose only the webhook endpoint; the Sentinel web application remains localhost-only.
+
 ## 7. Cross-cutting requirements
 
 ### Security and privacy
