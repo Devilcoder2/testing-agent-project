@@ -298,12 +298,10 @@ export function ProductsView() {
 }
 
 function ProductActions({ product, disabled, onEdit, onDelete }: { product: Product; disabled: boolean; onEdit: () => void; onDelete: () => void }) {
-  const menuRef = useRef<HTMLDetailsElement>(null);
-  const closeMenu = () => { if (menuRef.current) menuRef.current.open = false; };
   return <div className="product-list__actions">
     <IconButton type="button" label={`Edit ${product.name}`} onClick={onEdit} disabled={disabled}><Icon name="edit" /></IconButton>
     {product.canDelete && <IconButton type="button" className="icon-button--danger" label={`Delete ${product.name}`} onClick={onDelete} disabled={disabled}><Icon name="delete" /></IconButton>}
-    <details ref={menuRef} className="product-action-menu"><summary className="icon-button" aria-label={`More actions for ${product.name}`} title={`More actions for ${product.name}`}><Icon name="more" /></summary><div className="product-action-menu__panel" onClick={closeMenu}><Link className="button button--ghost" href={`/test-cases?productId=${product.id}`}>View Test Cases</Link><GitHubProjectSettings product={product} /><JiraProjectSettings product={product} />{product.createdById && <OwnershipTransfer label="Product" currentOwnerId={product.createdById} membersPath={`products/${product.id}/members`} transferPath={`products/${product.id}/owner`} onTransferred={() => window.location.reload()} />}</div></details>
+    {!disabled && <details className="product-action-menu"><summary className="icon-button" aria-label={`More actions for ${product.name}`} title={`More actions for ${product.name}`}><Icon name="more" /></summary><div className="product-action-menu__panel"><Link className="button button--ghost" href={`/test-cases?productId=${product.id}`}>View Test Cases</Link><GitHubProjectSettings product={product} /><JiraProjectSettings product={product} />{product.createdById && <OwnershipTransfer label="Product" currentOwnerId={product.createdById} membersPath={`products/${product.id}/members`} transferPath={`products/${product.id}/owner`} onTransferred={() => window.location.reload()} />}</div></details>}
   </div>;
 }
 
