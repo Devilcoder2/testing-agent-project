@@ -246,6 +246,14 @@ Only an active organization Admin may request permanent Product deletion. Before
 
 Deletion is a durable background job rather than a blocking HTTP transaction. A queued Product becomes read-only and visibly reports queued/processing/failed state. The worker interrupts active Product work, removes queued work, deletes private evidence objects before relational records, removes all Product-owned records, removes only the Product-linked Test Cases and Run items from cross-Product Releases, then deletes the Product. Releases, users, organizations, unrelated Product records, and audit history remain. The requester can leave and later see the persisted outcome on Products. Duplicate requests are idempotent, failures are safe and retryable, and ordinary local-pilot deletion should complete in seconds rather than minutes.
 
+### F17. Focused Test Case detail presentation
+
+The saved Test Case header shows Product, owner, and current recorded-step count directly beneath the Test Case name instead of explanatory read-only copy. Version remains a status label. Guided Run and Auto Run are compact labelled icon controls with hover titles and accessible names. Maintenance actions use a three-dot overflow control; its text-only items align left, remain keyboard operable, and the menu closes on outside pointer/focus interaction or Escape without preventing an ownership-transfer dialog from remaining visible.
+
+GitHub repository routing is omitted entirely when the Product has no active connected repository or the deployment integration is unavailable. Its absence must not affect manual Guided or Auto Runs. When active Product repositories exist, the existing authorized routing interface and API behavior remain unchanged.
+
+The current-version timeline shows each immutable recorded step as a compact disclosure. Its collapsed summary always exposes step order, normalized action, and the best available target/value without requiring expansion. Opening the step reveals any recorded value, description, expected outcome, variable, and checkpoint explanation. Checkpoints use a distinct dashed semantic-warning treatment plus a visible text label so checkpoint meaning is not conveyed by color alone. Expanding steps changes presentation only and never edits recorded data.
+
 ## 7. Cross-cutting requirements
 
 ### Security and privacy
