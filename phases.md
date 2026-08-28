@@ -737,10 +737,12 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 - [x] Confirm that the existing eight-hour server-managed session policy remains unchanged and distinguish authentication failure from an authenticated permission denial.
 - [x] Define one protected-client request boundary that coalesces concurrent HTTP 401 responses, requests cookie cleanup once, and replaces the current browser location with sign-in.
-- [ ] Route every protected workspace request, including command search and standalone recording/Run screens, through the shared boundary while keeping public sign-in and account-recovery errors local.
-- [ ] Preserve HTTP 403 and non-authentication errors as feature-level feedback and preserve the explicit Sign out action.
-- [ ] Add focused browser coverage for expired-session redirect, logout coalescing, absent `Sign in required.` feedback, invalid-credential feedback, and ordinary permission denial.
-- [ ] Run lint, strict type-check, production build, focused auth/browser coverage, and relevant workspace regression with exact output.
-- [ ] Review the actual diff in learning priority order, record the decision, and append exactly ten owner understanding questions before closing the learning gate.
+- [x] Route every protected workspace request, including command search and standalone recording/Run screens, through the shared boundary while keeping public sign-in and account-recovery errors local.
+- [x] Preserve HTTP 403 and non-authentication errors as feature-level feedback and preserve the explicit Sign out action.
+- [x] Add focused browser coverage for expired-session redirect, logout coalescing, absent `Sign in required.` feedback, invalid-credential feedback, and ordinary permission denial.
+- [x] Run lint, strict type-check, production build, focused auth/browser coverage, and relevant workspace regression with exact output.
+- [x] Review the actual diff in learning priority order, record the decision, and append exactly ten owner understanding questions before closing the learning gate.
 
 **Out of scope:** Extending the eight-hour session lifetime, silent refresh, remember-me behavior, changing password or role policy, changing API authorization status codes, or adding an identity provider.
+
+**Implementation verification (2026-08-28):** The eight-hour server policy and API status codes are unchanged. All protected client requests now share one status-aware boundary; the first HTTP 401 starts one keepalive logout and replaces the stale route with sign-in, while public login 401 and authenticated 403 feedback remain local. Lint, strict TypeScript, and the 18-page production build pass. The focused browser suite passes both workflows in 11.5 seconds, covering redirect, absent raw error feedback, one logout request, invalid credentials, and permission denial. Rapid navigation and both session workflows passed in the combined regression; its only failure was an unrelated five-second global-search Product-data readiness expectation, and that complete search workflow passed in isolation in 25.8 seconds. D-048, priority review, and exactly ten owner questions are recorded. Owner answers remain pending, so the learning review is not complete.
