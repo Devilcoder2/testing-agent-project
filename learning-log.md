@@ -2536,3 +2536,85 @@ The combined dashboard/frontend run completed three of four workflows. Its only 
 - Investigate or harden the separate recording workflow's post-discard five-second navigation expectation if local API cleanup continues to exceed that budget.
 
 **Learning status:** Root-cause measurement, shared-column repair, live visual review, design synchronization, static checks, production build, focused dashboard regression, cleanup, and priority review are complete. Owner answers and the unrelated recording timeout follow-up remain pending.
+
+## Phase 21 — Expired-session return to sign-in
+
+### What changed and what user problem it solves
+
+Sentinel's server intentionally expires an authenticated session after eight hours. A tab left open beyond that point still displayed its old protected page, and the next API call returned HTTP 401 with `Sign in required.`. Each feature treated that response like an ordinary error, so the user stayed in a workspace that could no longer work.
+
+Protected browser requests now pass through `lib/client-api.ts`. The first 401 starts one best-effort logout request, clears the stale protected history entry with `window.location.replace("/")`, and returns the browser to the sign-in page. Concurrent protected calls share the same exit state, so they cannot create a logout storm. Invalid credentials still render on the sign-in form because public login explicitly opts out, and an authenticated 403 remains feature-level feedback.
+
+### Complete flow, technology, alternatives, and tradeoffs
+
+1. A signed-in feature calls the shared `apiRequest` wrapper using its existing `/api/...` path, method, body, and optional cancellation signal.
+2. The server continues to resolve the opaque HttpOnly cookie against PostgreSQL and returns 401 when the eight-hour session is missing, expired, revoked, or no longer active.
+3. On the first protected 401, a module-level guard records that exit has started. A keepalive POST to `/api/auth/logout` asks the server to delete the matching session when present and expire the browser cookie.
+4. The browser immediately replaces the current location with `/`. Replace is used instead of push or assign so the stale protected screen is not the immediate Back destination.
+5. The failed feature promise stays pending while the document unloads, preventing its catch block from briefly rendering the raw API error.
+6. Later simultaneous 401 handlers see the guard and wait for the same unload instead of sending another logout.
+7. Public login uses `redirectOnUnauthorized: false`, so an invalid-password 401 throws its normal `Invalid email or password.` error to the form.
+8. A 403 never enters the session-expiry branch. Older message-text heuristics were removed so wording such as “access” cannot accidentally redirect an authenticated user.
+
+Changing the session to never expire was rejected because it weakens the approved authentication policy and does not handle role-change or account-disable revocation. A timer based on login time was rejected because the HttpOnly server session is authoritative and can be revoked earlier. Duplicating a status check in every component was rejected because the repository already had many independent request helpers and could drift again. A response interceptor library was unnecessary for one small fetch boundary. The pending promise is intentional during navigation; if browser navigation were prevented by a future host environment, the caller would not recover in place, so the redirect behavior must remain covered by a real browser test.
+
+### Verification evidence and priority diff review
+
+```text
+npm run lint && npx tsc --noEmit --incremental false && npm run build
+> sentinel@0.1.0 lint
+> eslint .
+✓ Compiled successfully in 2.4s
+✓ Generating static pages (18/18)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/session-expiry.spec.ts --reporter=line
+Running 2 tests using 1 worker
+2 passed (11.5s)
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/session-expiry.spec.ts tests/frontend-phase-1-5.spec.ts tests/global-search.spec.ts --grep "expired protected session|invalid credentials|workspace shell responsive|searches the authorized workspace" --reporter=line
+Running 4 tests using 1 worker
+3 passed (31.5s)
+1 failed: global search reached Test Data before its Product options populated within 5 seconds
+exit 1
+
+docker compose exec -T sentinel npx playwright test tests/global-search.spec.ts --reporter=line
+Running 1 test using 1 worker
+1 passed (25.8s)
+exit 0
+```
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `lib/client-api.ts` (`apiRequest`, `beginExpiredSessionExit`, `signOutAndRedirect`) | This is the new global authentication transition and controls cookie cleanup, 401/403 separation, concurrency, and browser history. Read now. |
+| Highest — understand now | `components/sentinel-views.tsx` (`request`, `useDashboardData`, `TestCaseDetailView`) | This file covers login plus most protected surfaces and removes unsafe error-text redirects. Review why login opts out and why permission errors now set feedback. |
+| Medium — understand next | `components/app-shell.tsx`, `components/global-search.tsx`, `components/release-views.tsx`, `components/review-views.tsx`, `components/admin-views.tsx`, `components/notification-views.tsx`, `components/test-case-editor.tsx`, `components/ownership-transfer.tsx` | These consumers now preserve their feature behavior while delegating HTTP authentication status handling. Review the search AbortSignal and explicit sign-out paths first. |
+| Medium — understand next | `tests/session-expiry.spec.ts` | The browser test distinguishes expired 401, invalid-login 401, and authenticated 403, checks one logout request, and proves the raw expiry message is absent. Read next. |
+| Lower — skim or defer | `srd.md`, `architecture.md`, `frontend.md`, `phases.md`, and `decisions-log.md` | These synchronize the approved behavior, scope, and evidence without adding runtime behavior. |
+
+The combined browser run's single global-search failure is recorded rather than hidden. It was a data-readiness timeout in an unrelated Test Data selector; the same complete global-search workflow passed immediately in isolation. No session-expiry assertion failed in either run.
+
+### Ten-question understanding check
+
+1. What server response tells the browser that the current authentication session is no longer valid?
+2. Why does Sentinel keep the eight-hour server expiry instead of extending it to solve this UI problem?
+3. What does the module-level session-exit guard prevent when several protected requests fail together?
+4. Why is the logout request sent with `keepalive` during automatic expiry handling?
+5. Why does the redirect use `window.location.replace("/")` instead of a normal client-side route push?
+6. Why does the protected request promise remain pending after starting the redirect?
+7. How does invalid-password feedback avoid triggering the global session-expiry behavior even though login also returns HTTP 401?
+8. Why must HTTP 403 remain an in-context error rather than log the user out?
+9. Which older text-based behaviors were unsafe, and what replaced them?
+10. Which focused browser assertions prove logout coalescing, sign-in navigation, absence of raw expiry feedback, invalid-login feedback, and permission-denial preservation?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews `lib/client-api.ts`, the removed message-text heuristics, and the focused browser workflow before Phase 21 is considered fully understood.
+- If the combined global-search data-readiness timeout recurs, replace its fixed five-second Product selector expectation with an explicit authorized-data readiness condition as a separate test-hardening change.
+
+**Learning status:** Requirements, architecture, implementation, static checks, production build, focused session browser coverage, relevant navigation/search regression, decision record, and priority diff review are complete. Owner answers remain pending, so the learning review is not complete.
