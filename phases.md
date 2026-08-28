@@ -715,3 +715,16 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Out of scope:** Production bundler replacement, API-response caching, database schema/query changes, clearing user-owned Runs, or altering browser-worker behavior.
 
 **Implementation verification (2026-08-27):** Live Webpack development logs showed cold section responses of 5.54 seconds for Products, 4.58 seconds for Test Cases, 4.02 seconds for Runs, and 6.64 seconds for Test Data while protected API requests were generally 30–200 milliseconds. After recreating only the Sentinel web container with Turbopack, a clean Dashboard compiled in 3.157841 seconds; every subsequent cold workspace section completed in 0.306975–0.465875 seconds and every warmed section in 0.085250–0.102401 seconds. Lint, strict TypeScript, and the standard production build pass, including all 18 generated pages. The final combined frontend/global-search browser suite passes all four workflows in 28.8 seconds. D-044, runtime documentation, the priority diff review, and exactly ten owner questions are recorded. Owner answers remain pending, so the learning review is not complete.
+
+## Phase 20 — Dashboard Health overview column alignment
+
+**Outcome:** Every Product row in **All accessible Products / Health overview** uses the same Product, Tests, pass-rate, and latest-status column positions regardless of Product-name or status-label length.
+
+- [ ] Replace independently calculated status-width tracks with one shared four-column desktop ledger.
+- [ ] Keep short and long Product names on one row, truncate only visual overflow, and preserve the complete accessible button name.
+- [ ] Keep Tests, pass rate, and latest status non-wrapping and aligned to identical horizontal starts across every visible Product row.
+- [ ] Preserve row selection, keyboard focus, hover/selected styling, dashboard filtering, API data, and the existing compact mobile presentation.
+- [ ] Add a focused browser regression that compares every desktop row's four column starts and row height.
+- [ ] Run lint, type-check, production build, dashboard/browser regressions, live visual measurement, priority diff review, and exactly ten owner learning questions.
+
+**Out of scope:** Adding visible column headings, changing Product names or health calculations, sorting rows, changing the mobile information density, or modifying APIs, database queries, authorization, or dashboard filtering.
