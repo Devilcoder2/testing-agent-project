@@ -2709,3 +2709,91 @@ The database test proves Admin-only authorization, exact confirmation, server im
 - Run a representative high-volume benchmark before setting a production deletion service-level objective; the current evidence proves ordinary fixture completion, not an upper bound for very large Products.
 
 **Learning status:** Requirements, architecture, migration, implementation, real MinIO/database/API coverage, Release regression, browser coverage, production build, decision record, and priority diff review are complete. Owner answers remain pending, so the learning review is not complete.
+
+## Phase 23 — Focused Test Case detail interface
+
+### What changed and why
+
+The saved Test Case page now puts Product, owner, and recorded-step count directly below the Test Case name. It removes the generic read-only copy, replaces the two Run actions and overflow action with compact labelled icons, and keeps secondary actions in a left-aligned three-dot menu that closes on outside pointer/focus or Escape. Repository routing is absent when GitHub is unavailable or the Product has no active repository. Recorded steps are compact disclosures: the action and useful target/value stay visible, annotations expand on demand, and checkpoints use a warning label with a dashed visual boundary.
+
+This solves a scanning problem without changing the underlying Test Case. A user can identify the Test Case, start its common workflows, and scan a long recording quickly; detail remains available when it is relevant.
+
+### End-to-end flow and implementation
+
+1. `TestCaseDetail` loads the same protected Test Case payload and derives the current immutable version, variables, and ordered steps.
+2. `PageHeader` renders Product, owner, and step count. Shared `IconButton` and SVG `Icon` primitives provide compact controls while their accessible names and native `title` tooltips describe Guided Run, Auto Run, and More actions.
+3. `TestCaseActionMenu` owns its open state. Document-level `pointerdown` and `focusin` listeners dismiss outside interaction; Escape closes the menu and restores focus to the trigger. Its secondary commands remain semantic menu items.
+4. `OwnershipTransfer` accepts a menu-item trigger role and portals its modal to `document.body`. Closing the parent menu therefore cannot unmount an open ownership dialog.
+5. `RepositoryRouting` reads the existing routing endpoint. It renders nothing during the initial request, when GitHub is unavailable, or when no active connection exists; the existing routing form remains unchanged for connected Products.
+6. `StepTimelineItem` uses native `details`/`summary`, so pointer and keyboard expansion work without custom disclosure state. The summary normalizes the recorded action and retains target/value context. The expanded body contains description, expected outcome, variable, and checkpoint annotations, or an explicit no-annotations message.
+
+No UI framework or icon package was added. Native disclosure/menu semantics, the existing shared SVG system, a React portal, and scoped CSS were sufficient. The tradeoff is that native `details` appearance needs deliberate CSS and the menu needs document listeners; in return, the solution stays small and keeps reliable keyboard behavior. The GitHub card is intentionally hidden rather than showing connection guidance on this page; Product settings remain the place to establish a repository. Long target/value text may still need wrapping, and owner visual feedback remains useful across uncommon viewport and content combinations.
+
+### Verification evidence
+
+```text
+docker compose exec -T -e SENTINEL_BASE_URL=http://127.0.0.1:3000 sentinel npx playwright test tests/test-case-detail-ui.spec.ts tests/phase-5-release.spec.ts tests/phase-7-suggestions.spec.ts --reporter=line
+Running 3 tests using 1 worker
+3 passed (23.9s)
+exit 0
+
+docker compose exec -T -e SENTINEL_BASE_URL=http://127.0.0.1:3000 sentinel npx playwright test tests/phase-1-recording.spec.ts tests/phase-2-runs.spec.ts tests/phase-3-auto-runs.spec.ts tests/phase-13-github.spec.ts --reporter=line
+Running 4 tests using 1 worker
+2 passed (1.5m)
+2 failed
+phase-13-github: outdated Product-menu selector; corrected and re-run below.
+phase-2-runs: Test Case displayed "Another local browser session is active. Finish it before starting a Run." and correctly remained on the Test Case page.
+exit 1
+
+docker compose exec -T -e SENTINEL_BASE_URL=http://127.0.0.1:3000 sentinel npx playwright test tests/phase-13-github.spec.ts --reporter=line
+Running 1 test using 1 worker
+1 passed (7.2s)
+exit 0
+
+npm run lint && npx tsc --noEmit --incremental false && npm run build
+> sentinel@0.1.0 lint
+> eslint .
+> sentinel@0.1.0 build
+> next build
+✓ Compiled successfully in 3.1s
+✓ Generating static pages (18/18)
+exit 0
+```
+
+The focused browser test verifies header metadata, removed copy, absent unavailable GitHub routing, accessible icon labels/tooltips, four aligned overflow actions, outside and Escape dismissal, focus restoration, ownership-dialog persistence, compact annotations, target/value summaries, expanded annotations, and checkpoint styling. Release and Suggestions verify the changed overflow menu in real workflows. Recording verifies saved annotations after expansion; Auto Run verifies the new icon action still starts the existing workflow. The Guided Run behavior itself was not re-executed because the repository's single-live-browser guard found an existing user-owned session; this is an explicit environmental limitation, not a passing assertion.
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `components/sentinel-views.tsx` (`TestCaseDetail`, `TestCaseActionMenu`, `RepositoryRouting`, `StepTimelineItem`) | This contains the behavior-critical interaction flow, conditional GitHub visibility, action wiring, and disclosure content. Read the outside-dismiss listeners, Run callbacks, and routing condition now. |
+| Highest — understand now | `components/ownership-transfer.tsx` (`OwnershipTransfer`) | The portal prevents the dialog from disappearing when its parent menu closes. Review trigger roles, portal mounting, and modal lifecycle now. |
+| Medium — understand next | `tests/test-case-detail-ui.spec.ts` | This is the focused acceptance contract and covers both visible presentation and keyboard/menu behavior. Read every assertion next. |
+| Medium — understand next | `app/globals.css` (Test Case action-menu, disclosure, and checkpoint selectors) | These rules control alignment, responsive menu placement, compact summaries, and the non-text checkpoint cue. Review hidden state and mobile positioning next. |
+| Medium — understand next | `tests/phase-1-recording.spec.ts`, `tests/phase-5-release.spec.ts`, `tests/phase-7-suggestions.spec.ts`, `tests/phase-13-github.spec.ts` | These preserve existing workflows after action-menu and disclosure changes. Their direct navigation and Product filter avoid unrelated accumulated-state ambiguity. |
+| Lower — skim or defer | `components/ui.tsx` (`autoRun`, `guidedRun`, `chevronDown`) | These are shared SVG additions with no business behavior; callers provide accessible names. |
+| Lower — skim or defer | `srd.md`, `frontend.md`, `phases.md`, and `decisions-log.md` | These record scope, design, acceptance, evidence, and rationale but add no runtime behavior. |
+
+### Ten-question understanding check
+
+1. Which three pieces of Test Case metadata moved into the header, and what duplicate or generic content was removed?
+2. Why do the Guided Run, Auto Run, and overflow controls remain accessible even though their visible text was replaced by icons?
+3. Which events close the overflow menu, and what extra focus behavior occurs when Escape is pressed?
+4. Why is the ownership-transfer dialog rendered through a portal instead of remaining inside the action menu?
+5. Under exactly which GitHub states does the repository-routing section render nothing?
+6. Why was native `details`/`summary` chosen for recorded steps, and what keyboard behavior does that provide?
+7. Which step information remains visible while a step is collapsed, and which annotations require expansion?
+8. How can a user recognize a checkpoint without reading all of its details, and why is the label retained in addition to color/border styling?
+9. Which existing server contracts or business behaviors changed as part of this feature, and which were deliberately preserved?
+10. What did the focused and regression tests prove, and why is the Guided Run result recorded as an environmental limitation rather than a pass?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the two highest-priority component files before Phase 23 is considered fully understood.
+- Re-run the Guided Run browser regression after the existing live browser session is intentionally finished by its owner; do not clear user-owned work merely to satisfy the test.
+
+**Learning status:** Requirements, implementation, focused and applicable regression coverage, static/build verification, decision record, and priority diff review are complete. The existing single-live-browser session blocks only the second Guided Run exercise. Owner answers remain pending, so the learning review is not complete.
