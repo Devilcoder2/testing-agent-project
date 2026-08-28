@@ -1,16 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { apiRequest } from "@/lib/client-api";
 import { Button, Card, Dialog, EmptyState, Feedback, Field, PageHeader, SelectInput, StatusBadge, TextInput } from "./ui";
 
 type Product = { id: string; name: string };
 type Member = { id: string; email: string; displayName: string; accountStatus: "ACTIVE" | "DISABLED"; role: "ADMIN" | "MANAGER" | "TESTER"; products: Product[] };
 
 async function request(path: string, method = "GET", body?: unknown) {
-  const response = await fetch(`/api/${path}`, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error ?? "Request failed.");
-  return payload;
+  return apiRequest(path, { method, body });
 }
 
 export function AdministrationView() {
@@ -22,11 +20,11 @@ export function AdministrationView() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
   const [confirming, setConfirming] = useState<Member | null>(null);
-  const load = async () => { setLoading(true); try { const [nextMembers, nextProducts] = await Promise.all([request("admin/members"), request("products")]); setMembers(nextMembers); setProducts(nextProducts); } catch (issue) { setError(issue instanceof Error ? issue.message : "Could not load organization members."); } finally { setLoading(false); } };
+  const load = async () => { setLoading(true); try { const [nextMembers, nextProducts] = await Promise.all([request("admin/members") as Promise<Member[]>, request("products") as Promise<Product[]>]); setMembers(nextMembers); setProducts(nextProducts); } catch (issue) { setError(issue instanceof Error ? issue.message : "Could not load organization members."); } finally { setLoading(false); } };
   useEffect(() => { void load(); }, []);
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); const productIds = form.getAll("productId"); setMessage(""); setError("");
-    try { const outcome = await request("admin/members", "POST", { displayName: form.get("displayName"), email: form.get("email"), role: form.get("role"), productIds }); setMessage(outcome.existingAccount ? "Existing account added to the organization." : "Invitation sent to the local Mailpit inbox."); event.currentTarget.reset(); setInviteOpen(false); await load(); } catch (issue) { setError(issue instanceof Error ? issue.message : "Could not invite the member."); }
+    try { const outcome = await request("admin/members", "POST", { displayName: form.get("displayName"), email: form.get("email"), role: form.get("role"), productIds }) as { existingAccount?: boolean }; setMessage(outcome.existingAccount ? "Existing account added to the organization." : "Invitation sent to the local Mailpit inbox."); event.currentTarget.reset(); setInviteOpen(false); await load(); } catch (issue) { setError(issue instanceof Error ? issue.message : "Could not invite the member."); }
   }
   async function update(member: Member, body: Record<string, unknown>) {
     setMessage(""); setError("");
