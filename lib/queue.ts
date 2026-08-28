@@ -7,6 +7,8 @@ export const JIRA_FILING_QUEUE = "sentinel-jira-filings";
 export const GITHUB_DELIVERY_QUEUE = "sentinel-github-deliveries";
 export const SOURCE_ANALYSIS_QUEUE = "sentinel-source-analysis";
 export const PRODUCT_DELETION_QUEUE = "sentinel-product-deletions";
+export const MESSAGING_UPDATE_QUEUE = "sentinel-messaging-updates";
+export const MESSAGING_DELIVERY_QUEUE = "sentinel-messaging-deliveries";
 
 export type AutoRunJobData = {
   runId: string;
@@ -33,6 +35,14 @@ export type ProductDeletionJobData = {
   deletionRequestId: string;
 };
 
+export type MessagingUpdateJobData = {
+  updateId: string;
+};
+
+export type MessagingDeliveryJobData = {
+  deliveryId: string;
+};
+
 function redisUrl() {
   return process.env.REDIS_URL ?? "redis://redis:6379";
 }
@@ -47,6 +57,8 @@ let jiraFilingQueueInstance: Queue<JiraFilingJobData> | undefined;
 let githubDeliveryQueueInstance: Queue<GitHubDeliveryJobData> | undefined;
 let sourceAnalysisQueueInstance: Queue<SourceAnalysisJobData> | undefined;
 let productDeletionQueueInstance: Queue<ProductDeletionJobData> | undefined;
+let messagingUpdateQueueInstance: Queue<MessagingUpdateJobData> | undefined;
+let messagingDeliveryQueueInstance: Queue<MessagingDeliveryJobData> | undefined;
 
 export function autoRunQueue() {
   if (!queue) queue = new Queue<AutoRunJobData>(AUTO_RUN_QUEUE, { connection: createRedisConnection() });
@@ -143,6 +155,38 @@ export async function enqueueProductDeletion(data: ProductDeletionJobData) {
   const job = await queue.add("delete", data, {
     jobId,
     attempts: 3,
+    backoff: { type: "fixed", delay: 1_000 },
+    removeOnComplete: 100,
+    removeOnFail: 100
+  });
+  return String(job.id);
+}
+
+export function messagingUpdateQueue() {
+  if (!messagingUpdateQueueInstance) messagingUpdateQueueInstance = new Queue<MessagingUpdateJobData>(MESSAGING_UPDATE_QUEUE, { connection: createRedisConnection() });
+  return messagingUpdateQueueInstance;
+}
+
+export async function enqueueMessagingUpdate(data: MessagingUpdateJobData) {
+  const job = await messagingUpdateQueue().add("process", data, {
+    jobId: `messaging-update-${data.updateId}`,
+    attempts: 2,
+    backoff: { type: "fixed", delay: 1_000 },
+    removeOnComplete: 100,
+    removeOnFail: 100
+  });
+  return String(job.id);
+}
+
+export function messagingDeliveryQueue() {
+  if (!messagingDeliveryQueueInstance) messagingDeliveryQueueInstance = new Queue<MessagingDeliveryJobData>(MESSAGING_DELIVERY_QUEUE, { connection: createRedisConnection() });
+  return messagingDeliveryQueueInstance;
+}
+
+export async function enqueueMessagingDelivery(data: MessagingDeliveryJobData) {
+  const job = await messagingDeliveryQueue().add("deliver", data, {
+    jobId: `messaging-delivery-${data.deliveryId}`,
+    attempts: 2,
     backoff: { type: "fixed", delay: 1_000 },
     removeOnComplete: 100,
     removeOnFail: 100
