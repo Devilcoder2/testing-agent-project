@@ -95,7 +95,7 @@ Use the shared App Shell and keep responsibilities separate. Phase 6 Dashboard i
 
 ### Phase 12 identity and administration
 
-Use dedicated sign-in, password-reset, and invitation-acceptance screens with labelled fields, neutral reset feedback, clear expiry/error states, and no organization/user enumeration. The Admin workspace shows role and account-state text beside every member, Product access through explicit controls, and confirmation before disablement or access removal. It never shows passwords, invitation/reset tokens, evidence, variable values, or Test Data values. Navigation and action visibility follow the effective active organization role; a denied deep link returns a safe access message without rendering administration data.
+Use dedicated sign-in, password-reset, and invitation-acceptance screens with labelled fields, neutral reset feedback, clear expiry/error states, and no organization/user enumeration. If a protected request returns HTTP 401 after the session expires or is revoked, clear the browser session and replace the stale protected route with `/`; never show `Sign in required.` as page feedback. Invalid credentials remain inline on the sign-in form, while authenticated HTTP 403 responses remain safe in-context permission feedback. The Admin workspace shows role and account-state text beside every member, Product access through explicit controls, and confirmation before disablement or access removal. It never shows passwords, invitation/reset tokens, evidence, variable values, or Test Data values. Navigation and action visibility follow the effective active organization role; a denied deep link returns a safe access message without rendering administration data.
 
 ### Notifications inbox
 
