@@ -753,13 +753,15 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 - [x] Confirm the Admin-only boundary, exact `DELETE` phrase, preserved Release/audit behavior, active-work interruption, durable status, and ordinary-seconds performance target.
 - [x] Define the server-derived deletion-impact contract, persistent request state, idempotent queue boundary, ordered relational cleanup, and MinIO-before-database safety rule.
-- [ ] Add Product-deletion persistence and migration, one BullMQ queue/worker, bounded evidence cleanup, active-work cancellation, ordered cascade, Release-item removal/readiness repair, retries, and audit events.
-- [ ] Add Admin-only impact/status/delete APIs with 202 acceptance, duplicate-request idempotency, organization isolation, and safe failure responses.
-- [ ] Replace text-heavy Product actions with labelled Edit/Delete icons and an accessible three-dot menu for Test Cases, GitHub, Jira, and eligible ownership transfer.
-- [ ] Add an impact dialog, exact confirmation validation, queued/processing/failed row state, persistent status feedback, and non-blocking polling.
-- [ ] Add focused API/database tests for authorization, impact counts, Product-owned data removal, evidence deletion, Release preservation, cross-Product isolation, idempotency, and bounded completion.
-- [ ] Add browser coverage for compact action layout, menu keyboard behavior, Admin-only delete visibility, warning copy, confirmation gating, progress state, completion, and preserved Release.
-- [ ] Run migration checks, lint, strict type-check, production build, focused tests, relevant Product/Release/navigation regression, and live visual review with exact output.
-- [ ] Review the actual diff in learning priority order, record the decision, and append exactly ten owner understanding questions before closing the learning gate.
+- [x] Add Product-deletion persistence and migration, one BullMQ queue/worker, bounded evidence cleanup, active-work cancellation, ordered cascade, Release-item removal/readiness repair, retries, and audit events.
+- [x] Add Admin-only impact/status/delete APIs with 202 acceptance, duplicate-request idempotency, organization isolation, and safe failure responses.
+- [x] Replace text-heavy Product actions with labelled Edit/Delete icons and an accessible three-dot menu for Test Cases, GitHub, Jira, and eligible ownership transfer.
+- [x] Add an impact dialog, exact confirmation validation, queued/processing/failed row state, persistent status feedback, and non-blocking polling.
+- [x] Add focused API/database tests for authorization, impact counts, Product-owned data removal, evidence deletion, Release preservation, cross-Product isolation, idempotency, and bounded completion.
+- [x] Add browser coverage for compact action layout, menu keyboard behavior, Admin-only delete visibility, warning copy, confirmation gating, progress state, completion, and preserved Release.
+- [x] Run migration checks, lint, strict type-check, production build, focused tests, relevant Product/Release/navigation regression, and live browser verification with exact output.
+- [x] Review the actual diff in learning priority order, record the decision, and append exactly ten owner understanding questions before closing the learning gate.
+
+**Completion note (2026-08-28):** Implementation, migration, static/build checks, real MinIO/database cascade coverage, Release regression, and Product browser workflows pass. Representative asynchronous deletion completed in 3.11 seconds; the focused keyboard/delete browser workflow passed in 7.5 seconds. The Phase 22 learning entry records priority review and exactly ten questions; owner answers remain an explicit follow-up, so the learning review is not yet complete.
 
 **Out of scope:** Product archival/restore, scheduled deletion, bulk deletion, deleting Releases, retaining Product Test/Run history, changing the eight-hour session policy, or adding a separate worker service.
