@@ -1,4 +1,5 @@
 import { AccountStatus, AuthTokenKind, MessagingCommandStatus, MessagingDeliveryKind, MessagingDeliveryStatus, MessagingIdentityStatus, MessagingInboundUpdateStatus, MessagingProvider, OrganizationRole, RunAttemptStatus, RunFailureReason, RunMode, RunOutcome, RunStatus, VariableSource } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import { consumeAuthToken, issueAuthToken, type SessionUser } from "./auth";
 import { decryptMessagingIdentifier, encryptMessagingIdentifier, messagingIdentifierHash } from "./messaging";
 import { prisma } from "./prisma";
@@ -22,6 +23,30 @@ function callback(actionId: string) {
 
 function safeReason(error: unknown) {
   return error instanceof Error && /^[A-Z0-9_]{3,80}$/.test(error.message) ? error.message : "MESSAGING_PROCESSING_FAILED";
+}
+
+function selectionFailureMessage(reason: string) {
+  const messages: Record<string, string> = {
+    ACCOUNT_ACCESS_REVOKED: "Your Sentinel account no longer has access to run the selected Tests.",
+    PRODUCT_ACCESS_REVOKED: "Your Product access changed before confirmation.",
+    TEST_SELECTION_STALE: "One or more selected Tests are no longer available.",
+    NO_SAVED_STEPS: "One or more selected Tests no longer have saved steps.",
+    TARGET_NOT_ALLOWLISTED: "One or more selected Tests no longer use an approved target.",
+    CHECKPOINT_UNAVAILABLE: "Checkpointed Tests cannot be started from Telegram.",
+    VARIABLE_REQUIRES_STATIC_DEFAULT: "One or more Tests require a static variable default before Telegram can run them.",
+    NO_TEST_SELECTION: "Select at least one eligible Test Case before confirmation."
+  };
+  return messages[reason] ?? "One or more selected Tests are no longer eligible. No Runs were queued.";
+}
+
+async function expireCommand(commandId: string, actorId: string) {
+  await prisma.$transaction([
+    prisma.messagingCommand.updateMany({
+      where: { id: commandId, status: { in: [MessagingCommandStatus.SELECTING, MessagingCommandStatus.CONFIRMING] } },
+      data: { status: MessagingCommandStatus.EXPIRED, terminalAt: new Date(), safeReason: "CONFIRMATION_EXPIRED" }
+    }),
+    prisma.auditEvent.create({ data: { actorId, action: "TELEGRAM_CONFIRMATION_EXPIRED", entityType: "MessagingCommand", entityId: commandId } })
+  ]);
 }
 
 async function activeIdentity(identityId: string) {
@@ -161,13 +186,18 @@ async function queueSelectedRuns(identity: Identity, role: OrganizationRole, com
   const command = await prisma.messagingCommand.findUnique({ where: { id: commandId }, include: { selections: true } });
   if (!command || command.status === MessagingCommandStatus.QUEUED) return;
   if (command.expiresAt <= new Date()) {
-    await prisma.messagingCommand.update({ where: { id: commandId }, data: { status: MessagingCommandStatus.EXPIRED, terminalAt: new Date(), safeReason: "CONFIRMATION_EXPIRED" } });
+    await expireCommand(commandId, identity.userId);
     await sendTelegramMessage(decryptMessagingIdentifier(identity.chatIdEncrypted), "This selection expired. Open /menu to start again.");
     return;
   }
   const selectedIds = command.selections.map((item) => item.testCaseId);
-  if (!selectedIds.length) throw new Error("NO_TEST_SELECTION");
-  const created = await prisma.$transaction(async (tx) => {
+  if (!selectedIds.length) {
+    await sendTelegramMessage(decryptMessagingIdentifier(identity.chatIdEncrypted), selectionFailureMessage("NO_TEST_SELECTION"));
+    return;
+  }
+  let created: Array<{ runId: string; attemptId: string }>;
+  try {
+    created = await prisma.$transaction(async (tx) => {
     const membership = await tx.organizationMember.findUnique({ where: { organizationId_userId: { organizationId: identity.organizationId, userId: identity.userId } }, include: { user: true } });
     if (!membership || membership.user.accountStatus !== AccountStatus.ACTIVE) throw new Error("ACCOUNT_ACCESS_REVOKED");
     const testCases = await tx.testCase.findMany({
@@ -184,7 +214,7 @@ async function queueSelectedRuns(identity: Identity, role: OrganizationRole, com
       const reason = eligibleReason(testCase);
       if (reason) reasons.push(`${testCase.id}:${reason}`);
     }
-    if (reasons.length) throw new Error("SELECTION_INELIGIBLE");
+    if (reasons.length) throw new Error(reasons[0].split(":")[1] ?? "SELECTION_INELIGIBLE");
     const queued: Array<{ runId: string; attemptId: string }> = [];
     for (const testCase of testCases) {
       const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion)!;
@@ -209,8 +239,19 @@ async function queueSelectedRuns(identity: Identity, role: OrganizationRole, com
     }
     await tx.messagingCommand.update({ where: { id: command.id }, data: { status: MessagingCommandStatus.QUEUED, confirmedAt: new Date(), terminalAt: new Date(), safeReason: null } });
     await tx.auditEvent.create({ data: { actorId: identity.userId, action: "TELEGRAM_SELECTION_CONFIRMED", entityType: "MessagingCommand", entityId: command.id, details: { runCount: queued.length } } });
-    return queued;
-  });
+      return queued;
+    });
+  } catch (error) {
+    const reason = safeReason(error);
+    const handledReasons = new Set(["ACCOUNT_ACCESS_REVOKED", "PRODUCT_ACCESS_REVOKED", "TEST_SELECTION_STALE", "NO_SAVED_STEPS", "TARGET_NOT_ALLOWLISTED", "CHECKPOINT_UNAVAILABLE", "VARIABLE_REQUIRES_STATIC_DEFAULT"]);
+    if (!handledReasons.has(reason)) throw error;
+    await prisma.$transaction([
+      prisma.messagingCommand.update({ where: { id: commandId }, data: { status: MessagingCommandStatus.FAILED, terminalAt: new Date(), safeReason: reason } }),
+      prisma.auditEvent.create({ data: { actorId: identity.userId, action: "TELEGRAM_SELECTION_REJECTED", entityType: "MessagingCommand", entityId: commandId, details: { reason } } })
+    ]);
+    await sendTelegramMessage(decryptMessagingIdentifier(identity.chatIdEncrypted), `${selectionFailureMessage(reason)} Open /menu to start again.`);
+    return;
+  }
   for (const item of created) {
     try {
       const jobId = await enqueueAutoRun(item);
@@ -241,7 +282,7 @@ export async function unlinkTelegram(user: SessionUser) {
   const identity = await prisma.messagingIdentity.findUnique({ where: { provider_userId_organizationId: { provider: MessagingProvider.TELEGRAM, userId: user.id, organizationId: user.organizationId } } });
   if (!identity || identity.status !== MessagingIdentityStatus.ACTIVE) return false;
   await prisma.$transaction([
-    prisma.messagingIdentity.update({ where: { id: identity.id }, data: { status: MessagingIdentityStatus.REVOKED, revokedAt: new Date() } }),
+    prisma.messagingIdentity.update({ where: { id: identity.id }, data: { status: MessagingIdentityStatus.REVOKED, revokedAt: new Date(), chatIdEncrypted: `revoked:${randomUUID()}` } }),
     prisma.auditEvent.create({ data: { actorId: user.id, action: "TELEGRAM_UNLINKED", entityType: "MessagingIdentity", entityId: identity.id } })
   ]);
   return true;
@@ -296,6 +337,9 @@ export async function processTelegramUpdate(updateId: string) {
       const action = await prisma.messagingAction.findUnique({ where: { id: update.callbackActionId }, include: { command: true } });
       const terminalStatuses: MessagingCommandStatus[] = [MessagingCommandStatus.CANCELLED, MessagingCommandStatus.EXPIRED, MessagingCommandStatus.QUEUED, MessagingCommandStatus.FAILED];
       if (!action || action.command.identityId !== active.identity.id || action.command.expiresAt <= new Date() || terminalStatuses.includes(action.command.status)) {
+        if (action && action.command.identityId === active.identity.id && action.command.expiresAt <= new Date() && !terminalStatuses.includes(action.command.status)) {
+          await expireCommand(action.commandId, active.identity.userId);
+        }
         await sendTelegramMessage(decryptMessagingIdentifier(active.identity.chatIdEncrypted), "That selection is no longer active. Open /menu to start again.");
       } else if (action.action === "MENU_TESTS") {
         await listTests(active.identity, active.role, action.commandId);
@@ -352,6 +396,7 @@ export async function deliverTelegramRunResult(deliveryId: string) {
     }
     await sendTelegramMessage(decryptMessagingIdentifier(delivery.identity.chatIdEncrypted), `${delivery.run.testCase.name} · ${delivery.run.product.name}\n${outcome} · ${delivery.run.completedAt?.toISOString() ?? new Date().toISOString()}\n${evidence}.${reason}`);
     await prisma.messagingDelivery.update({ where: { id: delivery.id }, data: { status: MessagingDeliveryStatus.SENT, attempts: { increment: 1 }, sentAt: new Date(), terminalAt: new Date(), safeError: null } });
+    await prisma.auditEvent.create({ data: { actorId: delivery.run.initiatedById, action: "TELEGRAM_DELIVERY_SENT", entityType: "MessagingDelivery", entityId: delivery.id } });
   } catch (error) {
     const transient = isTransientTelegramError(error);
     const nextAttempts = delivery.attempts + 1;
@@ -368,6 +413,10 @@ export async function createTerminalTelegramDelivery(runId: string) {
 
 export async function cleanupTelegramMetadata(now = new Date()) {
   const before = new Date(now.getTime() - RETENTION_MS);
+  await prisma.messagingCommand.updateMany({
+    where: { status: { in: [MessagingCommandStatus.SELECTING, MessagingCommandStatus.CONFIRMING] }, expiresAt: { lt: now } },
+    data: { status: MessagingCommandStatus.EXPIRED, terminalAt: now, safeReason: "CONFIRMATION_EXPIRED" }
+  });
   const [updates, deliveries, commands] = await prisma.$transaction([
     prisma.messagingInboundUpdate.deleteMany({ where: { receivedAt: { lt: before }, status: { in: [MessagingInboundUpdateStatus.PROCESSED, MessagingInboundUpdateStatus.REJECTED, MessagingInboundUpdateStatus.FAILED] } } }),
     prisma.messagingDelivery.deleteMany({ where: { terminalAt: { lt: before }, status: { in: [MessagingDeliveryStatus.SENT, MessagingDeliveryStatus.FAILED] } } }),
