@@ -6,6 +6,7 @@ export const NOTIFICATION_QUEUE = "sentinel-notifications";
 export const JIRA_FILING_QUEUE = "sentinel-jira-filings";
 export const GITHUB_DELIVERY_QUEUE = "sentinel-github-deliveries";
 export const SOURCE_ANALYSIS_QUEUE = "sentinel-source-analysis";
+export const PRODUCT_DELETION_QUEUE = "sentinel-product-deletions";
 
 export type AutoRunJobData = {
   runId: string;
@@ -28,6 +29,10 @@ export type SourceAnalysisJobData = {
   analysisId: string;
 };
 
+export type ProductDeletionJobData = {
+  deletionRequestId: string;
+};
+
 function redisUrl() {
   return process.env.REDIS_URL ?? "redis://redis:6379";
 }
@@ -41,6 +46,7 @@ let notificationQueueInstance: Queue<NotificationJobData> | undefined;
 let jiraFilingQueueInstance: Queue<JiraFilingJobData> | undefined;
 let githubDeliveryQueueInstance: Queue<GitHubDeliveryJobData> | undefined;
 let sourceAnalysisQueueInstance: Queue<SourceAnalysisJobData> | undefined;
+let productDeletionQueueInstance: Queue<ProductDeletionJobData> | undefined;
 
 export function autoRunQueue() {
   if (!queue) queue = new Queue<AutoRunJobData>(AUTO_RUN_QUEUE, { connection: createRedisConnection() });
@@ -113,6 +119,22 @@ export async function enqueueSourceAnalysis(data: SourceAnalysisJobData) {
   const job = await sourceAnalysisQueue().add("analyze", data, {
     jobId: `source-analysis-${data.analysisId}`,
     attempts: 2,
+    backoff: { type: "fixed", delay: 1_000 },
+    removeOnComplete: 100,
+    removeOnFail: 100
+  });
+  return String(job.id);
+}
+
+export function productDeletionQueue() {
+  if (!productDeletionQueueInstance) productDeletionQueueInstance = new Queue<ProductDeletionJobData>(PRODUCT_DELETION_QUEUE, { connection: createRedisConnection() });
+  return productDeletionQueueInstance;
+}
+
+export async function enqueueProductDeletion(data: ProductDeletionJobData) {
+  const job = await productDeletionQueue().add("delete", data, {
+    jobId: `product-deletion-${data.deletionRequestId}`,
+    attempts: 3,
     backoff: { type: "fixed", delay: 1_000 },
     removeOnComplete: 100,
     removeOnFail: 100
