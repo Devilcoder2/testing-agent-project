@@ -4,7 +4,7 @@ import { chromium, type Page, type Request } from "playwright";
 import { persistRunSnapshot, recordCaptureFailure } from "./lib/evidence";
 import { deliverJiraFiling, JiraAdapterError } from "./lib/jira";
 import { deliverNotification, notifyAutoRunCheckpoint, notifyRunFailure } from "./lib/notifications";
-import { runEvidenceRetention } from "./lib/maintenance";
+import { runEvidenceRetention, runMessagingRetention } from "./lib/maintenance";
 import { prisma } from "./lib/prisma";
 import { GITHUB_DELIVERY_QUEUE, JIRA_FILING_QUEUE, MESSAGING_DELIVERY_QUEUE, MESSAGING_UPDATE_QUEUE, NOTIFICATION_QUEUE, PRODUCT_DELETION_QUEUE, SOURCE_ANALYSIS_QUEUE, AUTO_RUN_QUEUE, createRedisConnection, enqueueAutoRun, enqueueMessagingDelivery, type AutoRunJobData, type GitHubDeliveryJobData, type JiraFilingJobData, type MessagingDeliveryJobData, type MessagingUpdateJobData, type NotificationJobData, type ProductDeletionJobData, type SourceAnalysisJobData } from "./lib/queue";
 import { canRetryAutoRun, initialReplayState, ReplayError, replayStep, type ReplayStep } from "./lib/replay";
@@ -13,7 +13,7 @@ import { markReleaseRunItemRunning, syncReleaseRunItemForRun } from "./lib/relea
 import { processGitHubDelivery, requestAutomaticSourceAnalysis } from "./lib/github-runs";
 import { processSourceAnalysis } from "./lib/source-analysis";
 import { processProductDeletion } from "./lib/product-deletion";
-import { cleanupTelegramMetadata, deliverTelegramRunResult, processTelegramUpdate } from "./lib/messaging-service";
+import { deliverTelegramRunResult, processTelegramUpdate } from "./lib/messaging-service";
 
 const CHECKPOINT_TIMEOUT_MS = 10 * 60 * 1000;
 const MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -297,7 +297,7 @@ async function refreshWorkerHeartbeat() {
 
 async function runMaintenance() {
   await runEvidenceRetention();
-  await cleanupTelegramMetadata();
+  await runMessagingRetention();
   const pendingDeliveries = await prisma.messagingDelivery.findMany({ where: { status: "PENDING", terminalAt: { not: null } }, select: { id: true }, take: 100 });
   for (const delivery of pendingDeliveries) await enqueueMessagingDelivery({ deliveryId: delivery.id }).catch(() => undefined);
 }
