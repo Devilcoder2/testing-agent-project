@@ -98,6 +98,7 @@ enum DatabaseDiagnosticStatus {
 
 enum MaintenanceKind {
   EVIDENCE_RETENTION
+  MESSAGING_RETENTION
 }
 
 enum MaintenanceStatus {
@@ -212,6 +213,48 @@ enum AccountStatus {
 enum AuthTokenKind {
   INVITE
   PASSWORD_RESET
+  TELEGRAM_LINK
+}
+
+enum MessagingProvider {
+  TELEGRAM
+}
+
+enum MessagingIdentityStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum MessagingInboundUpdateKind {
+  MESSAGE
+  CALLBACK_QUERY
+}
+
+enum MessagingInboundUpdateStatus {
+  RECEIVED
+  QUEUED
+  PROCESSED
+  REJECTED
+  FAILED
+}
+
+enum MessagingCommandStatus {
+  SELECTING
+  CONFIRMING
+  QUEUED
+  CANCELLED
+  EXPIRED
+  FAILED
+}
+
+enum MessagingDeliveryKind {
+  RUN_TERMINAL
+}
+
+enum MessagingDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 enum GitHubInstallationStatus {
@@ -289,6 +332,8 @@ model User {
   ownedTestDataSets         TestDataSet[]            @relation("TestDataSetOwner")
   requestedSourceAnalyses   SourceAnalysis[]         @relation("SourceAnalysisRequester")
   requestedProductDeletions ProductDeletionRequest[] @relation("ProductDeletionRequester")
+  messagingIdentities       MessagingIdentity[]      @relation("MessagingIdentityUser")
+  messagingCommands         MessagingCommand[]       @relation("MessagingCommandUser")
   auditEvents               AuditEvent[]             @relation("AuditActor")
   createdAt                 DateTime                 @default(now())
   updatedAt                 DateTime                 @updatedAt
@@ -355,6 +400,8 @@ model Organization {
   sessions            UserSession[]
   githubInstallations GitHubInstallation[]
   productDeletions    ProductDeletionRequest[]
+  messagingIdentities MessagingIdentity[]
+  messagingCommands   MessagingCommand[]
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
 }
@@ -399,6 +446,129 @@ model AuthToken {
   createdAt      DateTime      @default(now())
 
   @@index([userId, kind, expiresAt])
+}
+
+model MessagingIntegrationConfig {
+  id              String            @id @default(cuid())
+  provider        MessagingProvider @unique
+  isActive        Boolean           @default(false)
+  webhookActiveAt DateTime?
+  lastCheckedAt   DateTime?
+  safeError       String?
+  updatedById     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([provider, isActive])
+}
+
+model MessagingIdentity {
+  id              String                   @id @default(cuid())
+  provider        MessagingProvider
+  organizationId  String
+  userId          String
+  chatIdEncrypted String
+  chatIdHash      String
+  status          MessagingIdentityStatus  @default(ACTIVE)
+  linkedAt        DateTime                 @default(now())
+  revokedAt       DateTime?
+  lastCommandAt   DateTime?
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user            User                     @relation("MessagingIdentityUser", fields: [userId], references: [id], onDelete: Cascade)
+  inboundUpdates  MessagingInboundUpdate[]
+  commands        MessagingCommand[]
+  deliveries      MessagingDelivery[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@unique([provider, userId, organizationId])
+  @@unique([provider, chatIdHash])
+  @@index([organizationId, status])
+  @@index([userId, status])
+}
+
+model MessagingInboundUpdate {
+  id               String                       @id @default(cuid())
+  provider         MessagingProvider
+  providerUpdateId String
+  kind             MessagingInboundUpdateKind
+  identityId       String?
+  status           MessagingInboundUpdateStatus @default(RECEIVED)
+  safeReason       String?
+  receivedAt       DateTime                     @default(now())
+  processedAt      DateTime?
+  identity         MessagingIdentity?           @relation(fields: [identityId], references: [id], onDelete: SetNull)
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+
+  @@unique([provider, providerUpdateId])
+  @@index([identityId, receivedAt])
+  @@index([status, receivedAt])
+}
+
+model MessagingCommand {
+  id              String                      @id @default(cuid())
+  identityId      String
+  organizationId  String
+  userId          String
+  sourceReleaseId String?
+  status          MessagingCommandStatus      @default(SELECTING)
+  expiresAt       DateTime
+  confirmedAt     DateTime?
+  terminalAt      DateTime?
+  safeReason      String?
+  identity        MessagingIdentity           @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  organization    Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user            User                        @relation("MessagingCommandUser", fields: [userId], references: [id], onDelete: Cascade)
+  sourceRelease   Release?                    @relation(fields: [sourceReleaseId], references: [id], onDelete: SetNull)
+  selections      MessagingCommandSelection[]
+  actions         MessagingAction[]
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  @@index([identityId, status, expiresAt])
+  @@index([organizationId, status, createdAt])
+}
+
+model MessagingCommandSelection {
+  commandId  String
+  testCaseId String
+  command    MessagingCommand @relation(fields: [commandId], references: [id], onDelete: Cascade)
+  testCase   TestCase         @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  createdAt  DateTime         @default(now())
+
+  @@id([commandId, testCaseId])
+  @@index([testCaseId])
+}
+
+model MessagingAction {
+  id          String           @id @default(cuid())
+  commandId   String
+  action      String
+  referenceId String?
+  command     MessagingCommand @relation(fields: [commandId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+
+  @@index([commandId, action])
+}
+
+model MessagingDelivery {
+  id         String                  @id @default(cuid())
+  identityId String
+  runId      String
+  kind       MessagingDeliveryKind
+  status     MessagingDeliveryStatus @default(PENDING)
+  attempts   Int                     @default(0)
+  safeError  String?
+  sentAt     DateTime?
+  terminalAt DateTime?
+  identity   MessagingIdentity       @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  run        Run                     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  @@unique([runId, kind])
+  @@index([identityId, status, createdAt])
 }
 
 model ProductMembership {
@@ -461,27 +631,28 @@ model RecordingVariable {
 }
 
 model TestCase {
-  id                  String                   @id @default(cuid())
+  id                  String                      @id @default(cuid())
   productId           String
   ownerId             String
-  recordingSessionId  String                   @unique
+  recordingSessionId  String                      @unique
   name                String
-  currentVersion      Int                      @default(1)
-  product             Product                  @relation(fields: [productId], references: [id])
-  owner               User                     @relation("TestCaseOwner", fields: [ownerId], references: [id])
-  recordingSession    RecordingSession         @relation(fields: [recordingSessionId], references: [id])
+  currentVersion      Int                         @default(1)
+  product             Product                     @relation(fields: [productId], references: [id])
+  owner               User                        @relation("TestCaseOwner", fields: [ownerId], references: [id])
+  recordingSession    RecordingSession            @relation(fields: [recordingSessionId], references: [id])
   versions            TestCaseVersion[]
   runs                Run[]
   featureLabels       TestCaseFeatureLabel[]
   releaseTests        ReleaseTest[]
   releaseRunItems     ReleaseRunItem[]
-  sourceSuggestions   TestSuggestion[]         @relation("SuggestionSourceTestCase")
-  approvedSuggestions TestSuggestion[]         @relation("SuggestionApprovedTestCase")
+  sourceSuggestions   TestSuggestion[]            @relation("SuggestionSourceTestCase")
+  approvedSuggestions TestSuggestion[]            @relation("SuggestionApprovedTestCase")
   jiraIssues          JiraIssue[]
   changeProposals     ChangeProposal[]
   repositoryLinks     TestCaseRepositoryLink[]
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
+  messagingSelections MessagingCommandSelection[]
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
 }
 
 model TestCaseVersion {
@@ -590,14 +761,15 @@ model TestCaseFeatureLabel {
 }
 
 model Release {
-  id        String        @id @default(cuid())
-  name      String
-  ownerId   String
-  owner     User          @relation("ReleaseOwner", fields: [ownerId], references: [id])
-  tests     ReleaseTest[]
-  runs      ReleaseRun[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id                String             @id @default(cuid())
+  name              String
+  ownerId           String
+  owner             User               @relation("ReleaseOwner", fields: [ownerId], references: [id])
+  tests             ReleaseTest[]
+  runs              ReleaseRun[]
+  messagingCommands MessagingCommand[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([ownerId, updatedAt])
 }
@@ -713,6 +885,7 @@ model Run {
   databaseDiagnostics DatabaseDiagnostic[]
   githubRunLink       GitHubRunLink?
   sourceAnalyses      SourceAnalysis[]
+  messagingDeliveries MessagingDelivery[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
@@ -748,6 +921,7 @@ model MaintenanceRun {
   deletedScreenshotCount     Int               @default(0)
   deletedDiagnosticCount     Int               @default(0)
   deletedSourceAnalysisCount Int               @default(0)
+  deletedMessagingCount      Int               @default(0)
   errorCode                  String?
   startedAt                  DateTime          @default(now())
   completedAt                DateTime?
