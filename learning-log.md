@@ -2851,3 +2851,119 @@ The main tradeoff is intentional capability reduction. The assistant cannot take
 - Complete the manual BotFather sandbox acceptance with a disposable private-chat bot and untracked credentials. Verify group rejection, stale/revoked link denial, multi-Test all-or-nothing confirmation, ineligible-Test explanations, terminal delivery retry, and absence of raw message data in the database/audit output.
 
 **Learning status:** Implementation, Docker migration, provider-adapter tests, focused encrypted-link lifecycle tests, lint, strict TypeScript, and Account/Admin browser checks are complete. A complete live BotFather/tunnel acceptance remains pending because it requires the owner's untracked provider credentials and public HTTPS endpoint. The broader test runner currently stops after its Auto Run file in this long-lived local stack, so the Phase 14 provider/lifecycle/UI tests were run independently; the owner should rerun the complete suite after the existing Guided Run is intentionally finished. Owner answers remain pending, so the learning review is not complete.
+
+## Phase 24 — Tabular Test Data and row-driven Runs
+
+### What changed and why
+
+Test Data is now a secure table instead of one form field per variable. An authorized user can see Test Data from all accessible Products, filter to one Product, create or edit a named table, add and remove rows or columns, and import the first worksheet of an `.xlsx` file. The inventory shows only its name, Product context, reusable/single-use tag, aggregate lifecycle, row count, and field names. Values remain masked after creation. Actions are compact labelled icons whose accessible names and native tooltips explain them.
+
+Each complete row represents one possible Run input. An Auto Run can queue one independent Run for every currently safe row in one pooled table; Guided Run deliberately selects one safe row because the local pilot allows only one live guided browser. This solves the owner's preparation problem without revealing stored inputs or creating an undefined Cartesian product across multiple pooled tables.
+
+### End-to-end flow and important boundaries
+
+1. The Test Data page requests the authorized Product list and the new organization-scoped Test Data summary. Selecting **All accessible Products** applies no Product filter; selecting one Product filters the already loaded safe summaries.
+2. The editor maintains a client-side draft of canonical column names and ordered rows. Manual add/remove controls and Excel import produce the same draft shape. `read-excel-file/browser` is loaded only after the upload icon is used, parses only the first worksheet in the browser, and never sends the workbook itself to Sentinel.
+3. The server validates the Test Data name, reuse policy, canonical unique columns, complete rows, secret-like content, and hard limits: 50 columns, 1,000 rows, 500 characters per cell, and a 2 MiB workbook. A validation response stays inside the open dialog.
+4. PostgreSQL stores table metadata in `TestDataSet` and each ordered encrypted record in `TestDataRow`. AES-256-GCM encryption remains the established value boundary. List and detail responses contain row IDs, order, state, and masked field presence but never ciphertext or plaintext.
+5. Editing is allowed only when every row is safe. A blank masked cell sends `null`, which means “retain the existing value”; the API decrypts that row only inside the transaction, merges replacements, re-encrypts the complete row, and atomically reorders, adds, or removes rows. Renaming a column in the UI intentionally clears retained cells because the old field identity can no longer be assumed.
+6. Run binding locks a specific safe row, decrypts the selected field only long enough to create the immutable encrypted `RunVariableBinding`, and records `dataSetRowId`. Reusable rows return to safe after a successful Run; single-use rows become consumed; cancellation/interruption releases reservations according to existing lifecycle policy.
+7. Auto batch mode first resolves every safe row from exactly one pooled table, then creates and reserves all Runs in one database transaction. If any row lacks the requested variable or another binding fails, the transaction creates no Runs and leaves every row safe. Queue submission happens after the transaction; individual queue failures are completed as infrastructure failures and release their row.
+8. The migration created one `TestDataRow` for every existing Test Data set, copied the encrypted payload and lifecycle without exposing or re-encrypting it, linked historical pooled bindings to that row, and then removed the obsolete parent-level value/lifecycle columns.
+
+The main technologies are Prisma/PostgreSQL transactions for ordered rows and atomic reservation; Node crypto through the existing variable-encryption helper; React state for the spreadsheet draft; a dynamically imported browser-only Excel parser; BullMQ for existing Auto Run queueing; and native tables, inputs, buttons, SVG icons, and dialog semantics for an accessible UI. A separate `test-data-limits` module exists because client code must share numeric validation limits without importing the server helper that depends on Node encryption.
+
+The principal tradeoffs are intentional. Stored cells cannot be viewed or exported, so users replace values rather than inspect them. A table with any reserved, consumed, or invalid row cannot be structurally edited, which is simpler and safer than partial history rewriting. Auto batch accepts only one pooled table; supporting multiple would need an explicit row-join or Cartesian-product specification. Excel support is `.xlsx`, first worksheet, values only: legacy `.xls`, formulas/macros, styles, and multi-sheet joins are outside scope. The current UI uses ordinary controlled inputs rather than Excel keyboard selection, paste-fill, formulas, or drag handles. Production dependency audit still reports eight high-severity advisories in existing Prisma, Nano ID, Nodemailer, Next/PostCSS, and Sharp paths; the new Excel parser is not in a reported path, and forced breaking upgrades were not mixed into this feature.
+
+### Verification evidence
+
+```text
+docker compose exec -T sentinel npx prisma migrate deploy
+Applying migration `20260829100000_add_test_data_rows`
+All migrations have been successfully applied.
+
+Post-migration database checks
+data_sets: 10
+data_rows: 10
+represented_data_sets: 10
+bindings_with_data_set: 6
+bindings_with_row: 6
+
+docker compose exec -T -e SENTINEL_BASE_URL=http://localhost:3000 sentinel npx vitest run tests/test-data-tables.test.ts --reporter=verbose
+Test Files  1 passed (1)
+Tests       2 passed (2)
+Duration    7.58s
+
+docker compose exec -T -e SENTINEL_BASE_URL=http://localhost:3000 sentinel npx playwright test tests/phase-4-variables.spec.ts --reporter=line
+Running 2 tests using 1 worker
+2 passed (28.2s)
+
+docker compose exec -T -e SENTINEL_BASE_URL=http://localhost:3000 sentinel npx playwright test tests/test-data-tables.spec.ts --reporter=line
+Running 1 test using 1 worker
+1 passed
+
+Live Playwright CLI Excel check
+Imported 2 rows and 2 columns.
+customer_email | region
+excel-one@example.test | north
+excel-two@example.test | south
+
+npm run lint
+> eslint .
+exit 0
+
+npx tsc --noEmit --incremental false --pretty false
+exit 0
+
+npm run build
+✓ Compiled successfully in 4.0s
+✓ Generating static pages (19/19)
+exit 0
+
+Complete service suite
+Test Files  2 failed | 20 passed (22)
+Tests       3 failed | 56 passed (59)
+The two Guided Run assertions received the existing single-live-browser HTTP 409.
+The Telegram identity assertion lacked the optional untracked MESSAGING_ENCRYPTION_KEY.
+```
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | What changed, risk, and owner action |
+|---|---|---|
+| Highest — understand now | `prisma/schema.prisma` (`TestDataSet`, `TestDataRow`, `RunVariableBinding`) and `prisma/migrations/20260829100000_add_test_data_rows/migration.sql` | These define value ownership, row lifecycle, reservations, historical attribution, and irreversible migration order. Review the copy/link/drop sequence and cascade/set-null relations now. |
+| Highest — understand now | `app/api/[[...route]]/route.ts` (Test Data routes, `createRunBindings`, Auto Run batch) | This is the authorization, masking, transaction, encryption, reservation, and rollback boundary. Review exact-path routing, retained-cell merge, one-table batch rule, and post-transaction queue-failure release now. |
+| Highest — understand now | `lib/test-data.ts` and `lib/test-data-limits.ts` | These encode canonical fields, limits, secret rejection, masked public summaries, and the browser/server module boundary. Read why `null` is accepted only for an identified existing row and why limits are separated from encryption imports. |
+| Highest — understand now | `worker.ts` (`updateReservedDataSet`) and `components/sentinel-views.tsx` (variable binding and batch feedback) | These decide what happens to rows after Run outcomes and how a user opts into all safe rows. Review reusable versus single-use transitions, single-row Guided behavior, and multiple-pooled-table rejection. |
+| Medium — understand next | `components/test-data-view.tsx` (`TestDataEditor`, `importExcel`, `submit`) | This is the spreadsheet interaction and masked edit behavior. Review column-rename retention clearing, local first-sheet parsing, dialog-local errors, and all limits next. |
+| Medium — understand next | `app/test-data/page.tsx`, `app/runs/page.tsx`, `components/ui.tsx`, and `app/globals.css` | These wire Suspense boundaries, icons, batch feedback, and responsive table/dialog presentation. The key hidden behavior is that query-param hooks require Suspense during production prerender. |
+| Medium — understand next | `tests/test-data-tables.test.ts`, `tests/test-data-tables.spec.ts`, `tests/phase-4-variables.spec.ts`, and `tests/variables-api.test.ts` | These encode encryption/masking, authorization, retained edits, rollback, reservation locks, UI validation, and existing Run compatibility. Read the failed-batch zero-Run assertion and plaintext-negative assertions next. |
+| Medium — understand next | `package.json` and `package-lock.json` | These add and pin `read-excel-file@9.3.10`. Review that it is dynamically client-loaded and note the separate existing audit advisories before dependency upgrades. |
+| Lower — skim or defer | `lib/global-search.ts`, its two search fixtures, and `tests/product-deletion.test.ts` | These are mechanical adaptations from parent-level Test Data status/value fixtures to row-backed fixtures; they protect existing search and deletion behavior. |
+| Lower — skim or defer | `srd.md`, `architecture.md`, `frontend.md`, `techstack.md`, `phases.md`, and `decisions-log.md` | These preserve requirements, architecture, UI rules, technology rationale, acceptance evidence, and D-053. They add no runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why does each Test Data row own its encrypted payload, status, and Run reservation instead of keeping those fields on the parent set?
+2. What exactly crosses the browser/server boundary when an `.xlsx` workbook is imported, and which workbook features are intentionally ignored?
+3. How can a user edit an existing masked table without the API ever returning the stored plaintext values?
+4. Why does renaming a column clear retained cells, and what must the user provide after that rename?
+5. Which authorization and lifecycle conditions must be true before a Test Data table can be edited or invalidated?
+6. How does one pooled Test Data row become bound to a Run, and which record proves the exact row used later?
+7. Why can Auto Run create one Run per row while Guided Run uses only one row, and what deployment constraint drives the difference?
+8. What makes a multi-row Auto batch atomic before queueing, and what did the failed-field test prove about rollback?
+9. How did the migration preserve existing ciphertext, lifecycle, and historical Run bindings without revealing values?
+10. What are the major current limitations and risks—including multiple pooled tables, consumed-row editing, Excel scope, and the existing dependency advisories—and how could each be changed safely?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the highest-priority schema, migration, API transaction, validation, and worker lifecycle code before Phase 24 is considered fully understood.
+- Add a checked-in deterministic `.xlsx` fixture and an explicit browser assertion for the multi-row Auto Run confirmation/redirect before closing the browser-coverage gate.
+- Re-run the complete service suite after the existing Guided Run is intentionally finished and with the optional Telegram messaging key configured; do not clear user-owned work or expose a key only to force a green suite.
+- Plan dependency upgrades separately, because the available audit fixes cross Prisma, Next, Nodemailer, and image-processing compatibility boundaries.
+
+**Learning status:** Requirements, architecture, migration, implementation, focused API/browser coverage, live Excel import, build verification, D-053, and priority diff review are complete. Automated Excel/multi-row Run UI coverage, the three environmental full-suite checks, and owner answers remain open, so Phase 24's learning and complete verification gates are not complete.
