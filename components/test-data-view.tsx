@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiRequest } from "@/lib/client-api";
-import { TEST_DATA_LIMITS } from "@/lib/test-data";
+import { TEST_DATA_LIMITS } from "@/lib/test-data-limits";
 import { Card, Dialog, EmptyState, Feedback, Field, Icon, IconButton, PageHeader, SelectInput, Skeleton, StatusBadge, TextInput } from "./ui";
 
 type Product = { id: string; name: string };
