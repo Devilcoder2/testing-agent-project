@@ -154,11 +154,11 @@ async function completeRun(runId: string, attemptId: string, outcome: RunOutcome
   await prisma.runAttempt.update({ where: { id: attemptId }, data: { status: RunAttemptStatus.COMPLETED, failureReason: reason, completedAt, activeDurationMs } });
   if (outcome === RunOutcome.PASSED) {
     await prisma.$transaction([
-      prisma.testDataSet.updateMany({ where: { reservedByRunId: runId, status: TestDataStatus.RESERVED, reusePolicy: TestDataReusePolicy.REUSABLE }, data: { status: TestDataStatus.SAFE, reservedByRunId: null } }),
-      prisma.testDataSet.updateMany({ where: { reservedByRunId: runId, status: TestDataStatus.RESERVED, reusePolicy: TestDataReusePolicy.SINGLE_USE }, data: { status: TestDataStatus.CONSUMED, reservedByRunId: null } })
+      prisma.testDataRow.updateMany({ where: { reservedByRunId: runId, status: TestDataStatus.RESERVED, dataSet: { reusePolicy: TestDataReusePolicy.REUSABLE } }, data: { status: TestDataStatus.SAFE, reservedByRunId: null } }),
+      prisma.testDataRow.updateMany({ where: { reservedByRunId: runId, status: TestDataStatus.RESERVED, dataSet: { reusePolicy: TestDataReusePolicy.SINGLE_USE } }, data: { status: TestDataStatus.CONSUMED, reservedByRunId: null } })
     ]);
   } else {
-    await prisma.testDataSet.updateMany({ where: { reservedByRunId: runId, status: TestDataStatus.RESERVED }, data: { status: TestDataStatus.SAFE, reservedByRunId: null } });
+    await prisma.testDataRow.updateMany({ where: { reservedByRunId: runId, status: TestDataStatus.RESERVED }, data: { status: TestDataStatus.SAFE, reservedByRunId: null } });
   }
   await prisma.auditEvent.create({ data: { actorId: run.initiatedById, action: outcome === RunOutcome.PASSED ? "AUTO_RUN_PASSED" : outcome === RunOutcome.FAILED ? "AUTO_RUN_FAILED" : "AUTO_RUN_INTERRUPTED", entityType: "Run", entityId: run.id, details: reason ? { reason } : undefined } });
   await syncReleaseRunItemForRun(run.id, outcome);
