@@ -21,6 +21,7 @@ import { proposedValueIsSafe, suggestionsForSteps, type SuggestionKind } from "@
 import { sendAccountLink } from "@/lib/account-email";
 import { isSearchSection, searchWorkspace } from "@/lib/global-search";
 import { productDeletionImpact } from "@/lib/product-deletion";
+import { normalizeTestDataTable, publicTestDataSet, TestDataInputError } from "@/lib/test-data";
 import { createTelegramLink, linkTelegramChat, telegramIdentityForChat, telegramIdentityStatus, telegramInboundAllowed, unlinkTelegram } from "@/lib/messaging-service";
 import { acknowledgeTelegramCallback, deleteTelegramWebhook, parseTelegramUpdate, sendTelegramMessage, setTelegramWebhook, telegramDeepLink, telegramIsConfigured, verifyTelegramWebhookSecret } from "@/lib/telegram";
 
@@ -142,7 +143,7 @@ function publicNotification(notification: {
   };
 }
 
-type RunBindingInput = { source?: unknown; dataSetId?: unknown; value?: unknown };
+type RunBindingInput = { source?: unknown; dataSetId?: unknown; dataSetRowId?: unknown; value?: unknown };
 
 function bindingInputs(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, RunBindingInput> : {};
@@ -155,27 +156,27 @@ function publicVariable(variable: { name: string; staticValueEncrypted: string |
 async function updateReservedDataSet(runId: string, outcome: RunOutcome) {
   if (outcome === RunOutcome.PASSED) {
     await prisma.$transaction([
-      prisma.testDataSet.updateMany({
-        where: { reservedByRunId: runId, status: TestDataStatus.RESERVED, reusePolicy: TestDataReusePolicy.REUSABLE },
+      prisma.testDataRow.updateMany({
+        where: { reservedByRunId: runId, status: TestDataStatus.RESERVED, dataSet: { reusePolicy: TestDataReusePolicy.REUSABLE } },
         data: { status: TestDataStatus.SAFE, reservedByRunId: null }
       }),
-      prisma.testDataSet.updateMany({
-        where: { reservedByRunId: runId, status: TestDataStatus.RESERVED, reusePolicy: TestDataReusePolicy.SINGLE_USE },
+      prisma.testDataRow.updateMany({
+        where: { reservedByRunId: runId, status: TestDataStatus.RESERVED, dataSet: { reusePolicy: TestDataReusePolicy.SINGLE_USE } },
         data: { status: TestDataStatus.CONSUMED, reservedByRunId: null }
       })
     ]);
     return;
   }
-  await prisma.testDataSet.updateMany({
+  await prisma.testDataRow.updateMany({
     where: { reservedByRunId: runId, status: TestDataStatus.RESERVED },
     data: { status: TestDataStatus.SAFE, reservedByRunId: null }
   });
 }
 
-async function createRunBindings(tx: Prisma.TransactionClient, runId: string, productId: string, variables: Array<{ id: string; name: string; staticValueEncrypted: string | null }>, rawInputs: unknown) {
+async function createRunBindings(tx: Prisma.TransactionClient, runId: string, productId: string, variables: Array<{ id: string; name: string; staticValueEncrypted: string | null }>, rawInputs: unknown, forcedRows = new Map<string, string>()) {
   const inputs = bindingInputs(rawInputs);
-  const selectedDataSetIds = new Set<string>();
-  const resolved: Array<{ name: string; source: VariableSource; value: string; testVariableId: string; dataSetId?: string }> = [];
+  const selectedRows = new Map<string, { id: string; dataSetId: string; encryptedFields: string }>();
+  const resolved: Array<{ name: string; source: VariableSource; value: string; testVariableId: string; dataSetId?: string; dataSetRowId?: string }> = [];
 
   for (const variable of variables) {
     const input = inputs[variable.name];
@@ -193,24 +194,31 @@ async function createRunBindings(tx: Prisma.TransactionClient, runId: string, pr
     }
     if (source === "POOL") {
       if (typeof input?.dataSetId !== "string") throw new Error(`VARIABLE_DATA_SET_REQUIRED:${variable.name}`);
-      const dataSet = await tx.testDataSet.findFirst({ where: { id: input.dataSetId, productId, status: TestDataStatus.SAFE } });
-      if (!dataSet) throw new Error("VARIABLE_DATA_SET_UNAVAILABLE");
-      const fields = JSON.parse(decryptVariableValue(dataSet.encryptedFields)) as Record<string, string>;
+      const selected = selectedRows.get(input.dataSetId);
+      const requestedRowId = forcedRows.get(input.dataSetId) ?? (typeof input.dataSetRowId === "string" ? input.dataSetRowId : undefined);
+      if (selected && requestedRowId && selected.id !== requestedRowId) throw new Error("VARIABLE_DATA_SET_ROW_CONFLICT");
+      const row = selected ?? await tx.testDataRow.findFirst({
+        where: { ...(requestedRowId ? { id: requestedRowId } : {}), dataSetId: input.dataSetId, status: TestDataStatus.SAFE, reservedByRunId: null, dataSet: { productId } },
+        orderBy: { order: "asc" },
+        select: { id: true, dataSetId: true, encryptedFields: true }
+      });
+      if (!row) throw new Error("VARIABLE_DATA_SET_UNAVAILABLE");
+      selectedRows.set(input.dataSetId, row);
+      const fields = JSON.parse(decryptVariableValue(row.encryptedFields)) as Record<string, string>;
       const value = fields[variable.name];
       if (typeof value !== "string" || !value) throw new Error(`VARIABLE_DATA_SET_FIELD_MISSING:${variable.name}`);
       if (isSecretLikeVariable(variable.name, value)) throw new Error("VARIABLE_SECRET_REJECTED");
-      selectedDataSetIds.add(dataSet.id);
-      resolved.push({ name: variable.name, source: VariableSource.POOL, value, testVariableId: variable.id, dataSetId: dataSet.id });
+      resolved.push({ name: variable.name, source: VariableSource.POOL, value, testVariableId: variable.id, dataSetId: row.dataSetId, dataSetRowId: row.id });
       continue;
     }
     throw new Error(`VARIABLE_BINDING_REQUIRED:${variable.name}`);
   }
 
-  for (const dataSetId of selectedDataSetIds) {
-    const reservation = await tx.testDataSet.updateMany({ where: { id: dataSetId, productId, status: TestDataStatus.SAFE, reservedByRunId: null }, data: { status: TestDataStatus.RESERVED, reservedByRunId: runId } });
+  for (const row of selectedRows.values()) {
+    const reservation = await tx.testDataRow.updateMany({ where: { id: row.id, dataSetId: row.dataSetId, status: TestDataStatus.SAFE, reservedByRunId: null, dataSet: { productId } }, data: { status: TestDataStatus.RESERVED, reservedByRunId: runId } });
     if (reservation.count !== 1) throw new Error("VARIABLE_DATA_SET_UNAVAILABLE");
   }
-  if (resolved.length) await tx.runVariableBinding.createMany({ data: resolved.map((binding) => ({ runId, name: binding.name, source: binding.source, valueEncrypted: encryptVariableValue(binding.value), testVariableId: binding.testVariableId, dataSetId: binding.dataSetId })) });
+  if (resolved.length) await tx.runVariableBinding.createMany({ data: resolved.map((binding) => ({ runId, name: binding.name, source: binding.source, valueEncrypted: encryptVariableValue(binding.value), testVariableId: binding.testVariableId, dataSetId: binding.dataSetId, dataSetRowId: binding.dataSetRowId })) });
 }
 
 async function migrateLegacyVariables(version: { id: string; steps: Array<{ id: string; variableName: string | null; value: string | null; isRedacted: boolean }> }) {
@@ -1225,41 +1233,104 @@ async function route(request: Request, context: Context) {
       });
       return json({ version: created }, 201);
     }
+    if (request.method === "GET" && path.length === 1 && path[0] === "test-data") {
+      const dataSets = await prisma.testDataSet.findMany({
+        where: { product: { organizationId: user.organizationId, ...(user.role === OrganizationRole.ADMIN ? {} : { memberships: { some: { userId: user.id } } }) } },
+        include: { product: { select: { id: true, name: true } }, rows: { select: { id: true, order: true, status: true } } },
+        orderBy: { createdAt: "desc" }
+      });
+      return json(dataSets.map((dataSet) => publicTestDataSet(dataSet, user.role !== OrganizationRole.TESTER || dataSet.ownerId === user.id)));
+    }
     if (path[0] === "products" && path[1] && path[2] === "test-data") {
       await assertProductMember(user.id, path[1]);
-      if (request.method === "GET") {
-        const dataSets = await prisma.testDataSet.findMany({ where: { productId: path[1] }, select: { id: true, name: true, fieldNames: true, status: true, reusePolicy: true, createdAt: true, updatedAt: true }, orderBy: { createdAt: "desc" } });
-        return json(dataSets);
+      if (request.method === "GET" && !path[3]) {
+        const dataSets = await prisma.testDataSet.findMany({
+          where: { productId: path[1] },
+          include: { product: { select: { id: true, name: true } }, rows: { select: { id: true, order: true, status: true } } },
+          orderBy: { createdAt: "desc" }
+        });
+        return json(dataSets.map((dataSet) => publicTestDataSet(dataSet, user.role !== OrganizationRole.TESTER || dataSet.ownerId === user.id)));
+      }
+      if (request.method === "GET" && path[3]) {
+        const dataSet = await prisma.testDataSet.findFirst({
+          where: { id: path[3], productId: path[1] },
+          include: { product: { select: { id: true, name: true } }, rows: { select: { id: true, order: true, status: true }, orderBy: { order: "asc" } } }
+        });
+        if (!dataSet) return json({ error: "Test Data not found." }, 404);
+        const summary = publicTestDataSet(dataSet, user.role !== OrganizationRole.TESTER || dataSet.ownerId === user.id);
+        return json({ ...summary, rows: dataSet.rows.map((row) => ({ id: row.id, order: row.order, status: row.status, maskedFields: dataSet.fieldNames })) });
       }
       if (request.method === "POST" && !path[3]) {
-        const name = typeof body.name === "string" ? body.name.trim() : "";
-        const reusePolicy = body.reusePolicy === undefined ? TestDataReusePolicy.REUSABLE : body.reusePolicy === TestDataReusePolicy.REUSABLE || body.reusePolicy === TestDataReusePolicy.SINGLE_USE ? body.reusePolicy : null;
-        if (!reusePolicy) return json({ error: "Choose whether this Test Data Set is reusable or single-use." }, 400);
-        const rawFields = body.fields && typeof body.fields === "object" && !Array.isArray(body.fields) ? body.fields as Record<string, unknown> : {};
-        const fields: Record<string, string> = {};
-        for (const [rawName, rawValue] of Object.entries(rawFields)) {
-          const fieldName = canonicalVariableName(rawName);
-          if (typeof rawValue !== "string" || !rawValue.trim()) return json({ error: "Every Test Data field needs a value." }, 400);
-          if (isSecretLikeVariable(fieldName, rawValue)) return json({ error: "Passwords, tokens, and other secret-like values cannot be stored in Test Data." }, 400);
-          fields[fieldName] = rawValue;
-        }
-        if (!name || Object.keys(fields).length === 0) return json({ error: "A Test Data Set needs a name and at least one field." }, 400);
+        const legacyFields = body.fields && typeof body.fields === "object" && !Array.isArray(body.fields) ? body.fields as Record<string, unknown> : null;
+        const input = normalizeTestDataTable(legacyFields ? { ...body, fieldNames: Object.keys(legacyFields), rows: [{ values: legacyFields }] } : body);
         try {
-          const created = await prisma.testDataSet.create({ data: { productId: path[1], ownerId: user.id, name, fieldNames: Object.keys(fields).sort(), encryptedFields: encryptVariableValue(JSON.stringify(fields)), reusePolicy }, select: { id: true, name: true, fieldNames: true, status: true, reusePolicy: true, createdAt: true } });
-          await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_CREATED", entityType: "TestDataSet", entityId: created.id, details: { productId: path[1], fieldNames: created.fieldNames, reusePolicy } } });
-          return json(created, 201);
+          const created = await prisma.$transaction(async (tx) => {
+            const dataSet = await tx.testDataSet.create({
+              data: {
+                productId: path[1], ownerId: user.id, name: input.name, fieldNames: input.fieldNames, reusePolicy: input.reusePolicy,
+                rows: { create: input.rows.map((row, index) => ({ order: index + 1, encryptedFields: encryptVariableValue(JSON.stringify(row.values)) })) }
+              },
+              include: { product: { select: { id: true, name: true } }, rows: { select: { id: true, order: true, status: true } } }
+            });
+            await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_CREATED", entityType: "TestDataSet", entityId: dataSet.id, details: { productId: path[1], fieldNames: dataSet.fieldNames, reusePolicy: dataSet.reusePolicy, rowCount: dataSet.rows.length } } });
+            return dataSet;
+          });
+          return json(publicTestDataSet(created, true), 201);
         } catch (error) {
-          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return json({ error: "A Test Data Set with this name already exists for this Product." }, 409);
+          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return json({ error: "Test Data with this name already exists for this Product." }, 409);
+          throw error;
+        }
+      }
+      if (request.method === "PATCH" && path[3]) {
+        const current = await prisma.testDataSet.findFirst({ where: { id: path[3], productId: path[1], ...(user.role === OrganizationRole.TESTER ? { ownerId: user.id } : {}) }, include: { rows: { orderBy: { order: "asc" } } } });
+        if (!current) return json({ error: "Test Data not found or cannot be edited by this account." }, 404);
+        if (!current.rows.length || current.rows.some((row) => row.status !== TestDataStatus.SAFE)) return json({ error: "Only Test Data whose rows are all safe can be edited." }, 409);
+        const input = normalizeTestDataTable(body, { allowRetainedCells: true });
+        const existingRows = new Map(current.rows.map((row) => [row.id, row]));
+        if (input.rows.some((row) => row.id && !existingRows.has(row.id))) return json({ error: "One or more edited Test Data rows no longer exist." }, 409);
+        const mergedRows = input.rows.map((row) => {
+          const existing = row.id ? existingRows.get(row.id) : undefined;
+          const retained = existing ? JSON.parse(decryptVariableValue(existing.encryptedFields)) as Record<string, string> : {};
+          const fields = Object.fromEntries(input.fieldNames.map((fieldName) => {
+            const submitted = row.values[fieldName];
+            const value = submitted === null ? retained[fieldName] : submitted;
+            if (typeof value !== "string" || !value) throw new TestDataInputError(`Every row needs a value for ${fieldName}.`);
+            return [fieldName, value];
+          }));
+          return { id: row.id, encryptedFields: encryptVariableValue(JSON.stringify(fields)) };
+        });
+        try {
+          const updated = await prisma.$transaction(async (tx) => {
+            await tx.testDataRow.updateMany({ where: { dataSetId: current.id }, data: { order: { increment: 10_000 } } });
+            await tx.testDataRow.deleteMany({ where: { dataSetId: current.id, id: { notIn: mergedRows.flatMap((row) => row.id ? [row.id] : []) } } });
+            for (const [index, row] of mergedRows.entries()) {
+              if (row.id) await tx.testDataRow.update({ where: { id: row.id }, data: { order: index + 1, encryptedFields: row.encryptedFields } });
+              else await tx.testDataRow.create({ data: { dataSetId: current.id, order: index + 1, encryptedFields: row.encryptedFields } });
+            }
+            const dataSet = await tx.testDataSet.update({
+              where: { id: current.id }, data: { name: input.name, fieldNames: input.fieldNames, reusePolicy: input.reusePolicy },
+              include: { product: { select: { id: true, name: true } }, rows: { select: { id: true, order: true, status: true } } }
+            });
+            await tx.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_UPDATED", entityType: "TestDataSet", entityId: current.id, details: { productId: path[1], fieldNames: dataSet.fieldNames, reusePolicy: dataSet.reusePolicy, rowCount: dataSet.rows.length } } });
+            return dataSet;
+          });
+          return json(publicTestDataSet(updated, true));
+        } catch (error) {
+          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return json({ error: "Test Data with this name already exists for this Product." }, 409);
           throw error;
         }
       }
       if (request.method === "POST" && path[3] && path[4] === "invalidate") {
-        const dataSet = await prisma.testDataSet.findFirst({ where: { id: path[3], productId: path[1], ...(user.role === OrganizationRole.TESTER ? { ownerId: user.id } : {}) } });
-        if (!dataSet) return json({ error: "Test Data Set not found." }, 404);
-        if (dataSet.status !== TestDataStatus.SAFE) return json({ error: "Only safe Test Data Sets can be invalidated. Create a replacement instead." }, 409);
-        const invalidated = await prisma.testDataSet.update({ where: { id: dataSet.id }, data: { status: TestDataStatus.INVALID }, select: { id: true, name: true, fieldNames: true, status: true, reusePolicy: true } });
-        await prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_INVALIDATED", entityType: "TestDataSet", entityId: dataSet.id } });
-        return json(invalidated);
+        const dataSet = await prisma.testDataSet.findFirst({ where: { id: path[3], productId: path[1], ...(user.role === OrganizationRole.TESTER ? { ownerId: user.id } : {}) }, include: { product: { select: { id: true, name: true } }, rows: { select: { id: true, order: true, status: true } } } });
+        if (!dataSet) return json({ error: "Test Data not found or cannot be invalidated by this account." }, 404);
+        if (dataSet.rows.some((row) => row.status === TestDataStatus.RESERVED)) return json({ error: "Reserved Test Data cannot be invalidated until its Run finishes." }, 409);
+        if (!dataSet.rows.some((row) => row.status === TestDataStatus.SAFE)) return json({ error: "This Test Data has no safe rows to invalidate." }, 409);
+        await prisma.$transaction([
+          prisma.testDataRow.updateMany({ where: { dataSetId: dataSet.id, status: TestDataStatus.SAFE }, data: { status: TestDataStatus.INVALID } }),
+          prisma.auditEvent.create({ data: { actorId: user.id, action: "TEST_DATA_SET_INVALIDATED", entityType: "TestDataSet", entityId: dataSet.id } })
+        ]);
+        const rows = dataSet.rows.map((row) => row.status === TestDataStatus.SAFE ? { ...row, status: TestDataStatus.INVALID } : row);
+        return json(publicTestDataSet({ ...dataSet, rows }, true));
       }
     }
     if (request.method === "GET" && path.join("/") === "releases") {
@@ -1473,43 +1544,58 @@ async function route(request: Request, context: Context) {
       const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
       if (!version || version.steps.length === 0) return json({ error: "This Test Case has no saved steps to replay." }, 409);
       const variables = await migrateLegacyVariables(version);
+      const inputs = bindingInputs(body.bindings);
+      const pooledDataSetIds = [...new Set(variables.flatMap((variable) => inputs[variable.name]?.source === "POOL" && typeof inputs[variable.name]?.dataSetId === "string" ? [inputs[variable.name].dataSetId as string] : []))];
+      const useAllRows = body.useAllRows === true && pooledDataSetIds.length > 0;
+      if (useAllRows && pooledDataSetIds.length !== 1) throw new Error("VARIABLE_DATA_SET_BATCH_MULTIPLE");
+      const batchRows = useAllRows ? await prisma.testDataRow.findMany({ where: { dataSetId: pooledDataSetIds[0], status: TestDataStatus.SAFE, reservedByRunId: null, dataSet: { productId: testCase.productId } }, select: { id: true }, orderBy: { order: "asc" } }) : [null];
+      if (useAllRows && batchRows.length === 0) throw new Error("VARIABLE_DATA_SET_UNAVAILABLE");
       const created = await prisma.$transaction(async (tx) => {
-        const run = await tx.run.create({
-          data: {
-            testCaseId: testCase.id,
-            testCaseVersionId: version.id,
-            productId: testCase.productId,
-            initiatedById: user.id,
-            targetUrl: testCase.recordingSession.targetUrl,
-            mode: RunMode.AUTO,
-            activeStepOrder: version.steps[0].order,
-            stepResults: { create: version.steps.map((step) => ({ testStepId: step.id, order: step.order })) },
-            attempts: { create: { attemptNumber: 1 } }
-          },
-          include: { attempts: true }
-        });
-        await createRunBindings(tx, run.id, testCase.productId, variables, body.bindings);
-        await tx.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_QUEUED", entityType: "Run", entityId: run.id, details: { testCaseVersion: version.version } } });
-        return run;
+        const runs = [];
+        for (const batchRow of batchRows) {
+          const run = await tx.run.create({
+            data: {
+              testCaseId: testCase.id,
+              testCaseVersionId: version.id,
+              productId: testCase.productId,
+              initiatedById: user.id,
+              targetUrl: testCase.recordingSession.targetUrl,
+              mode: RunMode.AUTO,
+              activeStepOrder: version.steps[0].order,
+              stepResults: { create: version.steps.map((step) => ({ testStepId: step.id, order: step.order })) },
+              attempts: { create: { attemptNumber: 1 } }
+            },
+            include: { attempts: true }
+          });
+          const forcedRows = batchRow ? new Map([[pooledDataSetIds[0], batchRow.id]]) : undefined;
+          await createRunBindings(tx, run.id, testCase.productId, variables, body.bindings, forcedRows);
+          await tx.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_QUEUED", entityType: "Run", entityId: run.id, details: { testCaseVersion: version.version, ...(batchRow ? { testDataRowId: batchRow.id } : {}) } } });
+          runs.push(run);
+        }
+        return runs;
       });
-      const attempt = created.attempts[0];
-      try {
-        const jobId = await enqueueAutoRun({ runId: created.id, attemptId: attempt.id });
-        await prisma.runAttempt.update({ where: { id: attempt.id }, data: { jobId } });
-      } catch (error) {
-        const completedAt = new Date();
-        await prisma.$transaction([
-          prisma.run.update({ where: { id: created.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.FAILED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, evidenceStatus: "PARTIAL", activeStepOrder: null, completedAt } }),
-          prisma.runAttempt.update({ where: { id: attempt.id }, data: { status: RunAttemptStatus.COMPLETED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, completedAt } }),
-          prisma.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_QUEUE_FAILED", entityType: "Run", entityId: created.id } })
-        ]);
-        await updateReservedDataSet(created.id, RunOutcome.FAILED);
-        await markReleaseRunItemQueueFailure(created.id);
-        await notifyRunFailure(created.id);
-        console.error("Sentinel could not enqueue Auto Run", error);
-        return json({ error: "Auto Run could not be queued. Redis is unavailable; try again." }, 503);
+      let queueFailures = 0;
+      for (const run of created) {
+        const attempt = run.attempts[0];
+        try {
+          const jobId = await enqueueAutoRun({ runId: run.id, attemptId: attempt.id });
+          await prisma.runAttempt.update({ where: { id: attempt.id }, data: { jobId } });
+        } catch (error) {
+          queueFailures += 1;
+          const completedAt = new Date();
+          await prisma.$transaction([
+            prisma.run.update({ where: { id: run.id }, data: { status: RunStatus.COMPLETED, outcome: RunOutcome.FAILED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, evidenceStatus: "PARTIAL", activeStepOrder: null, completedAt } }),
+            prisma.runAttempt.update({ where: { id: attempt.id }, data: { status: RunAttemptStatus.COMPLETED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, completedAt } }),
+            prisma.auditEvent.create({ data: { actorId: user.id, action: "AUTO_RUN_QUEUE_FAILED", entityType: "Run", entityId: run.id } })
+          ]);
+          await updateReservedDataSet(run.id, RunOutcome.FAILED);
+          await markReleaseRunItemQueueFailure(run.id);
+          await notifyRunFailure(run.id);
+          console.error("Sentinel could not enqueue Auto Run", error);
+        }
       }
-      return json({ run: created }, 201);
+      if (queueFailures === created.length) return json({ error: "Auto Runs could not be queued. Redis is unavailable; try again." }, 503);
+      return json({ run: created[0], runs: created.map((run) => ({ id: run.id })), queueFailures }, 201);
     }
     if (request.method === "POST" && path[0] === "runs" && path[1] && path[2] === "jira-draft") {
       if (!jiraCloudIsConfigured()) return json({ error: "Jira Cloud is not configured for this Sentinel deployment." }, 503);
@@ -1950,6 +2036,7 @@ async function route(request: Request, context: Context) {
     }
   } catch (error) {
     const code = error instanceof Error ? error.message : "UNKNOWN";
+    if (error instanceof TestDataInputError) return json({ error: error.message }, 400);
     if (code === "UNAUTHORIZED") return json({ error: "Sign in required." }, 401);
     if (code === "FORBIDDEN") return json({ error: "You do not have access to this resource." }, 403);
     if (code === "BROWSER_LAUNCH_IN_PROGRESS") return json({ error: "The live browser is still starting. Wait a moment, then try again." }, 409);
@@ -1964,6 +2051,8 @@ async function route(request: Request, context: Context) {
     if (code === "RELEASE_EMPTY") return json({ error: "A Release needs at least one tagged Test Case before it can run." }, 409);
     if (code === "RELEASE_TEST_CASE_INVALID") return json({ error: "A tagged Test Case no longer has a runnable current version." }, 409);
     if (code === "VARIABLE_DATA_SET_UNAVAILABLE") return json({ error: "The selected Test Data Set is no longer safe and available. Choose another data set." }, 409);
+    if (code === "VARIABLE_DATA_SET_ROW_CONFLICT") return json({ error: "Variables from the same Test Data Set must use the same row." }, 400);
+    if (code === "VARIABLE_DATA_SET_BATCH_MULTIPLE") return json({ error: "An Auto Run batch can use pooled variables from only one Test Data Set." }, 400);
     if (code.startsWith("VARIABLE_BINDING_REQUIRED:")) return json({ error: `Choose a value source for ${code.slice("VARIABLE_BINDING_REQUIRED:".length)} before starting this Run.` }, 409);
     if (code.startsWith("VARIABLE_VALUE_REQUIRED:")) return json({ error: `Enter a value for ${code.slice("VARIABLE_VALUE_REQUIRED:".length)} before starting this Run.` }, 400);
     if (code.startsWith("VARIABLE_DATA_SET_REQUIRED:")) return json({ error: `Choose a Test Data Set for ${code.slice("VARIABLE_DATA_SET_REQUIRED:".length)} before starting this Run.` }, 400);
