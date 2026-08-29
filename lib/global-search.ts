@@ -1,5 +1,6 @@
 import { NotificationType, OrganizationRole, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
+import { aggregateTestDataStatus } from "./test-data";
 
 export const searchSections = ["products", "test-cases", "test-data", "runs", "releases", "review", "notifications", "admin"] as const;
 export type SearchSection = typeof searchSections[number];
@@ -98,7 +99,7 @@ export async function searchWorkspace(user: SearchUser, rawQuery: string, curren
   const [products, testCases, dataSets, runs, releases, suggestions, proposals, notifications, members] = await Promise.all([
     prisma.product.findMany({ where: { ...accessibleProduct, name }, select: { id: true, name: true }, orderBy: { name: "asc" }, take: resultLimit }),
     prisma.testCase.findMany({ where: { name, product: accessibleProduct }, select: { id: true, name: true, product: { select: { name: true } } }, orderBy: { name: "asc" }, take: resultLimit }),
-    prisma.testDataSet.findMany({ where: { name, product: accessibleProduct }, select: { id: true, name: true, status: true, product: { select: { id: true, name: true } } }, orderBy: { name: "asc" }, take: resultLimit }),
+    prisma.testDataSet.findMany({ where: { name, product: accessibleProduct }, select: { id: true, name: true, rows: { select: { id: true, order: true, status: true } }, product: { select: { id: true, name: true } } }, orderBy: { name: "asc" }, take: resultLimit }),
     prisma.run.findMany({ where: { testCase: { name }, product: accessibleProduct }, select: { id: true, mode: true, status: true, outcome: true, testCase: { select: { name: true } }, product: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: resultLimit }),
     prisma.release.findMany({ where: { ...accessibleRelease, name }, select: { id: true, name: true, tests: { select: { testCase: { select: { product: { select: { name: true } } } } } } }, orderBy: { updatedAt: "desc" }, take: resultLimit }),
     prisma.testSuggestion.findMany({ where: { title: name, product: accessibleProduct }, select: { id: true, title: true, status: true, sourceTestCaseId: true, product: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: resultLimit }),
@@ -141,7 +142,7 @@ export async function searchWorkspace(user: SearchUser, rawQuery: string, curren
   const bySection: Record<SearchSection, SearchResult[]> = {
     products: products.map((product) => ({ id: product.id, section: "products", title: product.name, context: "Product", href: `/products?focus=${product.id}` })),
     "test-cases": testCases.map((testCase) => ({ id: testCase.id, section: "test-cases", title: testCase.name, context: `${testCase.product.name} · Test Case`, href: `/test-cases/${testCase.id}` })),
-    "test-data": dataSets.map((dataSet) => ({ id: dataSet.id, section: "test-data", title: dataSet.name, context: `${dataSet.product.name} · Test Data · ${dataSet.status.toLowerCase()}`, href: `/test-data?productId=${dataSet.product.id}&focus=${dataSet.id}` })),
+    "test-data": dataSets.map((dataSet) => ({ id: dataSet.id, section: "test-data", title: dataSet.name, context: `${dataSet.product.name} · Test Data · ${aggregateTestDataStatus(dataSet.rows).toLowerCase()}`, href: `/test-data?productId=${dataSet.product.id}&focus=${dataSet.id}` })),
     runs: runs.map((run) => ({ id: run.id, section: "runs", title: run.testCase.name, context: `${run.product.name} · ${run.mode === "AUTO" ? "Auto" : "Guided"} Run · ${(run.outcome ?? run.status).toLowerCase()}`, href: `/runs/${run.id}` })),
     releases: releases.map((release) => ({ id: release.id, section: "releases", title: release.name, context: `${new Set(release.tests.map((item) => item.testCase.product.name)).size} Product${new Set(release.tests.map((item) => item.testCase.product.name)).size === 1 ? "" : "s"} · Release`, href: `/releases/${release.id}` })),
     review: reviewResults,
