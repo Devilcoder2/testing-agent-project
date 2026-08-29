@@ -63,7 +63,7 @@ describe("administrative Product deletion", () => {
     expect((await evidenceClient.send(new HeadObjectCommand({ Bucket: evidenceBucket, Key: screenshot.objectKey! }))).ContentLength).toBeGreaterThan(0);
     await prisma.changeProposal.create({ data: { runId: run.id, productId: deletingProduct.id, testCaseId: deletingTest.id, sourceVersionId: deletingVersion.id, createdById: owner.id, ownerId: owner.id, status: ChangeProposalStatus.DRAFT, context: "Deletion cascade fixture" } });
     await prisma.notification.create({ data: { recipientId: owner.id, productId: deletingProduct.id, runId: run.id, type: NotificationType.RUN_FAILED } });
-    await prisma.testDataSet.create({ data: { productId: deletingProduct.id, ownerId: owner.id, name: `Delete data ${suffix}`, fieldNames: ["email"], encryptedFields: "fixture" } });
+    await prisma.testDataSet.create({ data: { productId: deletingProduct.id, ownerId: owner.id, name: `Delete data ${suffix}`, fieldNames: ["email"], rows: { create: { order: 1, encryptedFields: "fixture" } } } });
     const release = await prisma.release.create({ data: { name: `Preserved release ${suffix}`, ownerId: owner.id, tests: { create: [{ testCaseId: deletingTest.id }, { testCaseId: retainedTest.id }] }, runs: { create: { initiatedById: owner.id, status: ReleaseRunStatus.COMPLETED, readiness: ReleaseReadiness.NOT_READY, completedAt: new Date(), items: { create: [
       { testCaseId: deletingTest.id, testCaseVersionId: deletingVersion.id, productId: deletingProduct.id, status: ReleaseRunItemStatus.EXCLUDED },
       { testCaseId: retainedTest.id, testCaseVersionId: retainedVersion.id, productId: retainedProduct.id, status: ReleaseRunItemStatus.EXCLUDED }
