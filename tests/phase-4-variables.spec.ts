@@ -69,7 +69,7 @@ test("creates masked Test Data and binds it to a checkpointed Auto Run", async (
     await page.getByRole("button", { name: "Auto Run" }).click();
     const bindingDialog = page.getByRole("dialog", { name: "Choose variable values" });
     await bindingDialog.getByLabel("customer_email").selectOption("POOL");
-    await bindingDialog.getByLabel("Test Data Set for customer_email").selectOption({ label: "Customer pool" });
+    await bindingDialog.getByLabel("Test Data Set for customer_email").selectOption({ index: 1 });
     await bindingDialog.getByRole("button", { name: "Queue Auto Run" }).click();
     await expect(page).toHaveURL(/\/runs\//);
     await expect(page.getByText("Checkpoint ready:", { exact: false })).toBeVisible({ timeout: 20_000 });
@@ -80,8 +80,8 @@ test("creates masked Test Data and binds it to a checkpointed Auto Run", async (
     await expect.poll(async () => (await prisma.testDataRow.findFirst({ where: { dataSet: { productId: created.productId, name: "Customer pool" } } }))?.status).toBe("CONSUMED");
     await page.goto(`${baseUrl}/test-data`);
     await page.locator(".inventory-toolbar").getByLabel("Product").selectOption(created.productId);
-    await expect(page.locator(".run-list__item").filter({ hasText: "Customer pool" })).toContainText("single-use");
-    await expect(page.locator(".run-list__item").filter({ hasText: "Customer pool" })).toContainText("consumed");
+    await expect(page.locator(".test-data-item").filter({ hasText: "Customer pool" })).toContainText("Single-use");
+    await expect(page.locator(".test-data-item").filter({ hasText: "Customer pool" })).toContainText("consumed");
   } finally {
     await cleanup(created.productId);
   }
@@ -106,14 +106,14 @@ test("reuses a reusable Test Data Set after a passed Auto Run", async ({ page })
     await dialog.getByLabel("Test Data name").fill("Reusable customer pool");
     await dialog.getByLabel("Row 1, customer_email").fill("customer.reusable@example.test");
     await dialog.getByRole("button", { name: "Create Test Data" }).click();
-    await expect(page.locator(".run-list__item").filter({ hasText: "Reusable customer pool" })).toContainText("reusable");
+    await expect(page.locator(".test-data-item").filter({ hasText: "Reusable customer pool" })).toContainText("Reusable");
     await expect(page.locator("body")).not.toContainText("customer.reusable@example.test");
 
     await page.goto(`${baseUrl}/test-cases/${created.testCaseId}`);
     await page.getByRole("button", { name: "Auto Run" }).click();
     let bindingDialog = page.getByRole("dialog", { name: "Choose variable values" });
     await bindingDialog.getByLabel("customer_email").selectOption("POOL");
-    await bindingDialog.getByLabel("Test Data Set for customer_email").selectOption({ label: "Reusable customer pool" });
+    await bindingDialog.getByLabel("Test Data Set for customer_email").selectOption({ index: 1 });
     await bindingDialog.getByRole("button", { name: "Queue Auto Run" }).click();
     await expect(page.getByText("Checkpoint ready:", { exact: false })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("button", { name: "Continue" }).click();
@@ -125,7 +125,7 @@ test("reuses a reusable Test Data Set after a passed Auto Run", async ({ page })
     bindingDialog = page.getByRole("dialog", { name: "Choose variable values" });
     await bindingDialog.getByLabel("customer_email").selectOption("POOL");
     await expect(bindingDialog.getByLabel("Test Data Set for customer_email")).toContainText("Reusable customer pool");
-    await bindingDialog.getByLabel("Test Data Set for customer_email").selectOption({ label: "Reusable customer pool" });
+    await bindingDialog.getByLabel("Test Data Set for customer_email").selectOption({ index: 1 });
     await bindingDialog.getByRole("button", { name: "Queue Auto Run" }).click();
     await expect(page.getByText("Checkpoint ready:", { exact: false })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("button", { name: "Cancel" }).click();
