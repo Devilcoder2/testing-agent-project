@@ -141,6 +141,18 @@ describe("tabular Test Data API", () => {
     });
     const dataSet = await dataResponse.json() as { id: string };
 
+    const incompatibleResponse = await request(ava, `products/${product.id}/test-data`, "POST", {
+      name: "Regions only",
+      fieldNames: ["region"],
+      rows: [{ values: { region: "north" } }, { values: { region: "south" } }]
+    });
+    const incompatible = await incompatibleResponse.json() as { id: string };
+    const runCountBeforeRejectedBatch = await prisma.run.count({ where: { productId: product.id } });
+    const rejected = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST", { useAllRows: true, bindings: { customer_email: { source: "POOL", dataSetId: incompatible.id } } });
+    expect(rejected.status).toBe(409);
+    expect(await prisma.run.count({ where: { productId: product.id } })).toBe(runCountBeforeRejectedBatch);
+    expect(await prisma.testDataRow.count({ where: { dataSetId: incompatible.id, status: "SAFE", reservedByRunId: null } })).toBe(2);
+
     const started = await request(ava, `test-cases/${testCase.id}/auto-runs`, "POST", { useAllRows: true, bindings: { customer_email: { source: "POOL", dataSetId: dataSet.id } } });
     expect(started.status).toBe(201);
     const payload = await started.json() as { runs: Array<{ id: string }>; queueFailures: number };
@@ -151,6 +163,9 @@ describe("tabular Test Data API", () => {
     expect(bindings).toHaveLength(2);
     expect(new Set(bindings.map((binding) => binding.dataSetRowId)).size).toBe(2);
     expect(new Set(bindings.map((binding) => decryptVariableValue(binding.valueEncrypted)))).toEqual(new Set(["row-one@example.test", "row-two@example.test"]));
+    const reservedRows = await prisma.testDataRow.findMany({ where: { dataSetId: dataSet.id }, orderBy: { order: "asc" } });
+    const editReserved = await request(ava, `products/${product.id}/test-data/${dataSet.id}`, "PATCH", { name: "Cannot edit yet", fieldNames: ["customer_email"], rows: reservedRows.map((row) => ({ id: row.id, values: { customer_email: null } })) });
+    expect(editReserved.status).toBe(409);
     await Promise.all(payload.runs.map((run) => cancelRun(ava, run.id)));
   }, 35_000);
 });
