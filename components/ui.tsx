@@ -6,7 +6,7 @@ function classes(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
-export type IconName = "admin" | "autoRun" | "bell" | "check" | "chevronDown" | "chevronLeft" | "chevronRight" | "close" | "dashboard" | "data" | "delete" | "edit" | "guidedRun" | "menu" | "more" | "plus" | "products" | "releases" | "review" | "runs" | "search" | "signOut" | "testCases";
+export type IconName = "admin" | "autoRun" | "bell" | "check" | "chevronDown" | "chevronLeft" | "chevronRight" | "close" | "dashboard" | "data" | "delete" | "edit" | "guidedRun" | "invalidate" | "menu" | "more" | "plus" | "products" | "releases" | "review" | "runs" | "search" | "signOut" | "testCases" | "upload";
 
 const iconPaths: Record<IconName, ReactNode> = {
   admin: <><circle cx="12" cy="8" r="3" /><path d="M5.5 20a6.5 6.5 0 0 1 13 0M19 4v4M17 6h4" /></>,
@@ -22,6 +22,7 @@ const iconPaths: Record<IconName, ReactNode> = {
   delete: <><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></>,
   edit: <><path d="M4 20h4l11-11-4-4L4 16v4Z" /><path d="m13.5 6.5 4 4" /></>,
   guidedRun: <><path d="M7 3v10l3-2 3 6 3-1.5-3-6 4-.5L7 3Z" /><circle cx="18" cy="5" r="2" /></>,
+  invalidate: <><circle cx="12" cy="12" r="9" /><path d="m6 6 12 12" /></>,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   more: <><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
@@ -31,7 +32,8 @@ const iconPaths: Record<IconName, ReactNode> = {
   runs: <><circle cx="12" cy="12" r="9" /><path d="m10 8 6 4-6 4V8Z" /></>,
   search: <><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></>,
   signOut: <><path d="M10 4H5v16h5M14 8l4 4-4 4M9 12h9" /></>,
-  testCases: <><path d="M5 4h14v16H5z" /><path d="m8 9 1.5 1.5L12 8M14 9h2M8 15l1.5 1.5L12 14M14 15h2" /></>
+  testCases: <><path d="M5 4h14v16H5z" /><path d="m8 9 1.5 1.5L12 8M14 9h2M8 15l1.5 1.5L12 14M14 15h2" /></>,
+  upload: <><path d="M12 16V4M7 9l5-5 5 5" /><path d="M5 14v6h14v-6" /></>
 };
 
 export function Icon({ name, className, ...props }: { name: IconName } & SVGProps<SVGSVGElement>) {
