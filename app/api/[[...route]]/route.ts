@@ -848,7 +848,7 @@ async function route(request: Request, context: Context) {
       });
       return json(updated);
     }
-    if (request.method === "PATCH" && path[0] === "products" && path[1]) {
+    if (request.method === "PATCH" && path[0] === "products" && path[1] && path.length === 2) {
       const product = await prisma.product.findUnique({ where: { id: path[1] } });
       if (!product) return json({ error: "Product not found." }, 404);
       await assertProductMember(user.id, product.id);
