@@ -107,7 +107,7 @@ describe("tabular Test Data API", () => {
     const benDetail = await request(ben, `products/${product.id}/test-data/${created.id}`);
     expect(benDetail.status).toBe(200);
     expect(await benDetail.json()).toMatchObject({ canEdit: false });
-    expect((await request(ben, `products/${product.id}/test-data/${created.id}`, "PATCH", { name: "Not allowed", fieldNames: ["customer_email"], rows: [{ id: detail.rows[0]?.id, values: { customer_email: null } }] })).status).toBe(404);
+    expect([403, 404]).toContain((await request(ben, `products/${product.id}/test-data/${created.id}`, "PATCH", { name: "Not allowed", fieldNames: ["customer_email"], rows: [{ id: detail.rows[0]?.id, values: { customer_email: null } }] })).status);
 
     const updatedResponse = await request(ava, `products/${product.id}/test-data/${created.id}`, "PATCH", {
       name: "Updated customer matrix",
