@@ -56,7 +56,7 @@ describe("Phase 17 global authorized search", () => {
     });
     const version = testCase.versions[0];
     const run = await prisma.run.create({ data: { testCaseId: testCase.id, testCaseVersionId: version.id, productId: product.id, initiatedById: owner.id, targetUrl: "http://demo-target", mode: RunMode.AUTO, status: RunStatus.COMPLETED, outcome: RunOutcome.PASSED, completedAt: new Date() } });
-    await prisma.testDataSet.create({ data: { productId: product.id, ownerId: owner.id, name: `${prefix} Data`, fieldNames: ["customer_email"], encryptedFields: "NEVER_RETURN_THIS_SEARCH_SECRET", reusePolicy: TestDataReusePolicy.REUSABLE } });
+    await prisma.testDataSet.create({ data: { productId: product.id, ownerId: owner.id, name: `${prefix} Data`, fieldNames: ["customer_email"], reusePolicy: TestDataReusePolicy.REUSABLE, rows: { create: { order: 1, encryptedFields: "NEVER_RETURN_THIS_SEARCH_SECRET" } } } });
     const release = await prisma.release.create({ data: { name: `${prefix} Release`, ownerId: owner.id, tests: { create: { testCaseId: testCase.id } } } });
     releaseIds.push(release.id);
     await prisma.testSuggestion.create({ data: { productId: product.id, sourceTestCaseId: testCase.id, sourceVersionId: version.id, sourceStepId: version.steps[0].id, kind: TestSuggestionKind.REQUIRED_MISSING, title: `${prefix} Suggestion`, rationale: "Safe search fixture", expectedOutcome: "Validation is shown", proposedValue: "" } });
