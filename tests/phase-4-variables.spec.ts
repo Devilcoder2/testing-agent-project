@@ -56,10 +56,10 @@ test("creates masked Test Data and binds it to a checkpointed Auto Run", async (
     await page.getByRole("link", { name: "Test Data" }).click();
     await page.locator(".inventory-toolbar").getByLabel("Product").selectOption(created.productId);
     await page.getByRole("button", { name: "New Test Data" }).click();
-    const dialog = page.getByRole("dialog", { name: "Create Test Data Set" });
-    await dialog.getByLabel("Data Set name").fill("Customer pool");
+    const dialog = page.getByRole("dialog", { name: "Create Test Data" });
+    await dialog.getByLabel("Test Data name").fill("Customer pool");
     await dialog.getByLabel("Reuse policy").selectOption("SINGLE_USE");
-    await dialog.getByLabel("Fields").fill("customer_email=customer.pool@example.test");
+    await dialog.getByLabel("Row 1, customer_email").fill("customer.pool@example.test");
     await dialog.getByRole("button", { name: "Create Test Data" }).click();
     await expect(page.getByText("Customer pool", { exact: true })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("customer.pool@example.test");
@@ -101,10 +101,10 @@ test("reuses a reusable Test Data Set after a passed Auto Run", async ({ page })
     await page.getByRole("link", { name: "Test Data" }).click();
     await page.locator(".inventory-toolbar").getByLabel("Product").selectOption(created.productId);
     await page.getByRole("button", { name: "New Test Data" }).click();
-    const dialog = page.getByRole("dialog", { name: "Create Test Data Set" });
+    const dialog = page.getByRole("dialog", { name: "Create Test Data" });
     await expect(dialog.getByLabel("Reuse policy")).toHaveValue("REUSABLE");
-    await dialog.getByLabel("Data Set name").fill("Reusable customer pool");
-    await dialog.getByLabel("Fields").fill("customer_email=customer.reusable@example.test");
+    await dialog.getByLabel("Test Data name").fill("Reusable customer pool");
+    await dialog.getByLabel("Row 1, customer_email").fill("customer.reusable@example.test");
     await dialog.getByRole("button", { name: "Create Test Data" }).click();
     await expect(page.locator(".run-list__item").filter({ hasText: "Reusable customer pool" })).toContainText("reusable");
     await expect(page.locator("body")).not.toContainText("customer.reusable@example.test");
