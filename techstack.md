@@ -114,3 +114,20 @@ Phase 1 must confirm:
 - JIRA project configuration, production email provider, notification preferences/digests, and optional Slack provider.
 - Observability platform and production alert thresholds.
 - Production key management, rotation, and an external reusable-test-data adapter. Phase 4 deliberately uses a local PostgreSQL pool and local lifecycle checks only; reusable and single-use policies control only Sentinel's local reservation state, not cleanup in the target application.
+
+## 8. Phase 26 public acquisition stack
+
+| Area | Confirmed choice | Version or contract | Why |
+|---|---|---|---|
+| Marketing application | OpenAI Sites-compatible React/Vite application in `marketing/` | Scaffold with `@openai/create-sites` 0.3.0 and retain its generated compatible versions | Keeps the public narrative surface independently buildable and deployable without moving the authenticated Next.js product. |
+| Accessible primitives | Generated shadcn primitives plus semantic HTML | Generated compatible versions; use only the dialog and form/navigation primitives actually needed | Provides focus management and keyboard behavior without finishing in the generated visual theme. |
+| Marketing styling | Dedicated native CSS token system | Editorial Signal values in `marketing-design.md` | Creates a recognizable public identity without changing the product's Signal Canvas tokens. |
+| Typography | Self-hosted Source Serif 4 and Source Sans 3 variable WOFF2 assets | Open-source font files pinned in the marketing source | Provides consistent editorial hierarchy without a runtime font request or visitor tracking. |
+| Marketing motion | Motion for React | 13.1.1, imported through `motion/react` with lazy features and reduced-motion handling | Supports bounded reveal, crossfade, dialog, and progress choreography while avoiding hand-built animation state. |
+| Walkthrough video | Cloudflare Stream | Managed player and video identifier supplied at deployment | Provides adaptive encoding and delivery while the initial page loads only a custom poster. |
+| Public abuse protection | Cloudflare Turnstile plus infrastructure rate limiting | Public site key; server-only secret; Siteverify called for every accepted submission | Protects the public form without adding an authenticated account or storing raw visitor IP addresses in Sentinel. |
+| Lead persistence | Existing PostgreSQL 16 and Prisma 6.16 boundary | `PilotWaitlistLead` with organization/email uniqueness | Keeps qualified pilot data under Sentinel's existing relational ownership and authorization model. |
+| Marketing tests | Vitest and Playwright, local to `marketing/` | Generated compatible majors; product Vitest/Playwright remain unchanged | Allows the public app to build and verify independently while end-to-end coverage can run both origins together. |
+| Public analytics | None in Phase 26 | Hosting request logs and authorized lead counts only | Avoids adding an unapproved tracking or consent dependency before the pilot funnel is proven. |
+
+The marketing app may call only the public pilot endpoint. It receives no database URL, Sentinel session secret, Turnstile secret, Stream credential, or product integration credential. The product application adds only server-side `MARKETING_ORIGIN`, `WAITLIST_OWNER_ORGANIZATION_ID`, and `TURNSTILE_SECRET_KEY` values. The marketing deployment exposes only its canonical origin, product sign-in URL, public waitlist URL, Turnstile site key, Stream video ID, and approved public legal/contact copy.
