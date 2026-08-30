@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiRequest } from "@/lib/client-api";
 import { TEST_DATA_LIMITS } from "@/lib/test-data-limits";
-import { Card, Dialog, EmptyState, Feedback, Field, Icon, IconButton, PageHeader, SelectInput, Skeleton, StatusBadge, TextInput } from "./ui";
+import { Button, Card, Dialog, EmptyState, Feedback, Field, Icon, IconButton, PageHeader, SelectInput, Skeleton, StatusBadge, TextInput } from "./ui";
 
 type Product = { id: string; name: string };
 type RowStatus = "SAFE" | "RESERVED" | "CONSUMED" | "INVALID";
@@ -25,7 +25,8 @@ type TestDataSet = {
   product: Product;
 };
 type TestDataDetail = TestDataSet & { rows: Array<{ id: string; order: number; status: RowStatus; maskedFields: string[] }> };
-type DraftColumn = { key: string; name: string; originalName?: string };
+type ColumnWidth = "compact" | "standard" | "wide";
+type DraftColumn = { key: string; name: string; originalName?: string; width: ColumnWidth };
 type DraftCell = { value: string; retained: boolean };
 type DraftRow = { key: string; id?: string; status?: RowStatus; cells: Record<string, DraftCell> };
 
@@ -41,7 +42,7 @@ function canonicalDraftField(value: string) {
 }
 
 function blankDraft() {
-  const column: DraftColumn = { key: draftKey("column"), name: "customer_email" };
+  const column: DraftColumn = { key: draftKey("column"), name: "customer_email", width: "standard" };
   return { columns: [column], rows: [{ key: draftKey("row"), cells: { [column.key]: { value: "", retained: false } } }] as DraftRow[] };
 }
 
@@ -61,6 +62,7 @@ export function TestDataView() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState<TestDataDetail | null | "create">(null);
+  const [confirmingInvalidation, setConfirmingInvalidation] = useState<TestDataSet | null>(null);
 
   async function load() {
     setLoading(true);
@@ -95,6 +97,7 @@ export function TestDataView() {
       const updated = await apiRequest(`products/${dataSet.productId}/test-data/${dataSet.id}/invalidate`, { method: "POST" }) as TestDataSet;
       setDataSets((all) => all.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
       setMessage(`${dataSet.name} invalidated.`);
+      setConfirmingInvalidation(null);
     } catch (error) {
       setMessage(errorMessage(error, "Could not invalidate this Test Data."));
     }
@@ -107,17 +110,18 @@ export function TestDataView() {
       <div className="inventory-toolbar"><Field label="Product"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)} disabled={loading}><option value="">All accessible Products</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field></div>
       {loading ? <Skeleton lines={6} /> : visible.length === 0 ? <EmptyState title="No Test Data" detail={productId ? "Create Test Data for this Product or choose All accessible Products." : "Create a secure table for a variable-marked Test Case."} /> : <div className="test-data-list">{visible.map((dataSet) => <article className={`test-data-item ${focusId === dataSet.id ? "test-data-item--focused" : ""}`} key={dataSet.id}>
         <div className="test-data-item__main"><div className="run-list__head"><h2>{dataSet.name}</h2>{!productId && <StatusBadge tone="neutral">{dataSet.product.name}</StatusBadge>}<StatusBadge tone={dataSet.reusePolicy === "REUSABLE" ? "info" : "warning"}>{dataSet.reusePolicy === "REUSABLE" ? "Reusable" : "Single-use"}</StatusBadge><StatusBadge tone={dataSet.status === "SAFE" ? "success" : dataSet.status === "RESERVED" ? "warning" : "neutral"}>{dataSet.status.toLowerCase()}</StatusBadge><StatusBadge tone="neutral">{dataSet.rowCount} row{dataSet.rowCount === 1 ? "" : "s"}</StatusBadge></div><p>Fields: {dataSet.fieldNames.join(", ")}</p></div>
-        <div className="test-data-item__actions">{dataSet.canEdit && <IconButton label={`Edit ${dataSet.name}`} onClick={() => void openEdit(dataSet)}><Icon name="edit" /></IconButton>}{dataSet.canInvalidate && <IconButton className="icon-button--danger" label={`Invalidate ${dataSet.name}`} onClick={() => void invalidate(dataSet)}><Icon name="invalidate" /></IconButton>}</div>
+        <div className="test-data-item__actions">{dataSet.canEdit && <IconButton label={`Edit ${dataSet.name}`} onClick={() => void openEdit(dataSet)}><Icon name="edit" /></IconButton>}{dataSet.canInvalidate && <IconButton className="icon-button--danger" label={`Invalidate ${dataSet.name}`} onClick={() => setConfirmingInvalidation(dataSet)}><Icon name="invalidate" /></IconButton>}</div>
       </article>)}</div>}
     </Card>
     {editing && <TestDataEditor mode={editing === "create" ? "create" : "edit"} products={products} initialProductId={productId || products[0]?.id || ""} dataSet={editing === "create" ? undefined : editing} onClose={() => setEditing(null)} onSaved={(saved, action) => { setEditing(null); setDataSets((all) => action === "created" ? [saved, ...all] : all.map((item) => item.id === saved.id ? saved : item)); setMessage(`${saved.name} ${action}.`); }} />}
+    {confirmingInvalidation && <Dialog eyebrow="Test Data lifecycle" title={`Invalidate ${confirmingInvalidation.name}?`} detail="This will prevent every currently safe row from being selected for new Runs. Stored values remain protected." onClose={() => setConfirmingInvalidation(null)} actions={<><Button variant="ghost" onClick={() => setConfirmingInvalidation(null)}>Cancel</Button><Button variant="danger" onClick={() => void invalidate(confirmingInvalidation)}>Invalidate Test Data</Button></>} />}
   </div>;
 }
 
 function TestDataEditor({ mode, products, initialProductId, dataSet, onClose, onSaved }: { mode: "create" | "edit"; products: Product[]; initialProductId: string; dataSet?: TestDataDetail; onClose: () => void; onSaved: (dataSet: TestDataSet, action: "created" | "saved") => void }) {
   const initial = useMemo(() => {
     if (!dataSet) return blankDraft();
-    const columns = dataSet.fieldNames.map((name) => ({ key: draftKey("column"), name, originalName: name }));
+    const columns = dataSet.fieldNames.map((name) => ({ key: draftKey("column"), name, originalName: name, width: "standard" as const }));
     const rows = dataSet.rows.map((row) => ({ key: draftKey("row"), id: row.id, status: row.status, cells: Object.fromEntries(columns.map((column) => [column.key, { value: "", retained: true }])) }));
     return { columns, rows };
   }, [dataSet]);
@@ -132,7 +136,7 @@ function TestDataEditor({ mode, products, initialProductId, dataSet, onClose, on
 
   function addColumn() {
     if (columns.length >= TEST_DATA_LIMITS.columns) return setMessage(`A table can have at most ${TEST_DATA_LIMITS.columns} columns.`);
-    const column = { key: draftKey("column"), name: `field_${columns.length + 1}` };
+    const column = { key: draftKey("column"), name: `field_${columns.length + 1}`, width: "standard" as const };
     setColumns((all) => [...all, column]);
     setRows((all) => all.map((row) => ({ ...row, cells: { ...row.cells, [column.key]: { value: "", retained: false } } })));
   }
@@ -147,6 +151,10 @@ function TestDataEditor({ mode, products, initialProductId, dataSet, onClose, on
     const changedIdentity = column.originalName !== undefined && canonicalDraftField(nextName) !== column.originalName;
     setColumns((all) => all.map((item) => item.key === column.key ? { ...item, name: nextName } : item));
     if (changedIdentity) setRows((all) => all.map((row) => ({ ...row, cells: { ...row.cells, [column.key]: { value: "", retained: false } } })));
+  }
+
+  function resizeColumn(column: DraftColumn, width: ColumnWidth) {
+    setColumns((all) => all.map((item) => item.key === column.key ? { ...item, width } : item));
   }
 
   function addRow() {
@@ -181,7 +189,7 @@ function TestDataEditor({ mode, products, initialProductId, dataSet, onClose, on
       const importedValues = sheet.slice(first + 1).filter((row) => row.some((cell) => cell !== null && cellText(cell).trim())).map((row) => header.map((_, index) => cellText(row[index]).trim()));
       if (!importedValues.length) throw new Error("The workbook needs at least one data row below its headers.");
       if (importedValues.length > TEST_DATA_LIMITS.rows) throw new Error(`The workbook has more than ${TEST_DATA_LIMITS.rows.toLocaleString("en-US")} rows.`);
-      const nextColumns = header.map((field) => ({ key: draftKey("column"), name: field }));
+      const nextColumns = header.map((field) => ({ key: draftKey("column"), name: field, width: "standard" as const }));
       const nextRows = importedValues.map((values) => ({ key: draftKey("row"), cells: Object.fromEntries(nextColumns.map((column, index) => [column.key, { value: values[index], retained: false }])) }));
       setColumns(nextColumns);
       setRows(nextRows);
@@ -215,8 +223,8 @@ function TestDataEditor({ mode, products, initialProductId, dataSet, onClose, on
   return <Dialog eyebrow="Local Test Data" title={mode === "create" ? "Create Test Data" : `Edit ${dataSet?.name}`} detail="Each complete row supplies one Run. Stored cells remain masked unless you replace them." onClose={onClose} className="test-data-modal">
     <form className="form-stack" onSubmit={submit}>
       <div className="test-data-editor__meta">{mode === "create" && <Field label="Product"><SelectInput value={productId} onChange={(event) => setProductId(event.target.value)} required>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</SelectInput></Field>}<Field label="Test Data name"><TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Customer variations" required maxLength={TEST_DATA_LIMITS.nameLength} /></Field><Field label="Reuse policy"><SelectInput value={reusePolicy} onChange={(event) => setReusePolicy(event.target.value as "REUSABLE" | "SINGLE_USE")}><option value="REUSABLE">Reusable</option><option value="SINGLE_USE">Single-use</option></SelectInput></Field></div>
-      <div className="test-data-editor__toolbar"><IconButton type="button" label="Upload Excel workbook" onClick={() => fileRef.current?.click()} disabled={working}><Icon name="upload" /></IconButton><input ref={fileRef} className="visually-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importExcel(file); }} /><IconButton type="button" label="Add column" onClick={addColumn} disabled={working}><Icon name="plus" /></IconButton><IconButton type="button" label="Add row" onClick={addRow} disabled={working}><Icon name="plus" /></IconButton><StatusBadge tone="info">{rows.length} row{rows.length === 1 ? "" : "s"} · {columns.length} column{columns.length === 1 ? "" : "s"}</StatusBadge></div>
-      <div className="test-data-grid-wrap"><table className="test-data-grid"><thead><tr><th scope="col">#</th>{columns.map((column) => <th scope="col" key={column.key}><div><TextInput aria-label={`Column ${columns.indexOf(column) + 1} name`} value={column.name} onChange={(event) => renameColumn(column, event.target.value)} maxLength={64} /><IconButton type="button" className="icon-button--danger" label={`Remove column ${column.name || columns.indexOf(column) + 1}`} onClick={() => removeColumn(column)} disabled={columns.length === 1 || working}><Icon name="delete" /></IconButton></div></th>)}<th scope="col"><span className="visually-hidden">Row actions</span></th></tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={row.key}><th scope="row">{rowIndex + 1}{row.status && <small>{row.status.toLowerCase()}</small>}</th>{columns.map((column) => { const cell = row.cells[column.key] ?? { value: "", retained: false }; return <td key={column.key}><TextInput aria-label={`Row ${rowIndex + 1}, ${column.name || `column ${columns.indexOf(column) + 1}`}`} value={cell.value} placeholder={cell.retained ? "Stored value (masked)" : "Enter value"} onChange={(event) => updateCell(row.key, column.key, event.target.value)} maxLength={TEST_DATA_LIMITS.cellLength} /></td>; })}<td><IconButton type="button" className="icon-button--danger" label={`Remove row ${rowIndex + 1}`} onClick={() => removeRow(row)} disabled={rows.length === 1 || working}><Icon name="delete" /></IconButton></td></tr>)}</tbody></table></div>
+      <div className="test-data-editor__toolbar"><IconButton type="button" label="Upload Excel workbook" onClick={() => fileRef.current?.click()} disabled={working}><Icon name="upload" /></IconButton><input ref={fileRef} className="visually-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importExcel(file); }} /><Button type="button" variant="secondary" onClick={addColumn} disabled={working}><span aria-hidden="true">+</span> Add column</Button><Button type="button" variant="secondary" onClick={addRow} disabled={working}><span aria-hidden="true">+</span> Add row</Button><StatusBadge tone="info">{rows.length} row{rows.length === 1 ? "" : "s"} · {columns.length} column{columns.length === 1 ? "" : "s"}</StatusBadge></div>
+      <div className="test-data-grid-wrap"><table className="test-data-grid"><thead><tr><th scope="col">#</th>{columns.map((column, columnIndex) => <th scope="col" className={`test-data-grid__column--${column.width}`} key={column.key}><div className="test-data-grid__column-heading"><TextInput aria-label={`Column ${columnIndex + 1} name`} value={column.name} onChange={(event) => renameColumn(column, event.target.value)} maxLength={64} /><div className="test-data-grid__column-controls"><IconButton type="button" label={`Compact column ${column.name || columnIndex + 1}`} onClick={() => resizeColumn(column, "compact")} disabled={column.width === "compact" || working}><Icon name="chevronLeft" /></IconButton><IconButton type="button" label={`Expand column ${column.name || columnIndex + 1}`} onClick={() => resizeColumn(column, "wide")} disabled={column.width === "wide" || working}><Icon name="chevronRight" /></IconButton><IconButton type="button" className="icon-button--danger" label={`Remove column ${column.name || columnIndex + 1}`} onClick={() => removeColumn(column)} disabled={columns.length === 1 || working}><Icon name="delete" /></IconButton></div></div></th>)}<th scope="col"><span className="visually-hidden">Row actions</span></th></tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={row.key}><th scope="row">{rowIndex + 1}{row.status && <small>{row.status.toLowerCase()}</small>}</th>{columns.map((column, columnIndex) => { const cell = row.cells[column.key] ?? { value: "", retained: false }; return <td className={`test-data-grid__column--${column.width}`} key={column.key}><TextInput aria-label={`Row ${rowIndex + 1}, ${column.name || `column ${columnIndex + 1}`}`} value={cell.value} placeholder={cell.retained ? "Stored value (masked)" : "Enter value"} onChange={(event) => updateCell(row.key, column.key, event.target.value)} maxLength={TEST_DATA_LIMITS.cellLength} /></td>; })}<td><IconButton type="button" className="icon-button--danger" label={`Remove row ${rowIndex + 1}`} onClick={() => removeRow(row)} disabled={rows.length === 1 || working}><Icon name="delete" /></IconButton></td></tr>)}</tbody></table></div>
       {message && <Feedback tone={message.startsWith("Imported") ? "success" : "danger"}>{message}</Feedback>}
       <div className="modal__actions"><IconButton type="button" label="Cancel Test Data changes" onClick={onClose} disabled={working}><Icon name="close" /></IconButton><IconButton type="submit" label={dataSet ? "Save Test Data changes" : "Create Test Data"} disabled={working || !productId}><Icon name="check" /></IconButton></div>
     </form>
