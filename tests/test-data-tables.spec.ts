@@ -30,6 +30,8 @@ test("manages a multi-row Test Data table from the all-Products workspace", asyn
 
     await dialog.getByLabel("Add column").click();
     await dialog.getByLabel("Column 2 name").fill("region");
+    await dialog.getByRole("button", { name: "Expand column region" }).click();
+    await expect(dialog.getByLabel("Column 2 name").locator("xpath=ancestor::th")).toHaveClass(/test-data-grid__column--wide/);
     await dialog.getByLabel("Row 1, customer_email").fill("north@example.test");
     await dialog.getByLabel("Row 1, region").fill("north");
     await dialog.getByLabel("Add row").click();
@@ -46,9 +48,15 @@ test("manages a multi-row Test Data table from the all-Products workspace", asyn
     await expect(page.locator("body")).not.toContainText("north@example.test");
     await expect(item.getByRole("button", { name: "Edit Regional customers" })).toBeVisible();
     await expect(item.getByRole("button", { name: "Invalidate Regional customers" })).toBeVisible();
+    await item.getByRole("button", { name: "Invalidate Regional customers" }).click();
+    const invalidationDialog = page.getByRole("dialog", { name: "Invalidate Regional customers?" });
+    await expect(invalidationDialog).toContainText("prevent every currently safe row");
+    await invalidationDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(item).toContainText("safe");
 
     await item.getByRole("button", { name: "Edit Regional customers" }).click();
     const editDialog = page.getByRole("dialog", { name: "Edit Regional customers" });
+    await expect(editDialog).toHaveClass(/test-data-modal/);
     await expect(editDialog.getByLabel("Row 1, customer_email")).toHaveAttribute("placeholder", "Stored value (masked)");
     await editDialog.getByLabel("Test Data name").fill("Regional customer matrix");
     await editDialog.getByLabel("Row 1, customer_email").fill("updated-north@example.test");
