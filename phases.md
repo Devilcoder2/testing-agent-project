@@ -811,3 +811,19 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Implementation verification (2026-08-29):** Migration deployment preserved 10/10 existing Test Data sets as ordered rows and linked 6/6 historical pooled bindings to their migrated row. Focused tabular API coverage passes 2/2, including masking, authorization, retained-cell edits, encrypted persistence, one Run per row, failed-batch rollback, and reserved-row edit denial. The Test Data grid browser journey passes; both existing variable-to-Test-Data browser journeys pass; and a live `.xlsx` upload populated the expected two columns and two rows without creating a server-side workbook. Lint and strict TypeScript pass, and the production build compiles all 19 routes. The complete service suite passes 56/59 assertions; the two established Guided Run checks remain blocked by an existing user-owned live-browser session, and the Telegram identity test lacks the optional untracked messaging key. `npm audit --omit=dev` still reports eight high-severity advisories in existing Prisma, Nano ID, Nodemailer, Next/PostCSS, and Sharp dependency paths; `read-excel-file` is not in any reported path, and no forced breaking upgrade was applied. D-053 and the priority review are recorded. Exactly ten owner questions are in `learning-log.md`; owner answers remain pending, so the learning gate stays open.
 
 **Out of scope:** Revealing or exporting stored plaintext, legacy `.xls` parsing, formulas/macros/multiple-sheet joins, spreadsheet formulas inside Sentinel, cross-data-set Cartesian products, simultaneous Guided Runs, scheduling, external data providers, or changing Release batch eligibility.
+
+## Phase 25 — Interaction polish for Product, Members, and Test Data
+
+**Depends on:** Phases 12, 22, and 24
+**Outcome:** Secondary actions and dense data-management screens remain easy to scan and dismiss without changing authorization, stored Test Data, or existing editor capability.
+
+- [ ] Make the Product three-dot action menu close when a user clicks or focuses anywhere outside it, as well as on Escape, while retaining its existing actions.
+- [ ] Keep Administration member cards to name, email, user type, and Product count; retain the full Product-assignment editor unchanged.
+- [ ] Give Test Data creation/editing a wider workspace dialog and explicit **Add column** and **Add row** controls.
+- [ ] Let an editor compact or expand each Test Data column locally, without changing the table contract or stored field values.
+- [ ] Require a clear confirmation dialog before invalidating Test Data; keep lifecycle authorization and API behavior unchanged after confirmation.
+- [ ] Add focused browser coverage for outside dismissal, compact member cards, distinct grid controls, column sizing, and invalidation confirmation.
+- [ ] Run lint, strict type-check, production build, focused browser coverage, and Product/Administration/Test Data regression with exact output.
+- [ ] Review the diff by learning priority, record the decision, and append exactly ten owner understanding questions before closing the learning gate.
+
+**Out of scope:** Changing Product permissions or deletion behavior, changing member-editing authorization, persisting presentation-only column widths, changing Test Data encryption/lifecycle semantics, bulk invalidation, or adding spreadsheet formulas.
