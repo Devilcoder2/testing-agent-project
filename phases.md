@@ -817,13 +817,15 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Depends on:** Phases 12, 22, and 24
 **Outcome:** Secondary actions and dense data-management screens remain easy to scan and dismiss without changing authorization, stored Test Data, or existing editor capability.
 
-- [ ] Make the Product three-dot action menu close when a user clicks or focuses anywhere outside it, as well as on Escape, while retaining its existing actions.
-- [ ] Keep Administration member cards to name, email, user type, and Product count; retain the full Product-assignment editor unchanged.
-- [ ] Give Test Data creation/editing a wider workspace dialog and explicit **Add column** and **Add row** controls.
-- [ ] Let an editor compact or expand each Test Data column locally, without changing the table contract or stored field values.
-- [ ] Require a clear confirmation dialog before invalidating Test Data; keep lifecycle authorization and API behavior unchanged after confirmation.
+- [x] Make the Product three-dot action menu close when a user clicks or focuses anywhere outside it, as well as on Escape, while retaining its existing actions.
+- [x] Keep Administration member cards to name, email, user type, and Product count; retain the full Product-assignment editor unchanged.
+- [x] Give Test Data creation/editing a wider workspace dialog and explicit **Add column** and **Add row** controls.
+- [x] Let an editor compact or expand each Test Data column locally, without changing the table contract or stored field values.
+- [x] Require a clear confirmation dialog before invalidating Test Data; keep lifecycle authorization and API behavior unchanged after confirmation.
 - [ ] Add focused browser coverage for outside dismissal, compact member cards, distinct grid controls, column sizing, and invalidation confirmation.
-- [ ] Run lint, strict type-check, production build, focused browser coverage, and Product/Administration/Test Data regression with exact output.
+- [ ] Run lint, strict type-check, production build, focused browser coverage, and Product/Administration/Test Data regression with exact output. Lint, strict type-check, and the 19-route production build pass; browser flows time out in the existing large local fixture workspace and remain open.
 - [ ] Review the diff by learning priority, record the decision, and append exactly ten owner understanding questions before closing the learning gate.
 
 **Out of scope:** Changing Product permissions or deletion behavior, changing member-editing authorization, persisting presentation-only column widths, changing Test Data encryption/lifecycle semantics, bulk invalidation, or adding spreadsheet formulas.
+
+**Implementation verification (2026-08-30):** `npm run lint`, `npm run typecheck`, and `npm run build` pass; the production build compiles in 1634 ms and generates all 19 routes. Focused Playwright Product, Test Data, and Administration runs were started, but each exceeded the existing 30-second test timeout while loading the fixture-heavy local workspace. The recorded artifacts contain no assertion failure in the new menu, card, grid, or confirmation controls; the focused browser gate remains open until rerun in an isolated or reduced fixture environment.
