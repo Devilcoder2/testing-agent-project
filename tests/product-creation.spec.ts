@@ -113,9 +113,9 @@ test("requires explicit confirmation and reports background Product deletion", a
     await expect(product.getByRole("button", { name: `Delete ${productName}` })).toBeVisible();
     const moreActions = product.getByRole("button", { name: `More actions for ${productName}` });
     await expect(moreActions).toBeVisible();
-    await moreActions.press("Enter");
+    await moreActions.click();
     await expect(product.getByRole("link", { name: "View Test Cases" })).toBeVisible();
-    await moreActions.press("Enter");
+    await moreActions.click();
     await product.getByRole("button", { name: `Delete ${productName}` }).click();
 
     const dialog = page.getByRole("dialog", { name: `Delete “${productName}”?` });
