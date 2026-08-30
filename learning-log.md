@@ -2967,3 +2967,48 @@ The Telegram identity assertion lacked the optional untracked MESSAGING_ENCRYPTI
 - Plan dependency upgrades separately, because the available audit fixes cross Prisma, Next, Nodemailer, and image-processing compatibility boundaries.
 
 **Learning status:** Requirements, architecture, migration, implementation, focused API/browser coverage, live Excel import, build verification, D-053, and priority diff review are complete. Automated Excel/multi-row Run UI coverage, the three environmental full-suite checks, and owner answers remain open, so Phase 24's learning and complete verification gates are not complete.
+
+## 2026-08-30 — Phase 25: interaction polish for Product, Members, and Test Data
+
+### What changed and why
+
+This refinement makes three busy management screens easier to use without changing the application’s business data. Product’s overflow menu is now React-controlled: opening it installs outside-pointer, focus, and Escape listeners, so a click anywhere else closes it immediately. Administration cards keep the same Member response for editing but display only the scan-friendly identity, email, account status, user type, and Product count. Test Data’s editor is intentionally wider, labels structural actions as **Add column** and **Add row**, lets a person compact or expand a column for the current dialog session, and asks for confirmation before invalidating safe rows.
+
+The flow stays local until a user confirms an existing action. A Product menu click only changes component state; an outside interaction resets that state. Opening a member editor still initializes checkboxes from the complete `member.products` array, even though names are not printed on its card. Resizing a Test Data column only changes the draft column’s `width` property, which drives CSS classes and is never included in the create/update API payload. The invalidate icon now opens a dialog; Cancel closes it with no request, while Confirm calls the unchanged authorized invalidation endpoint.
+
+React state/effects were chosen over native `<details>` because the feature needs reliable dismissal for pointer, keyboard, and focus interactions. Existing shared `Dialog`, `Button`, and `IconButton` components retain the product’s focus handling, accessible names, visible tooltip titles, and visual language. CSS width classes were chosen instead of persisted user preferences because column layout is a temporary editing aid, not user data. The tradeoff is that a width resets on close; persistence would require a user-preference data model and a new privacy/authorization surface. Browser regression tests cover the intended states, but the current large local fixture workspace causes the focused Playwright runs to exceed their existing 30-second test timeout before completion; lint, strict TypeScript, and the production build pass.
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | What changed, risk, and owner action |
+|---|---|---|
+| Highest — understand now | `components/sentinel-views.tsx` (`ProductActionMenu`) | This controls outside dismissal and Escape behavior for Product actions. Review listener installation/cleanup and why the ownership modal asks the menu to close first. Read now. |
+| Highest — understand now | `components/test-data-view.tsx` (`confirmingInvalidation`, `resizeColumn`, `TestDataEditor`) | This protects an irreversible lifecycle action and ensures layout state never enters encrypted Test Data payloads. Review now. |
+| Medium — understand next | `components/admin-views.tsx` (`AdministrationView`, `MemberEditor`) | The display omits Product names while the editor keeps its complete assignment list. Verify no authorization or editing behavior moved into the card. |
+| Medium — understand next | `app/globals.css` (Product menu and Test Data grid/dialog selectors) | These rules make the workspace dialog large and map local compact/wide state into grid dimensions. Check narrow-screen behavior next. |
+| Medium — understand next | `tests/product-creation.spec.ts`, `tests/test-data-tables.spec.ts`, `tests/phase-14-telegram.spec.ts` | These assert dismissal, confirmation, local expansion, concise cards, and editor retention. Re-run after local fixture cleanup. |
+| Lower — skim or defer | `srd.md`, `frontend.md`, `phases.md`, `decisions-log.md` | Requirement, visual-design, acceptance, and decision records only; they add no runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why does a controlled React menu handle outside dismissal more reliably than the former native `<details>` element here?
+2. Which events close `ProductActionMenu`, and why must its listeners be removed when the menu closes?
+3. Why does Product ownership transfer close the menu before opening its dialog?
+4. Which member details remain on a card, and where can an administrator still inspect and change individual Product assignments?
+5. What happens when the user clicks **Cancel** in the Test Data invalidation dialog, including network behavior?
+6. Which endpoint is called only after invalidation confirmation, and what authorization/lifecycle checks remain server-side?
+7. How is a Test Data column’s compact, standard, or wide state represented, and why is it excluded from the API payload?
+8. Why do visible **Add column** and **Add row** buttons improve this editor more than two identical plus-only controls?
+9. What CSS selectors turn a column-width state into a smaller or larger visible grid column, and what happens on a narrow screen?
+10. The focused browser checks timed out in the current fixture-heavy workspace. Which checks did still pass, what evidence should be collected next, and why is that not equivalent to a browser pass?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the two highest-priority component files before this phase is fully understood.
+- Re-run the focused Product, Administration, and Test Data browser flows after reducing or isolating the local fixture set; retain their exact output before closing Phase 25’s browser-verification gate.
+
+**Learning status:** Implementation, one-file commits, lint, strict TypeScript, production build, D-054, and priority review are complete. Focused browser verification and owner answers remain open.
