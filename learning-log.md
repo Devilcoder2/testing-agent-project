@@ -2972,11 +2972,11 @@ The Telegram identity assertion lacked the optional untracked MESSAGING_ENCRYPTI
 
 ### What changed and why
 
-This refinement makes three busy management screens easier to use without changing the application’s business data. Product’s overflow menu is now React-controlled: opening it installs outside-pointer, focus, and Escape listeners, so a click anywhere else closes it immediately. Administration cards keep the same Member response for editing but display only the scan-friendly identity, email, account status, user type, and Product count. Test Data’s editor is intentionally wider, labels structural actions as **Add column** and **Add row**, lets a person compact or expand a column for the current dialog session, and asks for confirmation before invalidating safe rows.
+This refinement makes three busy management screens easier to use without changing the application’s business data. Product’s overflow menu is now React-controlled and conditionally rendered: opening it installs outside-pointer, focus, and Escape listeners, so a click anywhere else closes it immediately and removes the panel from the DOM. Administration cards keep the same Member response for editing but display only the scan-friendly identity, email, user type, and Product count. Test Data’s desktop editor occupies 80% of the viewport in both dimensions, labels structural actions as **Add column** and **Add row**, offers one compact/standard/wide selector per column, and asks for confirmation before invalidating safe rows.
 
 The flow stays local until a user confirms an existing action. A Product menu click only changes component state; an outside interaction resets that state. Opening a member editor still initializes checkboxes from the complete `member.products` array, even though names are not printed on its card. Resizing a Test Data column only changes the draft column’s `width` property, which drives CSS classes and is never included in the create/update API payload. The invalidate icon now opens a dialog; Cancel closes it with no request, while Confirm calls the unchanged authorized invalidation endpoint.
 
-React state/effects were chosen over native `<details>` because the feature needs reliable dismissal for pointer, keyboard, and focus interactions. Existing shared `Dialog`, `Button`, and `IconButton` components retain the product’s focus handling, accessible names, visible tooltip titles, and visual language. CSS width classes were chosen instead of persisted user preferences because column layout is a temporary editing aid, not user data. The tradeoff is that a width resets on close; persistence would require a user-preference data model and a new privacy/authorization surface. Browser regression tests cover the intended states, but the current large local fixture workspace causes the focused Playwright runs to exceed their existing 30-second test timeout before completion; lint, strict TypeScript, and the production build pass.
+React state/effects were chosen over native `<details>` because the feature needs reliable dismissal for pointer, keyboard, and focus interactions. Conditional rendering is also essential: the previous author-level `display: grid` rule overrode the browser’s `hidden` styling, leaving every closed menu visually present. Existing shared `Dialog`, `Button`, and `IconButton` components retain focus handling, accessible names, tooltip titles, and visual language. A single native width selector replaces three crowded header icons. CSS width classes remain temporary presentation state; persistence would require a user-preference data model and a new privacy/authorization surface. Live browser measurement confirmed the 80% viewport contract and all requested interactions; lint, strict TypeScript, and the production build pass.
 
 ### Priority-based diff learning review
 
@@ -3000,7 +3000,7 @@ React state/effects were chosen over native `<details>` because the feature need
 7. How is a Test Data column’s compact, standard, or wide state represented, and why is it excluded from the API payload?
 8. Why do visible **Add column** and **Add row** buttons improve this editor more than two identical plus-only controls?
 9. What CSS selectors turn a column-width state into a smaller or larger visible grid column, and what happens on a narrow screen?
-10. The focused browser checks timed out in the current fixture-heavy workspace. Which checks did still pass, what evidence should be collected next, and why is that not equivalent to a browser pass?
+10. Which live-browser measurements and state counts prove the Product menu dismissal, member-card simplification, 80% dialog sizing, column resizing, and invalidation confirmation now behave as intended?
 
 #### Answers
 
@@ -3009,6 +3009,5 @@ React state/effects were chosen over native `<details>` because the feature need
 #### Follow-up learning tasks
 
 - The owner answers all ten questions and reviews the two highest-priority component files before this phase is fully understood.
-- Re-run the focused Product, Administration, and Test Data browser flows after reducing or isolating the local fixture set; retain their exact output before closing Phase 25’s browser-verification gate.
 
-**Learning status:** Implementation, one-file commits, lint, strict TypeScript, production build, D-054, and priority review are complete. Focused browser verification and owner answers remain open.
+**Learning status:** Corrected implementation, one-file commits, lint, strict TypeScript, production build, D-054, live browser verification, and priority review are complete. Owner answers remain open.
