@@ -173,7 +173,7 @@ code, pre { font-family: var(--font-mono); }
 .test-data-item__main p { color: var(--color-text-muted); font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; }
 .test-data-item__actions, .test-data-editor__toolbar, .test-data-editor__table-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .test-data-item__actions { flex: 0 0 auto; }
-.test-data-modal { display: flex; width: 80vw; height: 80vh; max-height: 80vh; flex-direction: column; overflow: hidden; }
+.modal.test-data-modal { display: flex; width: 80vw; height: 80vh; max-height: 80vh; flex-direction: column; overflow: hidden; }
 .test-data-modal > .form-stack { min-height: 0; flex: 1; }
 .test-data-editor__meta { display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 1.5fr) minmax(12rem, 1fr); gap: var(--space-3); }
 .test-data-editor__toolbar { border-block: 1px solid var(--color-border); padding-block: var(--space-3); }
@@ -261,7 +261,7 @@ code, pre { font-family: var(--font-mono); }
   .panel-card, .detail-card, .page-stack > .card { padding: var(--space-5); }.panel-card__head, .section-heading, .test-list__item, .product-list__item, .run-list__item, .notification-item, .review-item, .recording-bar, .test-data-item { align-items: stretch; flex-direction: column; }.product-list__actions, .review-item__actions, .notification-item__actions, .recording-bar__actions, .test-data-item__actions { justify-content: flex-start; }.product-action-menu__panel { position: fixed; right: var(--space-5); bottom: var(--space-5); top: auto; left: var(--space-5); }.product-delete-impact > div, .integration-card__metrics, .test-data-editor__meta { grid-template-columns: 1fr; }
   .health-overview__row { grid-template-columns: 1fr auto; }.health-overview__row span { display: none; }.proposal-diff { grid-template-columns: 1fr; }.review-tabs { display: grid; width: 100%; }.pagination { align-items: flex-start; flex-direction: column; }
   .modal-backdrop { align-items: flex-end; padding: 0; }.modal { width: 100%; max-height: min(90vh, 48rem); border-right: 0; border-bottom: 0; border-left: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: var(--space-5); }.modal__actions, .modal__actions .button { width: 100%; }.action-menu > div, .test-case-action-menu__panel { position: fixed; right: var(--space-5); bottom: var(--space-5); top: auto; left: var(--space-5); }.timeline-item__summary { grid-template-columns: minmax(0, 1fr) auto; }.timeline-item__checkpoint-label { grid-column: 1; justify-self: start; }.timeline-item__chevron { grid-column: 2; grid-row: 1 / span 2; }
-  .test-data-modal { width: 100%; height: 90vh; max-height: 90vh; }
+  .modal.test-data-modal { width: 100%; height: 90vh; max-height: 90vh; }
   .editor-save-bar { align-items: stretch; flex-direction: column; }.editor-save-bar > div, .editor-save-bar .button { width: 100%; }.legacy-shell, .shell { padding: var(--space-5); }
 }
 
