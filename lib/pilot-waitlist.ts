@@ -7,6 +7,11 @@ import { prisma } from "./prisma";
 export const PILOT_WAITLIST_ACTION = "pilot_waitlist";
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX = 6;
+const TURNSTILE_TEST_SECRETS = new Set([
+  "1x0000000000000000000000000000000AA",
+  "2x0000000000000000000000000000000AA",
+  "3x0000000000000000000000000000000AA"
+]);
 
 const teamSizeValues = ["1", "2-5", "6-15", "16+"] as const;
 
@@ -81,6 +86,7 @@ export function turnstileResultIsValid(result: TurnstileResult, expectedHostname
 
 export async function verifyPilotTurnstile(token: string) {
   const secret = requiredConfiguration("TURNSTILE_SECRET_KEY");
+  if (process.env.NODE_ENV === "production" && TURNSTILE_TEST_SECRETS.has(secret)) throw new PilotWaitlistConfigurationError("TURNSTILE_PRODUCTION_KEY_REQUIRED");
   const expectedHostname = new URL(configuredMarketingOrigin()).hostname;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8_000);
@@ -93,7 +99,7 @@ export async function verifyPilotTurnstile(token: string) {
     });
     if (!response.ok) throw new PilotWaitlistProviderUnavailableError("TURNSTILE_UNAVAILABLE");
     const result = await response.json() as TurnstileResult;
-    return turnstileResultIsValid(result, expectedHostname);
+    return TURNSTILE_TEST_SECRETS.has(secret) ? result.success === true : turnstileResultIsValid(result, expectedHostname);
   } catch (error) {
     if (error instanceof PilotWaitlistProviderUnavailableError) throw error;
     throw new PilotWaitlistProviderUnavailableError("TURNSTILE_UNAVAILABLE");
