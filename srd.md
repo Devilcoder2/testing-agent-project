@@ -287,6 +287,18 @@ Lifecycle belongs to each row. Run creation atomically reserves the exact row us
 
 For an Auto Run, every pooled variable must come from one compatible data set; static/manual variables may be combined with it. One Auto Run is transactionally created and queued for every currently safe row, so the number of queued Runs equals the number of eligible rows. Each Run receives values from exactly one row, and a partial reservation or partial database batch is rolled back. Queue-delivery failure is handled per already-created Run through the existing failure path. A Guided Run keeps the single-browser boundary and requires the tester to choose one safe row. Existing clients that omit batch intent continue to reserve one safe row for compatibility.
 
+### F20. Public pilot landing and waitlist
+
+Sentinel must provide a separately deployed global-English marketing surface for startup QA and engineering teams without moving or redesigning the authenticated product. Its first viewport communicates the human-taught, evidence-backed value proposition, provides a pilot-waitlist action, and exposes a real sanitized product walkthrough. The page uses concise sections for the manual-regression problem, the Teach → Replay → Decide workflow, implemented product capabilities, safety and human-control boundaries, pilot expectations, and frequently asked questions.
+
+The marketing surface must use the approved Editorial Signal direction in `marketing-design.md`, real sanitized Sentinel interface media, and accurate capability language. It must not publish fabricated metrics, customers, testimonials, pricing, access dates, general-availability claims, or functionality not present in the current source and requirements. Walkthrough playback uses a poster-first managed player, captions, keyboard controls, a focus-safe dialog, and a non-video summary; it never autoplays audio or downloads the player before a visitor requests it.
+
+The public pilot form requires a name, syntactically valid work email, company, and QA-team-size choice of `1`, `2-5`, `6-15`, or `16+`. “Work email” is guidance rather than a consumer-domain blocklist. A valid submission requires an empty honeypot and a server-verified, single-use Turnstile token. The public endpoint accepts requests only from the configured marketing origin, never uses cookies or credentials, enforces a small request body and edge rate limit, normalizes email, and stores one lead per configured owner organization and email. New and repeated submissions return the same HTTP 202 shape and reveal no address-existence state. Sentinel sends no confirmation email.
+
+Each lead stores its configured owner organization, safe qualification fields, lifecycle status, and timestamps. Status is one of New, Contacted, Invited, or Archived. Only an Admin currently belonging to the lead's owner organization may list leads, change status, or delete one; no other organization can infer that a lead exists. Admin actions are audited without copying lead PII into audit details. The Administration interface provides a newest-first ledger, status filtering, explicit status changes, and a confirmed single-lead deletion. Bulk export, bulk outreach, marketing automation, and automatic account creation are excluded.
+
+The marketing site provides a privacy route, canonical metadata, crawl controls, sitemap, SoftwareApplication structured data, and a site-wide social preview. Public launch is blocked until production origins, Turnstile keys, managed video and captions, legal identity/contact information, and final privacy wording are configured. A successful landing-page release does not complete Sentinel's separate production shipping gate.
+
 ## 7. Cross-cutting requirements
 
 ### Security and privacy
@@ -296,6 +308,7 @@ For an Auto Run, every pooled variable must come from one compatible data set; s
 - Redact configured secrets and sensitive fields from evidence and notifications.
 - Use least-privilege credentials for browser, JIRA, storage, and database integrations.
 - Audit ownership, approvals, Run actions, and external side effects.
+- Keep public pilot submissions outside authenticated organization data except for the explicitly configured owner organization, validate abuse-protection tokens on the server, and never expose lead-existence state.
 
 ### Reliability and safety
 
