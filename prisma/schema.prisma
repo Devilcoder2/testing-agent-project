@@ -306,6 +306,20 @@ enum SourceAnalysisConfidence {
   NONE
 }
 
+enum PilotWaitlistLeadStatus {
+  NEW
+  CONTACTED
+  INVITED
+  ARCHIVED
+}
+
+enum PilotQaTeamSize {
+  SOLO
+  TWO_TO_FIVE
+  SIX_TO_FIFTEEN
+  SIXTEEN_PLUS
+}
+
 model User {
   id                        String                   @id @default(cuid())
   email                     String                   @unique
@@ -402,6 +416,7 @@ model Organization {
   productDeletions    ProductDeletionRequest[]
   messagingIdentities MessagingIdentity[]
   messagingCommands   MessagingCommand[]
+  pilotWaitlistLeads  PilotWaitlistLead[]
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
 }
@@ -417,6 +432,22 @@ model OrganizationMember {
 
   @@id([organizationId, userId])
   @@index([userId, role])
+}
+
+model PilotWaitlistLead {
+  id             String                  @id @default(cuid())
+  organizationId String
+  email          String
+  name           String
+  company        String
+  qaTeamSize     PilotQaTeamSize
+  status         PilotWaitlistLeadStatus @default(NEW)
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@unique([organizationId, email])
+  @@index([organizationId, status, createdAt])
 }
 
 model UserSession {
