@@ -301,8 +301,33 @@ function ProductActions({ product, disabled, onEdit, onDelete }: { product: Prod
   return <div className="product-list__actions">
     <IconButton type="button" label={`Edit ${product.name}`} onClick={onEdit} disabled={disabled}><Icon name="edit" /></IconButton>
     {product.canDelete && <IconButton type="button" className="icon-button--danger" label={`Delete ${product.name}`} onClick={onDelete} disabled={disabled}><Icon name="delete" /></IconButton>}
-    {!disabled && <details className="product-action-menu"><summary className="icon-button" role="button" aria-label={`More actions for ${product.name}`} title={`More actions for ${product.name}`}><Icon name="more" /></summary><div className="product-action-menu__panel"><Link className="button button--ghost" href={`/test-cases?productId=${product.id}`}>View Test Cases</Link><GitHubProjectSettings product={product} /><JiraProjectSettings product={product} />{product.createdById && <OwnershipTransfer label="Product" currentOwnerId={product.createdById} membersPath={`products/${product.id}/members`} transferPath={`products/${product.id}/owner`} onTransferred={() => window.location.reload()} />}</div></details>}
+    {!disabled && <ProductActionMenu product={product} />}
   </div>;
+}
+
+function ProductActionMenu({ product }: { product: Product }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function closeOutside(event: PointerEvent | FocusEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function closeWithKeyboard(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    }
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("focusin", closeOutside);
+    document.addEventListener("keydown", closeWithKeyboard);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("focusin", closeOutside);
+      document.removeEventListener("keydown", closeWithKeyboard);
+    };
+  }, [open]);
+  return <div ref={menuRef} className="product-action-menu"><IconButton type="button" label={`More actions for ${product.name}`} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((current) => !current)}><Icon name="more" /></IconButton><div className="product-action-menu__panel" role="menu" hidden={!open}><Link role="menuitem" href={`/test-cases?productId=${product.id}`} onClick={() => setOpen(false)}>View Test Cases</Link><GitHubProjectSettings product={product} /><JiraProjectSettings product={product} />{product.createdById && <OwnershipTransfer label="Product" currentOwnerId={product.createdById} membersPath={`products/${product.id}/members`} transferPath={`products/${product.id}/owner`} onTransferred={() => window.location.reload()} onOpen={() => setOpen(false)} triggerRole="menuitem" />}</div></div>;
 }
 
 function GitHubProjectSettings({ product }: { product: Product }) {
