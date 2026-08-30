@@ -22,6 +22,13 @@ test("shows safe Telegram integration status without exposing provider configura
 
   await page.goto(`${baseUrl}/admin`);
   await expect(page.getByRole("heading", { name: "People and access" })).toBeVisible();
+  const members = page.locator(".member-card");
+  await expect(members.first()).toBeVisible();
+  await expect(members.first().locator(".member-card__meta")).toContainText("User type:");
+  await expect(members.locator(".member-card__products")).toHaveCount(0);
+  await members.first().getByRole("button", { name: "Edit access" }).click();
+  await expect(page.getByRole("dialog", { name: /Edit / }).getByText("Product access")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByRole("heading", { name: "Telegram Run Assistant" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Activate webhook|Deactivate webhook/ })).toBeVisible();
 });
