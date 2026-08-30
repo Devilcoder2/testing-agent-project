@@ -55,6 +55,10 @@ test("creates, persists, and authorizes a Product through the portal", async ({ 
 
     const renamedProduct = page.locator(".product-list__item").filter({ hasText: renamedProductName });
     await renamedProduct.getByRole("button", { name: `More actions for ${renamedProductName}` }).click();
+    await expect(renamedProduct.getByRole("link", { name: "View Test Cases" })).toBeVisible();
+    await page.getByRole("heading", { name: "Products" }).click();
+    await expect(renamedProduct.getByRole("link", { name: "View Test Cases" })).toBeHidden();
+    await renamedProduct.getByRole("button", { name: `More actions for ${renamedProductName}` }).click();
     await renamedProduct.getByRole("link", { name: "View Test Cases" }).click();
     await expect(page).toHaveURL(/\/test-cases\?productId=/);
     await expect(page.getByLabel("Filter by Product").locator("option:checked")).toHaveText(renamedProductName);
