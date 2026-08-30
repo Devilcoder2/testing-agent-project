@@ -82,3 +82,43 @@ Five implementation assumptions have been resolved for the first version:
 3. Current-page priority changes result ordering only and never broadens authorization or hides other matching categories.
 4. Results are intentionally capped per category for a responsive command search; section pages remain the complete inventory.
 5. The first version needs no new search service or index at the ten-user pilot scale; PostgreSQL queries through the existing API are sufficient and can later be replaced behind the same response contract.
+
+## Public pilot acquisition extension — 2026-08-30
+
+### Problem
+
+Sentinel has a substantial working product surface but no public, product-specific way for a prospective customer to understand it or request pilot access. Sending startup QA and engineering teams directly to the organization sign-in screen does not explain the problem Sentinel solves, establish trust, demonstrate the real workflow, or capture qualified interest.
+
+### Who has the problem
+
+- QA leads at growing SaaS startups whose teams still repeat critical browser regression journeys by hand.
+- Engineering leaders who need faster release feedback without replacing tester judgment with an opaque automation claim.
+- The Sentinel owner, who needs a credible way to demonstrate the product and contact a small number of suitable pilot teams before general availability.
+
+### What happens today and why it fails
+
+Prospective customers have no concise public product story, walkthrough, feature proof, privacy notice, or pilot application path. The authenticated product is designed for existing organization members, while category-standard “agentic AI” claims would overstate Sentinel's current production readiness and obscure its safer human-taught, evidence-backed approach.
+
+### Desired outcome
+
+A global English-speaking startup QA or engineering visitor can understand Sentinel's value within the first viewport, watch a real sanitized walkthrough, inspect the core record/replay/evidence/approval workflow, and submit a short pilot application. Sentinel stores that lead inside an organization-isolated waitlist boundary so an authorized administrator can follow up manually.
+
+### Success signals
+
+- The first viewport communicates “Teach the test once. Trust every release.” and exposes both walkthrough and pilot actions.
+- All product proof comes from implemented Sentinel behavior and sanitized product media; no fabricated customer, metric, pricing, or availability claim appears.
+- A valid pilot application is accepted without creating a Sentinel user account or sending an automated email.
+- Duplicate email submissions receive the same public success response and do not disclose whether an address already exists.
+- Authorized Sentinel administrators can review, progress, archive, and delete leads only for their configured organization.
+
+### Five confirmed assumptions
+
+1. Sentinel is the final public product name.
+2. The marketing site and authenticated product use separate deployments and domains while remaining in one repository.
+3. The first CTA offers consideration for a private pilot, not a price, access date, or guarantee.
+4. Cloudflare Stream and Turnstile may be configured for managed video and abuse protection.
+5. Final sanitized video, captions, legal identity, contact information, production domains, and privacy wording will be supplied before public launch.
+
+### Boundaries
+
+The first public surface includes one landing page, one privacy page, product sign-in navigation, managed walkthrough playback, a pilot application, and the minimum Sentinel administration needed to act on applications. It does not include pricing, billing, a blog, comparison pages, testimonials, customer logos, a newsletter, bulk outreach, third-party behavioral analytics, general account signup, or a claim that the existing product shipping gate is complete.
