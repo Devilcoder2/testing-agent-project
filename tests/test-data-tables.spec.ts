@@ -30,7 +30,7 @@ test("manages a multi-row Test Data table from the all-Products workspace", asyn
 
     await dialog.getByLabel("Add column").click();
     await dialog.getByLabel("Column 2 name").fill("region");
-    await dialog.getByRole("button", { name: "Expand column region" }).click();
+    await dialog.getByLabel("Width for column region").selectOption("wide");
     await expect(dialog.getByLabel("Column 2 name").locator("xpath=ancestor::th")).toHaveClass(/test-data-grid__column--wide/);
     await dialog.getByLabel("Row 1, customer_email").fill("north@example.test");
     await dialog.getByLabel("Row 1, region").fill("north");
