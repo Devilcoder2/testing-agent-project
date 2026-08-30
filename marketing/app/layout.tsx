@@ -3,7 +3,8 @@ import '@fontsource-variable/source-sans-3';
 import '@fontsource-variable/source-serif-4';
 import './globals.css';
 
-const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL ?? 'http://localhost:3000';
+const marketingUrl =
+  process.env.NEXT_PUBLIC_MARKETING_URL ?? 'http://localhost:3000';
 
 export const metadata: Metadata = {
   metadataBase: new URL(marketingUrl),
