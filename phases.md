@@ -829,3 +829,25 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Out of scope:** Changing Product permissions or deletion behavior, changing member-editing authorization, persisting presentation-only column widths, changing Test Data encryption/lifecycle semantics, bulk invalidation, or adding spreadsheet formulas.
 
 **Implementation verification (2026-08-30):** `npm run lint`, `npm run typecheck`, and `npm run build` pass; the production build compiles in 1934 ms and generates all 19 routes. Live browser verification at 1280 × 720 confirms Product menu counts of 0 closed → 1 open → 0 after outside click; the first member card omits Product names while Edit access retains 20 Product checkboxes; and the Test Data dialog measures 1024 × 576, exactly 80% × 80%. Add column/Add row are separately labelled, the column selector offers Compact/Standard/Wide and changes rendered width, and Invalidate opens a confirmation whose Cancel closes without applying the action.
+
+## Phase 26 — Public pilot landing and waitlist
+
+**Depends on:** Phase 12's organization roles, the delivered authenticated product surface used for sanitized product proof, and configured production origins for public rollout.
+
+**Outcome:** A global startup QA or engineering visitor can understand Sentinel's human-taught, evidence-backed value, inspect a real walkthrough, and join a protected private-pilot waitlist; an authorized Sentinel Admin can act on that lead without exposing it across organizations.
+
+- [x] Define the acquisition problem, audience, confirmed assumptions, public/non-public boundary, exact landing narrative, Editorial Signal design system, external-service risks, and explicit non-scope in the project documents.
+- [ ] Add organization-owned pilot-lead persistence, lifecycle statuses, composite uniqueness, and a deployable migration without changing existing account or Product behavior.
+- [ ] Add the public no-credentials submission API with field normalization, same-shape duplicate success, exact-origin CORS, body limits, honeypot, infrastructure rate-limit contract, and mandatory server-side Turnstile validation.
+- [ ] Add organization-Admin-only lead listing/filtering, lifecycle updates, confirmed deletion, audit records without PII, and an Administration ledger.
+- [ ] Create the independent `marketing/` application with its own scripts and hosting configuration while leaving the product root sign-in route unchanged.
+- [ ] Deliver the Editorial Signal header, hero, poster-first walkthrough, manual-regression problem, Teach → Replay → Decide sequence, four product-proof stories, human-control section, inline pilot form, FAQ, privacy route, and footer.
+- [ ] Use only sanitized real product media and approved truthful copy; omit fabricated proof, pricing, availability dates, general signup, bulk outreach, and third-party behavioral analytics.
+- [ ] Add lazy Motion transitions, full reduced-motion behavior, Stream player lifecycle, captions/fallback content, canonical metadata, crawl files, SoftwareApplication structured data, and a branded social preview.
+- [ ] Verify valid, invalid, repeated, honeypot, bot-rejected, expired-token, rate-limited, unavailable, organization-isolated, status-change, and deletion paths through focused unit/API coverage.
+- [ ] Verify keyboard, focus, screen-reader semantics, captions, WCAG 2.2 AA contrast, 200% zoom, reduced motion, desktop/tablet/mobile layout, no horizontal overflow, lazy video loading, metadata, and error/success states through browser coverage and live review.
+- [ ] Run product and marketing lint, strict type checks, production builds, focused tests, browser regression, dependency audit, and mobile Lighthouse checks with exact raw output. Meet LCP ≤2.5 seconds, CLS ≤0.1, no player download before interaction, and ≥90 Lighthouse scores for performance, accessibility, best practices, and SEO before public rollout.
+- [ ] Deploy the migration/API first, verify production configuration, publish a private marketing preview, and keep public launch blocked until the final sanitized video, captions, legal identity/contact, privacy wording, origins, Stream configuration, and Turnstile keys are present.
+- [ ] Review the actual diff by learning priority, record every non-obvious decision and deviation, append one Phase 26 learning entry with exactly ten owner questions, and obtain or explicitly track owner answers before closing the learning gate.
+
+**Out of scope:** Product pricing or billing, customer logos/testimonials, a blog, comparison pages, newsletter, marketing automation, lead export, public account creation, automated confirmation email, a product UI redesign, changing authentication/session behavior, or treating this acquisition surface as completion of the existing product shipping gate.
