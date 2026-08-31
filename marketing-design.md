@@ -1,6 +1,6 @@
-# Sentinel Release Proof Marketing System
+# Sentinel Quiet Flight Marketing System
 
-**Status:** Approved Phase 26 redesign
+**Status:** Approved Phase 26 replacement direction
 
 **Date:** 2026-08-31
 
@@ -8,111 +8,120 @@
 
 ## 1. Experience objective
 
-The landing page must persuade startup QA and engineering leads that Sentinel can turn team-owned browser knowledge into defensible release evidence. It must look and behave like a release dossier made from the product itself—not a generic SaaS template decorated with testing copy.
+The landing page must help startup QA and engineering leads understand Sentinel in seconds: teach a real browser journey once, replay it inside explicit boundaries, and review the evidence before a person makes the release call. The page must feel calm, confident, and product-led rather than loud, editorial, or densely explanatory.
 
-The central visual idea is **Release Proof**: an active preflight sheet where real Sentinel captures, run records, checkpoints, and approval language are composed like registration proofs from a technical press room. The visitor should feel that the evidence is being assembled for a release decision as they move through the page.
+The central visual idea is **Quiet Flight**: a spacious product presentation with the composure of a modern hardware launch and the discipline of a pre-release checklist. The product interface carries the proof. Copy, color, and motion step back.
 
 The primary visitor path is:
 
-1. Read the promise and see a real Sentinel workspace in the first viewport.
-2. Play the walkthrough or follow the preflight sequence.
-3. Inspect recording, replay, evidence, and human-control boundaries.
-4. Submit a short application for the private pilot.
+1. Understand the promise from one short statement.
+2. See the real Sentinel interface before feature detail.
+3. Follow a simple Teach → Replay → Decide story.
+4. Understand where Sentinel stops and human judgment begins.
+5. Watch the walkthrough or submit a short private-pilot application.
 
-## 2. Structural system
+## 2. Reference-derived design DNA
 
-The page uses a **Workbench** macrostructure rather than a sequence of interchangeable marketing sections.
+The direction synthesizes public references without copying their pixels, brand assets, proprietary media, or exact compositions.
 
-- A minimal edge-aligned header carries the Sentinel wordmark, Sign in, and one persistent Join the pilot action. It has no centred menu of generic product links.
-- The hero is a full-width ultramarine proof field. A short, condensed headline occupies the upper register while a real product capture is pinned into the lower-right evidence stage.
-- A thin chartreuse trace connects the product stage to a paper-toned proof ledger below. It draws once and does not loop.
-- The manual-regression problem, Teach → Replay → Decide sequence, and product capabilities appear as one continuous preflight record. They do not become equal feature cards or repeated alternating “text + mockup” bands.
-- The four proof capabilities use large real screenshots, edge annotations, and crossfading evidence frames. Interface material is the content, not decoration inside fake browser chrome.
-- The human-control section reads as an interruption in the record: a dark “stop condition” band with checkpoints, uncertainty, redaction, immutable history, and approvals stated as terse operational rules.
-- The pilot form is the sign-off area of the dossier. It remains an ordinary accessible form, but its layout follows the release-approval metaphor rather than sitting in a floating card.
-- The FAQ is a set of native review notes. The statement footer closes with “The release call stays human.” and only the real legal/contact destinations.
+- Apple Mac contributes generous negative space, large confident type, one idea per visual beat, and product imagery as the primary evidence.
+- Google Antigravity contributes a centered first-view statement with minimal supporting copy and a clear pair of actions.
+- Codex contributes an immersive product reveal and the confidence to let one visual field own a viewport.
+- PayPal and PhonePe contribute immediate action clarity and a recognizable product demonstration directly beneath the promise.
+- Reflect contributes early real-product proof, but not its dense dark styling, orange accent, geometric decoration, or logo wall.
 
-## 3. Content hierarchy
+The resulting system is deliberately quieter than every previous Sentinel marketing direction. It uses the references as a shared rhythm and hierarchy, not as a template.
+
+## 3. Structural system
+
+The page uses a **Product Cinema** macrostructure with varied pacing and one dominant idea per section.
+
+- A quiet header contains the Sentinel identity, Product, How it works, Safety, Sign in, and one Join the pilot action. It is transparent at the top and gains a subtle solid boundary only after scroll.
+- The hero uses one headline, one supporting sentence, and two actions. It contains no eyebrow, section number, decorative label, proof strip, metric, testimonial, or logo row.
+- A large real Sentinel capture enters directly below the hero copy. It is presented as the product itself, with no fake browser bar and no dense annotation frame.
+- The page alternates between expansive white space and focused product moments. Every major section answers one question rather than grouping unrelated claims.
+- Teach, Replay, and Decide are sequential full-width scenes. Each uses one concise statement and one real sanitized screenshot.
+- Safety is a quiet interruption: one large statement, a short explanation, and five compact human-control rules.
+- The pilot form is an open sign-off area, not a floating card. The FAQ remains native disclosure rows and the footer stays small.
+
+## 4. Content hierarchy
 
 ### First viewport
 
 - Wordmark: **Sentinel**
-- Display: **Teach the test once. Trust every release.**
-- Supporting copy: **Sentinel turns the browser journeys your team already knows into repeatable runs, complete evidence, and clear release decisions.**
-- Primary action: **Join the pilot**; scrolls to the inline pilot form.
-- Secondary action: **Watch the walkthrough**; opens the poster-first managed video dialog and restores focus when closed.
-- Product proof: the sanitized real dashboard capture, labelled as a local demo workspace. No metric, testimonial, invented run, browser frame, or decorative AI illustration.
+- Display: **Know before you ship.**
+- Supporting copy: **Teach Sentinel a browser journey once. It replays it safely and returns the evidence for a human release decision.**
+- Primary action: **Join the pilot**
+- Secondary action: **Watch the walkthrough**
+- Product proof: one sanitized real Sentinel workspace capture. No invented metrics, customers, browser chrome, decorative AI art, or availability claim.
 
-### Preflight record
+### Product story
 
-1. **Teach the journey.** Record the browser flow beside a plain-English step log.
-2. **Replay it safely.** Choose Guided or Auto Runs, reuse validated test data, and stop at checkpoints or uncertainty.
-3. **Decide with evidence.** Inspect timeline-linked screenshots, network, console, and storage evidence before a person makes the release call.
+1. **Teach it once.** Record the browser journey beside a plain-English step log.
+2. **Replay with boundaries.** Use guided or autonomous Runs, reusable data, and explicit checkpoints.
+3. **See what happened.** Review screenshots, network, console, and storage evidence on one timeline.
+4. **Keep the call human.** Use readiness and owner approval without delegating the release decision to automation.
 
-The capability record additionally shows release readiness, owner approval, and controlled Jira, GitHub, and Telegram workflows without implying that an integration makes decisions autonomously.
+### Pilot and FAQ
 
-### Pilot and review notes
+The form collects name, work email, company, and QA-team size. Success promises manual review and personal follow-up only for selected teams. FAQ copy covers pilot fit, browser-testing scope, the tester's continuing role, captured evidence, and manual selection.
 
-The form collects name, work email, company, and QA-team size. Success promises only manual review and personal follow-up for selected teams. Review notes cover pilot fit, web-testing scope, the tester’s continuing role, captured evidence, and selection.
+## 5. Visual tokens
 
-## 4. Visual tokens
+All production colors use named OKLCH tokens. Cobalt is the only brand accent and occupies less than five percent of the page.
 
-All production colour declarations use named OKLCH tokens. Hex values appear here only as approximate visual references.
+| Token | OKLCH value | Use |
+|---|---:|---|
+| Canvas | `oklch(99% 0.003 255)` | Main page ground |
+| Canvas soft | `oklch(96.5% 0.006 255)` | Quiet section separation |
+| Surface | `oklch(100% 0 0)` | Product and form surfaces |
+| Ink | `oklch(16% 0.015 260)` | Headlines and primary text |
+| Ink muted | `oklch(47% 0.018 260)` | Supporting copy |
+| Ink faint | `oklch(66% 0.014 260)` | Captions and metadata |
+| Rule | `oklch(89% 0.008 255)` | Hairlines and input boundaries |
+| Cobalt | `oklch(52% 0.20 258)` | Primary action and active state |
+| Cobalt deep | `oklch(40% 0.18 258)` | Hover and high-contrast link state |
+| Cobalt soft | `oklch(95% 0.025 258)` | Selected or informational wash |
+| Success | `oklch(50% 0.12 160)` | Passing state only |
+| Warning | `oklch(58% 0.13 75)` | Waiting/checkpoint state only |
+| Error | `oklch(55% 0.18 28)` | Form and failure state only |
 
-| Token | OKLCH value | Approximate reference | Use |
-|---|---:|---:|---|
-| Proof blue | `oklch(39% 0.22 264)` | `#08278E` | Dominant first viewport and active proof fields |
-| Proof blue deep | `oklch(24% 0.12 265)` | `#06164C` | Blue-surface depth and controls |
-| Signal | `oklch(92% 0.22 120)` | `#D8F840` | Trace, selected state, and primary action only |
-| Paper | `oklch(95% 0.012 250)` | `#ECEDE6` | Narrative canvas |
-| Paper deep | `oklch(90% 0.014 250)` | `#DDE0DD` | Proof ledger subdivisions |
-| Ink | `oklch(15% 0.018 260)` | `#101119` | Paper-surface text and evidence frame |
-| Ink muted | `oklch(48% 0.018 260)` | `#666A74` | Supporting copy |
-| Rule | `oklch(76% 0.020 255)` | `#B5BAC3` | Hairlines and field boundaries |
-| Blue focus | `oklch(40% 0.24 264)` | — | Keyboard focus on paper surfaces |
-| Signal focus | `oklch(92% 0.22 120)` | — | Keyboard focus on blue/dark surfaces |
-| Error | `oklch(55% 0.19 28)` | — | Form error only; never a brand accent |
+No red brand field, chartreuse signal, dark hero, gradient, glass, glow, grain, decorative pattern, or permanent colored section is permitted. Product screenshots may retain their real interface colors.
 
-Signal occupies less than five percent of the page and is never used to carpet a section. Every flipped surface explicitly sets its text colour. No gradient, glow, glass, pure black, pure white, or red brand field is permitted.
+## 6. Typography, space, and shape
 
-## 5. Typography, grid, and shape
+- Display: **Geist**, roman, weights 500–650.
+- Body/interface: **IBM Plex Sans**, weights 400–600.
+- The hero display scales from 56px on mobile to approximately 104px on wide desktop.
+- Body copy is at least 16px and normally stays below 60 characters per line.
+- Section spacing varies from 96px to 240px. Major scenes may occupy most of a viewport even when the text is short.
+- Wide layouts use a centered maximum canvas with product media wider than prose. Mobile preserves DOM order.
+- Controls use 10–14px radii; media surfaces use 18–28px radii. Pills are reserved for true compact actions or status.
+- Shadows are soft and rare. Most hierarchy comes from scale and space.
 
-- Display: self-hosted **Antonio**, weight 700, condensed roman, used for the hero and major statement lines only.
-- Body/interface: self-hosted **IBM Plex Sans**, weights 400 and 600, used for prose, labels, controls, and the form.
-- Evidence identifiers may use **IBM Plex Mono** only if a third face becomes necessary; omit it when ordinary body figures suffice.
-- The hero headline stays below 50 characters per line where possible, uses a maximum of 96px at wide viewports, and maintains line-height of at least 1.02.
-- Body copy is at least 16px with a 45–70 character measure. Clickable labels never wrap.
-- Wide layout uses an asymmetric twelve-column grid with a 1586×992 first-viewport reference. Mobile collapses into DOM order with the real product image following the promise.
-- Edges, rules, crop marks, and the single trace create structure. Containers remain square or use radii no larger than 6px. Status pills are allowed only for true status.
-- There are no nested cards, icon tiles, equal three-column feature grids, or ornamental section eyebrows. Sequence numbers appear only for Teach → Replay → Decide because order matters.
+## 7. Motion and interaction
 
-## 6. Motion and interaction
+Motion uses Motion for React through lazy features and stays subordinate to comprehension.
 
-Motion uses Motion for React through lazy features and is limited to three primitives:
+1. The hero statement and actions appear once with opacity and no more than 8px of travel.
+2. The primary product surface settles into view once using a subtle scale from 0.985 to 1 and a short opacity transition.
+3. Product-story media crossfades only when the visitor changes the selected scene or reaches the next scene.
 
-1. One first-load trace sweep connecting the hero statement to the evidence stage.
-2. One restrained opacity/4px entrance for the hero’s semantic layer after the proof plate is present.
-3. Crossfades between user-selected product-proof frames and between video/form states.
+Buttons use color and a 1px press, not hover scaling. There is no parallax, custom cursor, marquee, text scrambling, repeating ambient animation, carousel autoplay, or scroll-jacked narrative. Reduced motion removes translation and scale while preserving state changes within 150ms.
 
-Button feedback uses a 1px press, explicit background/colour transitions, and no universal scaling. Focus rings are immediate. The page does not animate every section on scroll, parallax, scroll-link content, rotate carousels, follow the cursor, autoplay audio, or loop ambient decoration. Reduced motion removes spatial movement, trace drawing, and repeats while preserving state changes in at most 150ms.
+## 8. Product media and walkthrough
 
-## 7. Product media and walkthrough
+- Screenshots come only from sanitized local Sentinel fixture workspaces and are reviewed for credentials, customer data, tokens, repository secrets, evidence payloads, and personal information.
+- The hero uses the clearest real Sentinel screenshot as an eager, dimensioned LCP image without fake browser chrome.
+- Product media uses generous surrounding space and a single subtle surface treatment. Annotations are short and attached to real evidence.
+- Walkthrough delivery remains poster-first. The Cloudflare Stream iframe is created only after play, the final video is sanitized 16:9 with WebVTT captions, and the dialog is keyboard-operable and focus-safe.
+- If Stream is unavailable, the written Teach → Replay → Decide summary remains the complete fallback.
+- The social preview uses the Quiet Flight canvas, short headline, cobalt action accent, and one safe real Sentinel crop.
 
-- Product screenshots must come from local sanitized fixture workspaces and be reviewed for credentials, customer data, tokens, evidence payloads, repository secrets, and personal contact information.
-- The hero uses `dashboard-proof.png` as an eager, dimensioned LCP image without fake browser chrome. Below-fold proof images are lazy-loaded and dimensioned.
-- Walkthrough delivery remains poster-first. The Cloudflare Stream iframe is created only after a visitor presses play and removed on close. The final source is sanitized 16:9 video with WebVTT captions, keyboard controls, a written fallback, and focus-safe native dialog behavior.
-- If Stream is unconfigured or unavailable, the written Teach → Replay → Decide summary remains available. Missing media never hides the product explanation.
-- The social preview uses the Release Proof palette, Antonio statement typography, one trace, and the real product proof only if its details remain readable and safely sanitized.
+## 9. Form, accessibility, performance, and non-scope
 
-## 8. Form, accessibility, and performance
-
-- Every field has a visible label, stable helper/error row, constant border width, 44px minimum height, immediate focus indicator, and explicit loading/error/success behavior.
-- Validation begins after blur and revalidates touched fields on change. Errors identify what failed and how to fix it without clearing other values.
-- The dialog uses native `<dialog>`, closes by explicit control, Escape, or backdrop, and restores focus to the trigger.
-- Meet WCAG 2.2 AA for semantics, heading order, control names, error announcements, focus, keyboard operation, captions, contrast, 200% zoom, and touch targets.
-- Verify 320px, 375px, 414px, 768px, 1440px, and the 1586×992 reference with no horizontal overflow. `html` and `body` use `overflow-x: clip`.
+- Every field has a visible label, stable helper/error area, 44px minimum target, immediate focus indicator, and explicit loading/error/success behavior.
+- Meet WCAG 2.2 AA for semantics, heading order, control names, announcements, focus, keyboard operation, captions, contrast, 200% zoom, and touch targets.
+- Verify 320px, 375px, 414px, 768px, 1280px, and 1440px with no horizontal overflow; `html` and `body` use `overflow-x: clip`.
 - Target LCP ≤2.5 seconds, CLS ≤0.1, no Stream player download before interaction, and mobile Lighthouse scores of at least 90 for performance, accessibility, best practices, and SEO.
-
-## 9. Explicit non-scope
-
-No pricing, customer logos, testimonials, fabricated metrics, comparison tables, blog, newsletter, public account creation, confirmation email, marketing analytics, launch date, guaranteed access, or product-interface redesign is included. The acquisition surface does not close Sentinel’s separate production-readiness and learning-review gates.
+- No pricing, customer logos, testimonials, fabricated metrics, comparison table, blog, newsletter, public signup, confirmation email, analytics, launch date, guaranteed access, or product-interface redesign is included.
