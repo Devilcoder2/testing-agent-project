@@ -1,6 +1,6 @@
 'use client';
 
-import { LazyMotion, domAnimation, m, useReducedMotion } from 'motion/react';
+import { LazyMotion, MotionConfig, domAnimation, m } from 'motion/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -71,8 +71,6 @@ export default function Home() {
     () => true,
     () => false,
   );
-  const reduceMotion = useReducedMotion();
-
   useEffect(() => {
     const dialog = dialogRef.current;
     if (videoRequested && dialog && !dialog.open) dialog.showModal();
@@ -87,28 +85,25 @@ export default function Home() {
     setVideoRequested(false);
   }
 
-  const heroMotion = reduceMotion
-    ? {}
-    : {
-        initial: { opacity: 0, y: 8 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.52, ease: [0.16, 1, 0.3, 1] as const },
-      };
+  const heroMotion = {
+    initial: { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.52, ease: [0.16, 1, 0.3, 1] as const },
+  };
 
-  const productMotion = reduceMotion
-    ? {}
-    : {
-        initial: { opacity: 0, scale: 0.985 },
-        animate: { opacity: 1, scale: 1 },
-        transition: {
-          duration: 0.62,
-          delay: 0.08,
-          ease: [0.16, 1, 0.3, 1] as const,
-        },
-      };
+  const productMotion = {
+    initial: { opacity: 0, scale: 0.985 },
+    animate: { opacity: 1, scale: 1 },
+    transition: {
+      duration: 0.62,
+      delay: 0.08,
+      ease: [0.16, 1, 0.3, 1] as const,
+    },
+  };
 
   return (
-    <LazyMotion features={domAnimation}>
+    <MotionConfig reducedMotion="user">
+      <LazyMotion features={domAnimation}>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -338,6 +333,7 @@ export default function Home() {
           </div>
         </div>
       </dialog>
-    </LazyMotion>
+      </LazyMotion>
+    </MotionConfig>
   );
 }
