@@ -245,14 +245,14 @@ img {
   width: min(calc(100% - (2 * var(--page-gutter))), var(--page-max));
   min-height: calc(100svh - 4.75rem);
   margin: 0 auto;
-  padding-top: clamp(5.5rem, 10vh, 8rem);
+  padding-top: clamp(4rem, 7vh, 5.5rem);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
 .hero-copy {
-  width: min(100%, 54rem);
+  width: min(100%, 76rem);
   text-align: center;
 }
 
@@ -276,10 +276,11 @@ img {
   font-weight: 560;
   letter-spacing: -0.04em;
   line-height: 0.98;
+  white-space: nowrap;
 }
 
 .hero-copy > p {
-  max-width: 53ch;
+  max-width: 48ch;
   margin: var(--space-5) auto 0;
   color: var(--color-ink-muted);
   font-size: clamp(1rem, 1.3vw, 1.2rem);
@@ -301,7 +302,7 @@ img {
 
 .hero-product {
   width: 100%;
-  margin: clamp(4.25rem, 8vh, 6.5rem) 0 0;
+  margin: clamp(3rem, 5vh, 4.5rem) 0 0;
   overflow: hidden;
   border-radius: var(--radius-media) var(--radius-media) 0 0;
   background: var(--color-surface);
@@ -929,6 +930,10 @@ img {
   .hero {
     min-height: auto;
     padding-top: var(--space-9);
+  }
+
+  .hero h1 {
+    white-space: normal;
   }
 
   .hero-product {
