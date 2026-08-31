@@ -142,6 +142,9 @@ test('keeps keyboard, reduced-motion, zoom, and narrow layouts usable', async ({
     ),
   ).toBe(true);
 
+  await page.evaluate(() => {
+    document.documentElement.style.zoom = '';
+  });
   await page.goto('/privacy');
   await expect(
     page.getByRole('heading', { name: 'Small form. Clear boundary.' }),
