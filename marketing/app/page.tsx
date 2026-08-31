@@ -133,7 +133,7 @@ export default function Home() {
       </header>
 
       <main id="main">
-        <section className="hero" id="product">
+        <section className="hero" id="product" data-impeccable-hero="quiet-flight">
           <m.div className="hero-copy" {...heroMotion}>
             <h1>Know before you ship.</h1>
             <p>
