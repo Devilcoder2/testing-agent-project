@@ -115,12 +115,6 @@ export default function Home() {
             <span>Sentinel</span>
           </a>
 
-          <nav className="main-nav" aria-label="Primary navigation">
-            <a href="#product">Product</a>
-            <a href="#how-it-works">How it works</a>
-            <a href="#safety">Safety</a>
-          </nav>
-
           <div className="header-actions">
             <a className="sign-in" href={signInUrl}>
               Sign in
