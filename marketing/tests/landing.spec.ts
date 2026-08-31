@@ -143,7 +143,10 @@ test('keeps keyboard, reduced-motion, zoom, and narrow layouts usable', async ({
   ).toBe(true);
 
   await page.evaluate(() => {
-    document.documentElement.style.zoom = '';
+    document.documentElement.style.removeProperty('zoom');
+    if (!document.documentElement.style.length) {
+      document.documentElement.removeAttribute('style');
+    }
   });
   await page.goto('/privacy');
   await expect(
