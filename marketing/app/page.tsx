@@ -3,7 +3,7 @@
 import { LazyMotion, domAnimation, m, useReducedMotion } from 'motion/react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { WaitlistForm } from '@/components/waitlist-form';
 
 const signInUrl =
@@ -66,10 +66,12 @@ const questions = [
 export default function Home() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [videoRequested, setVideoRequested] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
   const reduceMotion = useReducedMotion();
-
-  useEffect(() => setHydrated(true), []);
 
   useEffect(() => {
     const dialog = dialogRef.current;
