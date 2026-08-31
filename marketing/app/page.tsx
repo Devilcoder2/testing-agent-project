@@ -1,9 +1,11 @@
 'use client';
 
 import { LazyMotion, MotionConfig, domAnimation, m } from 'motion/react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { FeatureGallery } from '@/components/feature-gallery';
+import { InteractiveProductDemo } from '@/components/interactive-product-demo';
+import { SentinelLogo } from '@/components/sentinel-logo';
 import { WaitlistForm } from '@/components/waitlist-form';
 
 const signInUrl =
@@ -15,20 +17,14 @@ const productScenes = [
   {
     title: 'Teach it once.',
     body: 'Record the browser journey while Sentinel keeps the intent beside every step.',
-    image: '/images/dashboard-proof.png',
-    alt: 'Sanitized Sentinel workspace showing a browser-testing product overview.',
   },
   {
     title: 'Replay with boundaries.',
     body: 'Run guided or autonomously with reusable data, checkpoints, and a safe stop on uncertainty.',
-    image: '/images/run-evidence-proof.png',
-    alt: 'Sanitized Sentinel run showing ordered replay steps and evidence.',
   },
   {
     title: 'See what happened.',
     body: 'Review screenshots, network, console, and storage evidence on the same run timeline.',
-    image: '/images/run-evidence-proof.png',
-    alt: 'Sanitized Sentinel evidence view with screenshots and captured browser signals.',
   },
 ];
 
@@ -111,12 +107,7 @@ export default function Home() {
       <header className="site-header">
         <div className="header-inner">
           <a className="brand" href="#main" aria-label="Sentinel home">
-            <span className="brand-mark" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </span>
-            <span>Sentinel</span>
+            <SentinelLogo animated />
           </a>
 
           <div className="header-actions">
@@ -155,15 +146,9 @@ export default function Home() {
             </div>
           </m.div>
 
-          <m.figure className="hero-product" {...productMotion}>
-            <Image
-              src="/images/product-surface.png"
-              alt="Sanitized Sentinel dashboard for a Billing Portal demo product."
-              width={1440}
-              height={900}
-              priority
-            />
-          </m.figure>
+          <m.div className="hero-product" {...productMotion}>
+            <InteractiveProductDemo />
+          </m.div>
         </section>
 
         <section className="quiet-statement" aria-labelledby="problem-title">
@@ -177,22 +162,15 @@ export default function Home() {
           {productScenes.map((scene, index) => (
             <article className="product-scene" key={scene.title}>
               <div className="scene-copy">
-                <span className="scene-step">Step {index + 1}</span>
+                <span className="scene-step">0{index + 1}</span>
                 <h2>{scene.title}</h2>
                 <p>{scene.body}</p>
               </div>
-              <figure className="scene-media">
-                <Image
-                  src={scene.image}
-                  alt={scene.alt}
-                  width={1440}
-                  height={900}
-                  loading="lazy"
-                />
-              </figure>
             </article>
           ))}
         </section>
+
+        <FeatureGallery />
 
         <section className="human-call">
           <div>
@@ -241,13 +219,10 @@ export default function Home() {
             disabled={!hydrated}
             aria-label="Play the Sentinel product walkthrough"
           >
-            <Image
-              src="/images/dashboard-proof.png"
-              alt=""
-              width={1440}
-              height={900}
-              loading="lazy"
-            />
+            <span className="poster-surface" aria-hidden="true">
+              <span className="poster-sidebar"><i /><i /><i /><i /><i /></span>
+              <span className="poster-canvas"><i /><strong>Teach</strong><i /><strong>Replay</strong><i /><strong>Decide</strong></span>
+            </span>
             <span className="poster-play" aria-hidden="true">
               ▶
             </span>
@@ -259,7 +234,7 @@ export default function Home() {
             <h2 id="pilot-title">Bring one real journey.</h2>
             <p>
               Tell us about your QA team. Selected pilot teams receive personal
-              follow-up—no launch-date or access promise.
+              follow-up.
             </p>
           </div>
           <div className="pilot-form-wrap">
@@ -282,7 +257,7 @@ export default function Home() {
 
       <footer className="site-footer">
         <a className="brand footer-brand" href="#main">
-          Sentinel
+          <SentinelLogo />
         </a>
         <p>The release call stays human.</p>
         <nav aria-label="Footer navigation">
