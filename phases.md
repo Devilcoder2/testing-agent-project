@@ -836,12 +836,12 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Outcome:** A global startup QA or engineering visitor can understand Sentinel's human-taught, evidence-backed value, inspect a real walkthrough, and join a protected private-pilot waitlist; an authorized Sentinel Admin can act on that lead without exposing it across organizations.
 
-- [x] Define the acquisition problem, audience, confirmed assumptions, public/non-public boundary, exact landing narrative, Release Proof design system, external-service risks, and explicit non-scope in the project documents.
+- [x] Define the acquisition problem, audience, confirmed assumptions, public/non-public boundary, exact landing narrative, Quiet Flight design system, external-service risks, and explicit non-scope in the project documents.
 - [ ] Add organization-owned pilot-lead persistence, lifecycle statuses, composite uniqueness, and a deployable migration without changing existing account or Product behavior.
 - [ ] Add the public no-credentials submission API with field normalization, same-shape duplicate success, exact-origin CORS, body limits, honeypot, infrastructure rate-limit contract, and mandatory server-side Turnstile validation.
 - [ ] Add organization-Admin-only lead listing/filtering, lifecycle updates, confirmed deletion, audit records without PII, and an Administration ledger.
 - [ ] Create the independent `marketing/` application with its own scripts and hosting configuration while leaving the product root sign-in route unchanged.
-- [ ] Deliver the Release Proof Workbench: edge-aligned header, evidence-first hero, poster-first walkthrough, continuous preflight record, Teach → Replay → Decide sequence, four real product-proof stories, stop-condition band, inline pilot sign-off form, review-note FAQ, privacy route, and statement footer.
+- [ ] Deliver Quiet Flight Product Cinema: quiet header, concise promise, large real-product reveal, poster-first walkthrough, Teach → Replay → Decide scenes, human-control interlude, inline pilot sign-off form, concise FAQ, privacy route, and minimal footer.
 - [ ] Use only sanitized real product media and approved truthful copy; omit fabricated proof, pricing, availability dates, general signup, bulk outreach, and third-party behavioral analytics.
 - [ ] Add lazy Motion transitions, full reduced-motion behavior, Stream player lifecycle, captions/fallback content, canonical metadata, crawl files, SoftwareApplication structured data, and a branded social preview.
 - [ ] Verify valid, invalid, repeated, honeypot, bot-rejected, expired-token, rate-limited, unavailable, organization-isolated, status-change, and deletion paths through focused unit/API coverage.
