@@ -44,7 +44,7 @@ test('submits the pilot qualifier and shows an address-safe confirmation', async
   let submitted: Record<string, unknown> | undefined;
   await page.route('**/api/public/pilot-waitlist', async (route) => {
     const headers = {
-      'access-control-allow-origin': 'http://127.0.0.1:4173',
+      'access-control-allow-origin': 'http://localhost:4173',
       'access-control-allow-methods': 'POST, OPTIONS',
       'access-control-allow-headers': 'content-type',
     };
