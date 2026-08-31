@@ -155,7 +155,7 @@ export default function Home() {
 
           <m.figure className="hero-product" {...productMotion}>
             <Image
-              src="/images/product-evidence-image.png"
+              src="/images/product-surface.png"
               alt="Sanitized Sentinel dashboard for a Billing Portal demo product."
               width={1440}
               height={900}
