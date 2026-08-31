@@ -15,7 +15,10 @@ test('presents the product story and defers the walkthrough player', async ({
   ).toBeVisible();
   await expect(page.locator('.video-dialog iframe')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Watch the walkthrough' }).click();
+  await page
+    .getByRole('button', { name: 'Watch the walkthrough', exact: true })
+    .first()
+    .click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(
     page.getByRole('heading', {
@@ -64,11 +67,14 @@ test('submits the pilot qualifier and shows an address-safe confirmation', async
   await page
     .getByRole('heading', { name: /Bring one real journey/ })
     .scrollIntoViewIfNeeded();
+  await page.getByLabel('Name').scrollIntoViewIfNeeded();
   await expect(page.getByText('Verification complete.')).toBeVisible();
 
   await page.getByLabel('Name').fill('Riley Chen');
   await page.getByLabel('Work email').fill('riley@example.test');
-  await page.getByLabel('Company').fill('Northstar Labs');
+  await page
+    .getByRole('textbox', { name: 'Company', exact: true })
+    .fill('Northstar Labs');
   await page.getByLabel('QA team size').selectOption('2-5');
   await page.getByRole('button', { name: 'Apply for the pilot' }).click();
 
