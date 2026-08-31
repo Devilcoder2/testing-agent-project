@@ -35,7 +35,7 @@
   --text-2xl: 2.25rem;
   --text-3xl: 3rem;
   --text-4xl: 4rem;
-  --text-display: clamp(3.5rem, 6.6vw, 6rem);
+  --text-display: clamp(3.25rem, 4.2vw, 4.3rem);
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
