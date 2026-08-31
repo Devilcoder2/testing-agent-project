@@ -37,6 +37,32 @@ test('presents the product story and defers the walkthrough player', async ({
 test('submits the pilot qualifier and shows an address-safe confirmation', async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    window.IntersectionObserver = class ImmediateIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        this.callback = callback;
+      }
+
+      private callback: IntersectionObserverCallback;
+
+      observe(element: Element) {
+        this.callback(
+          [{ isIntersecting: true, target: element } as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver,
+        );
+      }
+
+      disconnect() {}
+      unobserve() {}
+      takeRecords() {
+        return [];
+      }
+      readonly root = null;
+      readonly rootMargin = '0px';
+      readonly thresholds = [0];
+    } as unknown as typeof IntersectionObserver;
+  });
+
   await page.route('**/turnstile/v0/api.js*', async (route) => {
     await route.fulfill({
       contentType: 'application/javascript',
