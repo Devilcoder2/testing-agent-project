@@ -66,7 +66,10 @@ const questions = [
 export default function Home() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [videoRequested, setVideoRequested] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const reduceMotion = useReducedMotion();
+
+  useEffect(() => setHydrated(true), []);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -142,7 +145,11 @@ export default function Home() {
               <a className="button button-primary" href="#pilot">
                 Join the pilot
               </a>
-              <button className="button button-secondary" onClick={openWalkthrough}>
+              <button
+                className="button button-secondary"
+                onClick={openWalkthrough}
+                disabled={!hydrated}
+              >
                 <span className="play-icon" aria-hidden="true">
                   ▶
                 </span>
@@ -222,7 +229,11 @@ export default function Home() {
           <div className="walkthrough-copy">
             <h2 id="walkthrough-title">See the complete loop.</h2>
             <p>From a taught journey to the evidence behind a release signal.</p>
-            <button className="text-action" onClick={openWalkthrough}>
+            <button
+              className="text-action"
+              onClick={openWalkthrough}
+              disabled={!hydrated}
+            >
               Watch the walkthrough <span aria-hidden="true">→</span>
             </button>
           </div>
@@ -230,6 +241,7 @@ export default function Home() {
             className="walkthrough-poster"
             type="button"
             onClick={openWalkthrough}
+            disabled={!hydrated}
             aria-label="Play the Sentinel product walkthrough"
           >
             <Image
