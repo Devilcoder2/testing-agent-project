@@ -1,7 +1,7 @@
 /* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4
- * macrostructure: Product Cinema · nav: N9 edge-aligned · footer: Ft1 minimal
- * theme: studied-DNA (Apple Mac primary; Antigravity, Codex, PayPal, PhonePe, Reflect supporting)
- * tone: calm · anchor hue: cobalt · studied: yes · direction: Quiet Flight
+ * macrostructure: Workbench · nav: N9 edge-aligned · footer: Ft1 minimal
+ * theme: studied-DNA (Apple and Cursor interaction principles; Quiet Flight identity retained)
+ * tone: calm · anchor hue: cobalt · studied: yes · direction: Quiet Flight Workbench
  */
 
 :root {
@@ -17,6 +17,7 @@
   --color-cobalt-deep: oklch(40% 0.18 258);
   --color-cobalt-soft: oklch(95% 0.025 258);
   --color-on-cobalt: oklch(99% 0.003 255);
+  --color-logo-trace: oklch(99% 0.003 255);
   --color-success: oklch(50% 0.12 160);
   --color-warning: oklch(58% 0.13 75);
   --color-error: oklch(55% 0.18 28);
