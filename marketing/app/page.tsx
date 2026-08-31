@@ -3,7 +3,7 @@
 import { LazyMotion, domAnimation, m, useReducedMotion } from 'motion/react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { WaitlistForm } from '@/components/waitlist-form';
 
 const signInUrl =
@@ -68,9 +68,13 @@ export default function Home() {
   const [videoRequested, setVideoRequested] = useState(false);
   const reduceMotion = useReducedMotion();
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (videoRequested && dialog && !dialog.open) dialog.showModal();
+  }, [videoRequested]);
+
   function openWalkthrough() {
     setVideoRequested(true);
-    dialogRef.current?.showModal();
   }
 
   function closeWalkthrough() {
