@@ -89,7 +89,7 @@ img {
   min-height: 4.75rem;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(10rem, 1fr) auto minmax(14rem, 1fr);
+  grid-template-columns: minmax(10rem, 1fr) auto;
   align-items: center;
   gap: var(--space-6);
 }
@@ -137,15 +137,6 @@ img {
   background: var(--color-cobalt);
 }
 
-.main-nav {
-  display: flex;
-  align-items: center;
-  gap: clamp(1.5rem, 3vw, 2.75rem);
-  color: var(--color-ink-muted);
-  font-size: var(--text-sm);
-}
-
-.main-nav a,
 .sign-in,
 .site-footer nav a {
   position: relative;
@@ -153,7 +144,6 @@ img {
   text-decoration: none;
 }
 
-.main-nav a::after,
 .sign-in::after,
 .site-footer nav a::after {
   content: '';
@@ -168,7 +158,6 @@ img {
   transition: transform var(--duration-short) var(--ease-out);
 }
 
-.main-nav a:hover::after,
 .sign-in:hover::after,
 .site-footer nav a:hover::after {
   transform: scaleX(1);
@@ -373,7 +362,7 @@ img {
 }
 
 .scene-copy p {
-  max-width: 40ch;
+  max-width: 48ch;
   margin: var(--space-5) 0 0;
   color: var(--color-ink-muted);
   font-size: var(--text-md);
@@ -412,7 +401,7 @@ img {
 }
 
 .human-call p {
-  max-width: 42ch;
+  max-width: 48ch;
   margin: 0 0 0.45rem;
   color: var(--color-ink-muted);
   font-size: var(--text-md);
@@ -445,7 +434,7 @@ img {
 }
 
 .safety-intro p {
-  max-width: 42ch;
+  max-width: 48ch;
   margin: 0 0 0.4rem;
   color: var(--color-ink-muted);
   font-size: var(--text-md);
@@ -497,7 +486,7 @@ img {
 
 .walkthrough-copy p,
 .pilot-copy p {
-  max-width: 42ch;
+  max-width: 48ch;
   margin: var(--space-5) 0 0;
   color: var(--color-ink-muted);
   font-size: var(--text-md);
@@ -625,8 +614,12 @@ img {
 .waitlist-form input:focus,
 .waitlist-form select:focus {
   border-color: var(--color-cobalt);
-  box-shadow: 0 0 0 3px var(--color-cobalt-soft);
-  outline: 0;
+}
+
+.waitlist-form input:focus-visible,
+.waitlist-form select:focus-visible {
+  outline: 2px solid var(--color-cobalt);
+  outline-offset: 1px;
 }
 
 .bot-field {
@@ -837,6 +830,20 @@ img {
   cursor: pointer;
 }
 
+.dialog-close:hover {
+  border-color: var(--color-ink-muted);
+  background: var(--color-canvas-soft);
+}
+
+.dialog-close:active {
+  transform: translateY(1px);
+}
+
+.dialog-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .video-frame {
   aspect-ratio: 16 / 9;
   background: var(--color-canvas-soft);
@@ -875,10 +882,6 @@ img {
 @media (max-width: 64rem) {
   .header-inner {
     grid-template-columns: 1fr auto;
-  }
-
-  .main-nav {
-    display: none;
   }
 
   .product-scene {
