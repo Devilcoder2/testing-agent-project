@@ -3011,3 +3011,73 @@ React state/effects were chosen over native `<details>` because the feature need
 - The owner answers all ten questions and reviews the two highest-priority component files before this phase is fully understood.
 
 **Learning status:** Corrected implementation, one-file commits, lint, strict TypeScript, production build, D-054, live browser verification, and priority review are complete. Owner answers remain open.
+
+## 2026-08-31 — Phase 26: Quiet Flight marketing landing page revamp
+
+### What changed and why
+
+The Sentinel marketing page was rebuilt around a quieter “Product Cinema” structure after the earlier red editorial direction felt too loud, text-heavy, and generic. The new page uses a near-white canvas, near-black type, one restrained cobalt action color, generous whitespace, short copy, and large sanitized product surfaces. The design borrows principles—not layouts or assets—from Apple’s product focus, Google Antigravity’s concise statements, Codex’s immersive product reveal, PayPal and PhonePe’s immediate action clarity, and Reflect’s use of real interface evidence.
+
+The page now leads with one promise, **Know before you ship**, and one primary action, **Join the pilot**. It then shows the real Sentinel loop in three scenes: teach a browser journey, replay it within explicit boundaries, and inspect the resulting evidence. A separate safety section explains checkpoints, safe failure, redaction, immutable history, and human approval without turning those safeguards into a dense feature wall. The walkthrough remains lazy: only the poster loads initially, and the dialog creates the Stream player after interaction when a video ID exists. The pilot form, privacy route, sign-in route, and existing public API contract remain intact.
+
+React and Vinext provide the independently deployable marketing application. Motion for React supplies two small entrance transitions through lazy-loaded features; `MotionConfig` delegates reduced-motion behavior to the user’s system setting without producing server/client animation drift. `useSyncExternalStore` exposes a hydration-safe ready state so walkthrough controls cannot accept an early click before React has attached their handlers. The native dialog retains keyboard and focus behavior. Responsive CSS removes the previous minimum-width floor so the complete page reflows at 200% zoom on a narrow mobile viewport.
+
+The major tradeoff is restraint. The landing page deliberately omits metric claims, customer logos, testimonials, pricing, a newsletter, and decorative animation because Sentinel does not yet have truthful material for them. Real product screenshots build trust but require a sanitization review whenever replaced. The current walkthrough fallback is intentional until the final video, captions, and Cloudflare Stream identifier arrive. Public launch also remains blocked on production domains, Turnstile keys, legal identity/contact details, and final privacy wording.
+
+### Verification evidence
+
+```text
+npm run typecheck
+> tsc --noEmit
+exit 0
+
+npm run lint
+> oxlint
+exit 0
+
+npm run build
+Route (app): / and /privacy
+Build complete.
+exit 0
+
+npm run test:e2e
+Running 6 tests using 5 workers
+6 passed (8.1s)
+exit 0
+```
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | What changed, risk, and owner action |
+|---|---|---|
+| Highest — understand now | `marketing/app/page.tsx` (`Home`, product scenes, walkthrough state) | This is the conversion narrative and interactive boundary. Review the Stream lazy-load condition, native dialog lifecycle, hydration guard, and exact claims now. |
+| Highest — understand now | `marketing/components/waitlist-form.tsx` (`Verification`, `submit`) | This is the public data and bot-protection boundary reused by the redesign. Review lazy Turnstile loading, credential omission, safe errors, and submitted fields now. |
+| Medium — understand next | `marketing/app/globals.css` and `marketing/tokens.css` | These encode the Quiet Flight hierarchy, responsive reflow, focus states, reduced motion, and cobalt-only action language. Review mobile/zoom rules and contrast next. |
+| Medium — understand next | `marketing/tests/landing.spec.ts` and `marketing/playwright.config.ts` | These verify desktop/mobile product narrative, deferred media, waitlist success, keyboard focus, reduced motion, 200% zoom, and privacy. The isolated port prevents another local app from being mistaken for Sentinel. |
+| Medium — understand next | `marketing/app/layout.tsx` and `marketing/public/images/product-surface.png` | These carry metadata, fonts, and the primary sanitized proof image. Re-review screenshot contents before every public replacement. |
+| Lower — skim or defer | `marketing/package.json`, `marketing/package-lock.json`, and the Phase 26 documentation updates | These pin Geist and record the approved direction, requirements, technology, phase, and decision history; they contain little runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why does the new hero use one short promise and one dominant action instead of listing Sentinel’s complete feature set above the fold?
+2. How do the three product scenes explain Sentinel’s end-to-end value without making unsupported AI or performance claims?
+3. Which visual rules make the Quiet Flight direction feel calmer and more product-specific than the rejected red editorial version?
+4. When does the walkthrough iframe enter the page, and what does a visitor receive when the production Stream video ID is absent?
+5. Why are the walkthrough buttons temporarily disabled before hydration, and how does `useSyncExternalStore` avoid a lost early click?
+6. How do `MotionConfig` and the CSS reduced-motion rules work together for a visitor who requests less motion?
+7. Which fields and verification value cross from the pilot form to the public API, and which browser credentials are deliberately omitted?
+8. What did the desktop/mobile Playwright suite prove about keyboard focus, 200% zoom, narrow layouts, lazy media, and waitlist confirmation?
+9. Why must every replacement product screenshot be sanitized, and what kinds of data should be checked before publishing it?
+10. Which production inputs still block public launch, and how can they be added without changing the landing page’s core information architecture?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the highest-priority page and waitlist files before Phase 26 is considered fully understood.
+- Replace the temporary walkthrough state with the final sanitized 16:9 video, reviewed poster, captions, and production Cloudflare Stream ID.
+- Complete the final launch review with production domains, Turnstile keys, legal identity/contact details, privacy wording, and a fresh screenshot sanitization check.
+
+**Learning status:** The Quiet Flight design, implementation, build, focused browser coverage, decision record, and priority review are complete. Final production media/configuration and owner answers remain open, so the public-launch and learning gates are not complete.
