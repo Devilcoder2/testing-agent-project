@@ -1752,6 +1752,8 @@ img {
 }
 
 .feature-gallery {
+  --feature-rail-inset: max(var(--page-gutter), calc((100% - var(--page-max)) / 2));
+
   padding: clamp(9rem, 15vw, 14rem) 0;
 }
 
@@ -1795,6 +1797,7 @@ img {
 }
 
 .feature-rail {
+  width: calc(100% - var(--feature-rail-inset));
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(19rem, 25rem);
@@ -1803,7 +1806,8 @@ img {
   overscroll-behavior-inline: contain;
   scroll-snap-type: inline mandatory;
   scrollbar-width: none;
-  padding: 0.6rem max(var(--page-gutter), calc((100% - var(--page-max)) / 2)) 2rem;
+  margin-left: var(--feature-rail-inset);
+  padding: 0.6rem 0 2rem;
 }
 
 .feature-rail::-webkit-scrollbar {
