@@ -109,6 +109,7 @@ test("records the remote demo journey and preserves saved annotations after refr
         && recorded.some((step) => step.value === "[REDACTED]" && step.isRedacted)
         && recorded.filter((step) => step.kind === "TEXT_ENTRY").length >= 2;
     }).toBe(true);
+    await expect.poll(async () => (await readSteps(page, created.recording.id)).some((step) => step.kind === "NAVIGATION" && step.target.url?.endsWith("#customer-saved"))).toBe(true);
     const captured = await readSteps(page, created.recording.id);
     expect(captured.some((step) => step.kind === "NAVIGATION")).toBe(true);
     expect(captured.some((step) => step.kind === "CLICK")).toBe(true);
