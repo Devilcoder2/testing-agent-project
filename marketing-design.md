@@ -64,7 +64,7 @@ The page uses a **Workbench** macrostructure with varied pacing and one dominant
 3. **See what happened.** Review screenshots, network, console, and storage evidence on one timeline.
 4. **Keep the call human.** Use readiness and owner approval without delegating the release decision to automation.
 
-The feature rail expands those beats into Recording, Guided Runs, Autonomous Runs, Evidence timeline, Test Data, Release readiness, and Workflows. It uses native horizontal overflow and snap points, visible previous/next controls, keyboard scrolling, and no autoplay.
+The feature rail expands those beats into Recording, Guided Runs, Autonomous Runs, Evidence timeline, Test Data, Release readiness, and Workflows. It uses native horizontal overflow with free edge-to-edge travel, visible previous/next controls, keyboard scrolling, and no autoplay.
 
 ### Pilot and FAQ
 
@@ -111,7 +111,7 @@ Motion uses Motion for React through lazy features and stays subordinate to comp
 2. The Sentinel mark draws its single signal path once; it never loops.
 3. The primary product surface settles into view once using a subtle scale from 0.985 to 1 and a short opacity transition.
 4. Workspace views crossfade with no more than 6px of travel when the visitor changes destination.
-5. Feature cards use native momentum scrolling and snap; the detail dialog fades and settles without spring overshoot.
+5. Feature cards use native momentum scrolling with smooth previous/next controls; the detail dialog fades and settles without spring overshoot.
 6. Below-the-fold narrative groups reveal once only after they cross a lower viewport gate: the observer excludes the bottom 20% of the viewport and waits for a small visible portion of the group inside the remaining area. This keeps the animation in the visitor's field of attention instead of completing before they reach it. Reveals use varied 12–20px lifts, short lateral movement, or a soft 4px de-focus. Content remains visible in server HTML and when JavaScript is unavailable. Reduced motion removes translation and blur rather than removing content.
 
 Buttons use color and a 1px press, not hover scaling. There is no parallax, custom cursor, marquee, text scrambling, repeating ambient animation, carousel autoplay, or scroll-jacked narrative. Reduced motion removes translation and scale while preserving state changes within 150ms.
