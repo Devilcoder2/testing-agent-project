@@ -64,23 +64,25 @@ export function FeatureGallery() {
       </ScrollReveal>
       <ScrollReveal delay={0.08}>
         <div className="feature-rail" ref={railRef} onScroll={updateEdge}>
-          {features.map((feature, index) => (
-            <m.button
-              className={`feature-card feature-card-${(index % 3) + 1}`}
-              type="button"
-              key={feature.title}
-              disabled={!hydrated}
-              onClick={() => setSelected(feature)}
-              whileHover={{ y: -4 }}
-              transition={{ duration: 0.2 }}
-              aria-label={`Learn more about ${feature.title}`}
-            >
-              <span className="feature-number">{feature.number}</span>
-              <span className={`feature-glyph feature-glyph-${index + 1}`} aria-hidden="true"><i /><i /><i /><b /></span>
-              <span className="feature-card-copy"><strong>{feature.title}</strong><span>{feature.short}</span></span>
-              <span className="feature-open" aria-hidden="true">+</span>
-            </m.button>
-          ))}
+          <div className="feature-track">
+            {features.map((feature, index) => (
+              <m.button
+                className={`feature-card feature-card-${(index % 3) + 1}`}
+                type="button"
+                key={feature.title}
+                disabled={!hydrated}
+                onClick={() => setSelected(feature)}
+                whileHover={{ y: -4 }}
+                transition={{ duration: 0.2 }}
+                aria-label={`Learn more about ${feature.title}`}
+              >
+                <span className="feature-number">{feature.number}</span>
+                <span className={`feature-glyph feature-glyph-${index + 1}`} aria-hidden="true"><i /><i /><i /><b /></span>
+                <span className="feature-card-copy"><strong>{feature.title}</strong><span>{feature.short}</span></span>
+                <span className="feature-open" aria-hidden="true">+</span>
+              </m.button>
+            ))}
+          </div>
         </div>
       </ScrollReveal>
 
