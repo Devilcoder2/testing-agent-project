@@ -22,6 +22,9 @@ test("keeps optional GitHub controls safe when no repository integration is conf
   await expect(dialog).toHaveCSS("overflow-y", "hidden");
   await expect(dialog.locator(".github-settings-modal__content")).toHaveCSS("overflow-y", "auto");
   await expect(page.locator(".modal-backdrop")).toHaveCSS("z-index", "100");
+  await page.setViewportSize({ width: 390, height: 720 });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(".github-settings-modal__content")).toHaveCSS("overflow-y", "auto");
   await dialog.getByText(/GitHub is not available|Connected repositories/).click();
   await expect(dialog).toBeVisible();
   await page.locator(".modal-backdrop").click({ position: { x: 4, y: 4 } });
