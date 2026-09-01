@@ -861,13 +861,15 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 
 **Outcome:** A redirect triggered by an interaction is replayed in the same order the tester performed it, and an abandoned Guided Run can never indefinitely block the only local browser.
 
-- [ ] Serialize browser recorder delivery so a click is persisted before the navigation it triggers, while retaining password redaction and normal duplicate suppression.
-- [ ] Add focused coverage that exercises a click followed immediately by a navigation event and proves the saved order is click then navigation.
-- [ ] Treat a `RUNNING` Guided Run as an active lock only when the current Sentinel process owns its browser session.
-- [ ] When no matching browser owner exists, atomically finalize stale Guided Runs as interrupted, release their reserved Test Data, and write an audit event before starting the requested Run.
-- [ ] Preserve the single-session block for an actually owned Guided Run and the separate block for an active recording browser.
-- [ ] Add focused API and browser-session recovery coverage for stale versus live ownership and verify the existing stale Selenium-session reclaim behavior remains intact.
+- [x] Serialize browser recorder delivery so a click is persisted before the navigation it triggers, while retaining password redaction and normal duplicate suppression.
+- [x] Add focused coverage that exercises a click followed immediately by a navigation event and proves the saved order is click then navigation.
+- [x] Treat a `RUNNING` Guided Run as an active lock only when the current Sentinel process owns its browser session.
+- [x] When no matching browser owner exists, atomically finalize stale Guided Runs as interrupted, release their reserved Test Data, and write an audit event before starting the requested Run.
+- [x] Preserve the single-session block for an actually owned Guided Run and the separate block for an active recording browser.
+- [x] Add focused API and browser-session recovery coverage for stale versus live ownership and verify the existing stale Selenium-session reclaim behavior remains intact.
 - [ ] Run lint, strict type checking, focused recording/Run/browser checks, a production build, and live local verification against the reported stale Run state.
 - [ ] Review the diff by learning priority, record the decision, and append exactly ten owner understanding questions before closing the learning gate.
 
 **Out of scope:** Changing replay selectors or action semantics, adding browser concurrency, retaining browser-video recordings, auto-resuming an abandoned Run, redesigning Guided Run UI, or changing Auto Run queue behavior.
+
+**Implementation verification (2026-09-02):** The live local stack contained one August 22 `RUNNING` Guided Run while Selenium reported its only slot empty. The focused Guided Run integration suite passes all three cases in 18.08 seconds, including explicit live-session blocking and orphaned-run recovery. The remote Selenium recording journey passes in 20.7 seconds and asserts `CLICK Sign in` precedes navigation to `#dashboard`; the browser-lock regression passes both target-policy and untracked-Selenium-session recovery checks in 2.2 seconds. File-scoped lint passes for every implementation and test file. The repository-wide strict type check remains blocked by five pre-existing missing `marketing/components/*` modules, so the static/build checklist stays open until that unrelated marketing workspace is restored.
