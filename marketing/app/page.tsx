@@ -82,13 +82,13 @@ export default function Home() {
   }
 
   const heroMotion = {
-    initial: { opacity: 0, y: 8 },
+    initial: false as const,
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.52, ease: [0.16, 1, 0.3, 1] as const },
   };
 
   const productMotion = {
-    initial: { opacity: 0, scale: 0.985 },
+    initial: false as const,
     animate: { opacity: 1, scale: 1 },
     transition: {
       duration: 0.62,
@@ -96,6 +96,9 @@ export default function Home() {
       ease: [0.16, 1, 0.3, 1] as const,
     },
   };
+  const walkthroughLabel = streamVideoId
+    ? 'Watch the walkthrough'
+    : 'Read the walkthrough';
 
   return (
     <MotionConfig reducedMotion="user">
@@ -141,7 +144,7 @@ export default function Home() {
                 <span className="play-icon" aria-hidden="true">
                   ▶
                 </span>
-                Watch the walkthrough
+                {walkthroughLabel}
               </button>
             </div>
           </m.div>
@@ -209,7 +212,7 @@ export default function Home() {
               onClick={openWalkthrough}
               disabled={!hydrated}
             >
-              Watch the walkthrough <span aria-hidden="true">→</span>
+              {walkthroughLabel} <span aria-hidden="true">→</span>
             </button>
           </div>
           <button
@@ -217,7 +220,7 @@ export default function Home() {
             type="button"
             onClick={openWalkthrough}
             disabled={!hydrated}
-            aria-label="Play the Sentinel product walkthrough"
+            aria-label={streamVideoId ? 'Play the Sentinel product walkthrough' : 'Read the Sentinel walkthrough summary'}
           >
             <span className="poster-surface" aria-hidden="true">
               <span className="poster-sidebar"><i /><i /><i /><i /><i /></span>
@@ -271,12 +274,14 @@ export default function Home() {
         className="video-dialog"
         ref={dialogRef}
         onClose={() => setVideoRequested(false)}
+        aria-labelledby="walkthrough-dialog-title"
+        aria-describedby="walkthrough-dialog-description"
       >
         <div className="dialog-panel">
           <div className="dialog-header">
             <div>
-              <h2>Sentinel walkthrough</h2>
-              <p>Teach → Replay → Decide</p>
+              <h2 id="walkthrough-dialog-title">Sentinel walkthrough</h2>
+              <p id="walkthrough-dialog-description">Teach → Replay → Decide</p>
             </div>
             <button
               className="dialog-close"
