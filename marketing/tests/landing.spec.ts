@@ -133,6 +133,9 @@ test('centers the wordmark and reveals below-fold content as it enters view', as
     .poll(() => headerName.evaluate((element) => getComputedStyle(element).fontFamily))
     .toContain('Geist');
 
+  await page.evaluate(() => window.scrollTo(0, window.innerHeight));
+  await expect.poll(() => header.evaluate((element) => element.getBoundingClientRect().bottom)).toBeLessThan(0);
+
   const reveal = page.locator('.quiet-statement .scroll-reveal');
   await expect.poll(() => reveal.evaluate((element) => getComputedStyle(element).opacity)).toBe('0');
   await reveal.evaluate((element) => {
@@ -219,19 +222,15 @@ test('submits the pilot qualifier and shows an address-safe confirmation', async
   await expect(page.getByText('Verification complete.')).toBeVisible();
 
   await page.getByLabel('Name').fill('Riley Chen');
-  await page.getByLabel('Work email').fill('riley@example.test');
-  await page
-    .getByRole('textbox', { name: 'Company', exact: true })
-    .fill('Northstar Labs');
-  await page.getByLabel('QA team size').selectOption('2-5');
+  await page.getByLabel('Email').fill('riley@example.test');
   await page.getByRole('button', { name: 'Apply for the pilot' }).click();
 
   await expect(page.getByText('Application received')).toBeVisible();
   expect(submitted).toMatchObject({
     name: 'Riley Chen',
     email: 'riley@example.test',
-    company: 'Northstar Labs',
-    qaTeamSize: '2-5',
+    company: '',
+    qaTeamSize: '',
     companyWebsite: '',
     turnstileToken: 'test-token',
   });
