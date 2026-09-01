@@ -839,8 +839,8 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Outcome:** A global startup QA or engineering visitor can understand Sentinel's human-taught, evidence-backed value, inspect a real walkthrough, and join a protected private-pilot waitlist; an authorized Sentinel Admin can act on that lead without exposing it across organizations.
 
 - [x] Define the acquisition problem, audience, confirmed assumptions, public/non-public boundary, exact landing narrative, Quiet Flight design system, external-service risks, and explicit non-scope in the project documents.
-- [ ] Add organization-owned pilot-lead persistence, lifecycle statuses, composite uniqueness, and a deployable migration without changing existing account or Product behavior.
-- [ ] Add the public no-credentials submission API with field normalization, same-shape duplicate success, exact-origin CORS, body limits, honeypot, infrastructure rate-limit contract, and mandatory server-side Turnstile validation.
+- [ ] Add organization-owned pilot-lead persistence with required name/email, optional company/team-size qualification, lifecycle statuses, composite uniqueness, and a deployable migration without changing existing account or Product behavior.
+- [ ] Add the public no-credentials submission API with name/email validation, optional qualification normalization, same-shape duplicate success, exact-origin CORS, body limits, honeypot, infrastructure rate-limit contract, and mandatory server-side Turnstile validation.
 - [ ] Add organization-Admin-only lead listing/filtering, lifecycle updates, confirmed deletion, audit records without PII, and an Administration ledger.
 - [ ] Create the independent `marketing/` application with its own scripts and hosting configuration while leaving the product root sign-in route unchanged.
 - [ ] Deliver Quiet Flight Workbench: quiet header, concise promise, standalone read-only sample workspace, horizontal feature rail with focus-safe detail dialogs, poster-first walkthrough, Teach → Replay → Decide story, human-control interlude, inline pilot sign-off form, concise FAQ, privacy route, and minimal footer.
