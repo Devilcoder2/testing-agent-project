@@ -25,7 +25,7 @@ export const metadata: Metadata = {
         url: '/og.png',
         width: 1200,
         height: 630,
-        alt: 'Sentinel showing a real sanitized product workspace',
+        alt: 'Sentinel interactive read-only product preview',
       },
     ],
   },
@@ -62,11 +62,11 @@ export default function RootLayout({
           id="impeccable-direction-contract"
           dangerouslySetInnerHTML={{
             __html: `<!--
-THESIS: Sentinel makes a release knowable by returning a real browser journey with its evidence; the product carries the proof and the page stays quiet.
-OWN-WORLD: Near-white product cinema, near-black Geist statements, IBM Plex Sans support, restrained cobalt action, generous visual pauses, and real Sentinel captures.
-STORY: A QA lead understands the promise, sees the real workspace, follows Teach to Replay to Decide, learns where autonomy stops, then applies for the pilot.
-FIRST VIEWPORT: A minimal header and short centered promise sit in generous white space; one real Sentinel workspace rises into the lower viewport as the dominant object.
-FORM: Quiet Flight is the owner-pinned reference-derived direction; seed b90708d6, approved comp quiet-flight-c.
+THESIS: Sentinel makes a release knowable by returning a taught browser journey with its evidence; a navigable read-only workspace proves the mechanism and the page stays quiet.
+OWN-WORLD: Near-white Workbench, near-black Geist statements, IBM Plex Sans support, restrained cobalt action, generous visual pauses, and a local sample workspace with no production dependency.
+STORY: A QA lead understands the promise, operates the sample workspace, explores capability through a horizontal rail, learns where autonomy stops, then applies for the pilot.
+FIRST VIEWPORT: A minimal header and short centered promise sit in generous white space; a labelled interactive Sentinel workspace rises into the lower viewport as the dominant object.
+FORM: Quiet Flight Workbench is the owner-pinned reference-derived revision; interaction principles studied from Apple iPad and Cursor without copying their assets or composition.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->`,
           }}
