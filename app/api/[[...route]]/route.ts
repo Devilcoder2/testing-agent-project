@@ -3,7 +3,7 @@ import { AccountStatus, AuthTokenKind, ChangeProposalStatus, DatabaseDiagnosticK
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { consumeAuthToken, createSession, hashPassword, issueAuthToken, readSession, revokeUserSessions, validPassword, verifyPassword, type SessionUser } from "@/lib/auth";
-import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, launchRecordingBrowser, launchRunBrowser, replayGuidedRunStep } from "@/lib/browser";
+import { captureRunBrowserSnapshot, closeBrowser, closeRunBrowser, isRunBrowserActive, launchRecordingBrowser, launchRunBrowser, replayGuidedRunStep } from "@/lib/browser";
 import { dashboardForUser } from "@/lib/dashboard";
 import { customerEmailForDiagnostic, customerLookupByEmail } from "@/lib/database-diagnostics";
 import { persistRunSnapshot, recordCaptureFailure, signedEvidenceUrl } from "@/lib/evidence";
@@ -171,6 +171,32 @@ async function updateReservedDataSet(runId: string, outcome: RunOutcome) {
     where: { reservedByRunId: runId, status: TestDataStatus.RESERVED },
     data: { status: TestDataStatus.SAFE, reservedByRunId: null }
   });
+}
+
+async function recoverOrphanedGuidedRuns(actorId: string) {
+  const running = await prisma.run.findMany({ where: { mode: RunMode.GUIDED, status: RunStatus.RUNNING }, select: { id: true } });
+  if (running.some((run) => isRunBrowserActive(run.id))) return true;
+  if (running.length === 0) return false;
+
+  const now = new Date();
+  const runIds = running.map((run) => run.id);
+  await prisma.$transaction(async (tx) => {
+    const staleRuns = await tx.run.findMany({ where: { id: { in: runIds }, mode: RunMode.GUIDED, status: RunStatus.RUNNING }, select: { id: true } });
+    if (staleRuns.length === 0) return;
+    const staleRunIds = staleRuns.map((run) => run.id);
+    await tx.run.updateMany({
+      where: { id: { in: staleRunIds } },
+      data: { status: RunStatus.COMPLETED, outcome: RunOutcome.INTERRUPTED, failureReason: RunFailureReason.INFRASTRUCTURE_ERROR, evidenceStatus: "PARTIAL", activeStepOrder: null, completedAt: now }
+    });
+    await tx.testDataRow.updateMany({
+      where: { reservedByRunId: { in: staleRunIds }, status: TestDataStatus.RESERVED },
+      data: { status: TestDataStatus.SAFE, reservedByRunId: null }
+    });
+    await tx.auditEvent.createMany({
+      data: staleRunIds.map((runId) => ({ actorId, action: "GUIDED_RUN_RECOVERED", entityType: "Run", entityId: runId, details: { reason: "ORPHANED_BROWSER_SESSION" } }))
+    });
+  });
+  return false;
 }
 
 async function createRunBindings(tx: Prisma.TransactionClient, runId: string, productId: string, variables: Array<{ id: string; name: string; staticValueEncrypted: string | null }>, rawInputs: unknown, forcedRows = new Map<string, string>()) {
@@ -1505,7 +1531,7 @@ async function route(request: Request, context: Context) {
       const version = testCase.versions.find((candidate) => candidate.version === testCase.currentVersion);
       if (!version || version.steps.length === 0) return json({ error: "This Test Case has no saved steps to guide a Run." }, 409);
       const variables = await migrateLegacyVariables(version);
-      if (await prisma.run.findFirst({ where: { mode: RunMode.GUIDED, status: RunStatus.RUNNING } })) return json({ error: "Another local browser session is active. Finish it before starting a Run." }, 409);
+      if (await recoverOrphanedGuidedRuns(user.id)) return json({ error: "Another local browser session is active. Finish it before starting a Run." }, 409);
         const run = await prisma.$transaction(async (tx) => {
           const created = await tx.run.create({
           data: {
