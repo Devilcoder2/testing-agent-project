@@ -1,0 +1,3 @@
+ALTER TABLE "PilotWaitlistLead"
+  ALTER COLUMN "company" DROP NOT NULL,
+  ALTER COLUMN "qaTeamSize" DROP NOT NULL;
