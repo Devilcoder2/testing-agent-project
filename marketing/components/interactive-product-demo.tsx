@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, m } from 'motion/react';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { SentinelLogo } from './sentinel-logo';
 
 const destinations = [
@@ -121,6 +121,11 @@ function ActiveView({ destination }: { destination: Destination }) {
 
 export function InteractiveProductDemo() {
   const [destination, setDestination] = useState<Destination>('Dashboard');
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
   const copy = viewCopy[destination];
 
   return (
@@ -130,7 +135,7 @@ export function InteractiveProductDemo() {
         <aside className="demo-sidebar">
           <div className="demo-brand"><SentinelLogo /><span>Preview workspace</span></div>
           <nav aria-label="Preview destinations">
-            {destinations.map(([label, icon]) => <button key={label} type="button" className={destination === label ? 'active' : ''} aria-current={destination === label ? 'page' : undefined} onClick={() => setDestination(label)}><NavIcon type={icon} /><span>{label}</span>{label === 'Review' ? <b>1</b> : null}</button>)}
+            {destinations.map(([label, icon]) => <button key={label} type="button" className={destination === label ? 'active' : ''} aria-label={label} aria-current={destination === label ? 'page' : undefined} disabled={!hydrated} onClick={() => setDestination(label)}><NavIcon type={icon} /><span>{label}</span>{label === 'Review' ? <b>1</b> : null}</button>)}
           </nav>
           <div className="demo-account"><span className="avatar">M</span><span><strong>Maya Chen</strong><small>Sample account</small></span></div>
         </aside>
