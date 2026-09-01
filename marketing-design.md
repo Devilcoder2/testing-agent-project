@@ -37,7 +37,7 @@ The resulting system is deliberately quieter than every previous Sentinel market
 
 The page uses a **Workbench** macrostructure with varied pacing and one dominant idea per section. This supersedes the screenshot-led Product Cinema structure approved on 2026-08-31 because the owner requested product navigation as the primary proof.
 
-- A quiet header contains the Sentinel identity, Product, How it works, Safety, Sign in, and one Join the pilot action. It is transparent at the top and gains a subtle solid boundary only after scroll.
+- A quiet header contains the Sentinel identity, Product, How it works, Safety, Sign in, and one Join the pilot action. It remains in normal document flow and scrolls away with the opening section rather than sticking to the viewport.
 - The hero uses one headline, one supporting sentence, and two actions. It contains no eyebrow, section number, decorative label, proof strip, metric, testimonial, or logo row.
 - A code-native Sentinel sample workspace enters directly below the hero copy. It has no fake browser bar, login flow, write action, production data, or production API dependency. Visitors may move between Dashboard, Products, Test Cases, Test Data, Runs, Releases, and Review using local sample data only.
 - The page alternates between expansive white space and focused product moments. Every major section answers one question rather than grouping unrelated claims.
@@ -68,7 +68,7 @@ The feature rail expands those beats into Recording, Guided Runs, Autonomous Run
 
 ### Pilot and FAQ
 
-The form collects name, work email, company, and QA-team size. Success promises manual review and personal follow-up only for selected teams. FAQ copy covers pilot fit, browser-testing scope, the tester's continuing role, captured evidence, and manual selection.
+The form requires name and email. Company and QA-team size remain optional qualification fields. Success promises manual review and personal follow-up only for selected teams. FAQ copy covers pilot fit, browser-testing scope, the tester's continuing role, captured evidence, and manual selection.
 
 ## 5. Visual tokens
 
