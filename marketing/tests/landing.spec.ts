@@ -26,6 +26,7 @@ test('offers a navigation-only sample workspace and defers the walkthrough playe
 
   await page
     .getByRole('button', { name: 'Watch the walkthrough', exact: true })
+    .or(page.getByRole('button', { name: 'Read the walkthrough', exact: true }))
     .first()
     .click();
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -52,12 +53,14 @@ test('explores features through a horizontal rail and focus-safe dialog', async 
   const next = page.getByRole('button', { name: 'Next features' });
   await expect(next).toBeEnabled();
   await next.click();
-  await page.getByRole('button', { name: 'Learn more about Evidence timeline' }).click();
+  const featureTrigger = page.getByRole('button', { name: 'Learn more about Evidence timeline' });
+  await featureTrigger.click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Evidence timeline' })).toBeVisible();
   await expect(dialog.getByText('Step-linked screenshots')).toBeVisible();
   await page.getByRole('button', { name: 'Close feature detail' }).click();
   await expect(dialog).not.toBeVisible();
+  await expect(featureTrigger).toBeFocused();
 });
 
 test('submits the pilot qualifier and shows an address-safe confirmation', async ({
