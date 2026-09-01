@@ -22,7 +22,11 @@ export function ScrollReveal({
     () => true,
     () => false,
   );
-  const inView = useInView(ref, { once: true, amount: 0.18 });
+  const inView = useInView(ref, {
+    once: true,
+    amount: 0.08,
+    margin: '0px 0px -20% 0px',
+  });
   const reducedMotion = useReducedMotion();
   const concealed = hydrated && !inView;
   const travel = reducedMotion ? 0 : 18;
