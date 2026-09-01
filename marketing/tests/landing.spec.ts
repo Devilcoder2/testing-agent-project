@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('presents the product story and defers the walkthrough player', async ({
+test('offers a navigation-only sample workspace and defers the walkthrough player', async ({
   page,
 }) => {
   await page.goto('/');
@@ -10,9 +10,18 @@ test('presents the product story and defers the walkthrough player', async ({
       name: 'Know before you ship.',
     }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('img', { name: /Sanitized Sentinel dashboard/ }),
-  ).toBeVisible();
+  const preview = page.getByRole('region', {
+    name: 'Interactive Sentinel product preview',
+  });
+  await expect(preview.getByText('Interactive preview')).toBeVisible();
+  await expect(preview.getByText('Sample data')).toBeVisible();
+  await expect(preview.getByText('Read only')).toBeVisible();
+  await preview.getByRole('button', { name: 'Runs' }).click();
+  await expect(preview.getByRole('heading', { name: 'Checkout regression' })).toBeVisible();
+  await expect(preview.getByText('Step 3 evidence')).toBeVisible();
+  await preview.getByRole('button', { name: 'Releases' }).click();
+  await expect(preview.getByRole('heading', { name: 'September release' })).toBeVisible();
+  await expect(preview.getByRole('button', { name: /^(create|new recording|start run|approve)$/i })).toHaveCount(0);
   await expect(page.locator('.video-dialog iframe')).toHaveCount(0);
 
   await page
@@ -32,6 +41,23 @@ test('presents the product story and defers the walkthrough player', async ({
       name: 'Replay with boundaries.',
     }),
   ).toBeVisible();
+  await expect(page.getByText('no launch-date or access promise')).toHaveCount(0);
+});
+
+test('explores features through a horizontal rail and focus-safe dialog', async ({
+  page,
+}) => {
+  await page.goto('/');
+
+  const next = page.getByRole('button', { name: 'Next features' });
+  await expect(next).toBeEnabled();
+  await next.click();
+  await page.getByRole('button', { name: 'Learn more about Evidence timeline' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Evidence timeline' })).toBeVisible();
+  await expect(dialog.getByText('Step-linked screenshots')).toBeVisible();
+  await page.getByRole('button', { name: 'Close feature detail' }).click();
+  await expect(dialog).not.toBeVisible();
 });
 
 test('submits the pilot qualifier and shows an address-safe confirmation', async ({
