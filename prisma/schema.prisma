@@ -439,8 +439,8 @@ model PilotWaitlistLead {
   organizationId String
   email          String
   name           String
-  company        String
-  qaTeamSize     PilotQaTeamSize
+  company        String?
+  qaTeamSize     PilotQaTeamSize?
   status         PilotWaitlistLeadStatus @default(NEW)
   organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime                @default(now())
