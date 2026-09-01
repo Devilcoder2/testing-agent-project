@@ -3444,3 +3444,82 @@ Impeccable detector
 - Re-run migration and minimal-submission coverage before deployment against the production release candidate.
 
 **Learning status:** Documentation, migration, implementation, one-file pushes, focused API coverage, marketing lint/type/build, complete desktop/mobile browser coverage, and detector review are complete. Owner answers remain open, so the Phase 26 learning gate remains incomplete.
+
+## 2026-09-02 — Phase 27: Recording-order integrity and Guided Run recovery
+
+### What changed and why
+
+Sentinel now preserves the causal sequence a tester performed while recording: the browser sends click, text-entry, and navigation events through one serial delivery chain, so an immediate `history.pushState` redirect cannot be persisted before the click that caused it. This directly protects the common Demo CRM sequence of entering credentials, selecting **Sign in**, and reaching the dashboard.
+
+Guided Run startup now distinguishes a genuinely owned local browser from stale database state. A `RUNNING` Guided Run blocks another Guided Run only when the current Sentinel process owns that Run’s Selenium browser. Otherwise Sentinel safely completes the orphaned Run as `INTERRUPTED`, marks its evidence partial, releases any reserved Test Data row, writes a recovery audit event, and starts the requested Run. This repaired the reported state: an August 22 Run remained `RUNNING` although the September 2 Selenium node reported no active session.
+
+### End-to-end flow and important boundaries
+
+1. `lib/browser.ts` injects the recorder into the approved target. Each capture call appends its `fetch(..., keepalive: true)` operation to the preceding delivery promise. The next event starts only after the preceding event has settled, so the recorder API assigns its existing integer order in actual action order.
+2. Password detection and `[REDACTED]` behavior remain at the capture boundary. The delivery change moves no raw values into logs, URLs, or UI state.
+3. A tester starts a Guided Run through `app/api/[[...route]]/route.ts`. Before the Run record is created, `recoverOrphanedGuidedRuns` reads the active Guided records.
+4. `isRunBrowserActive` checks the in-memory browser owner. A matching live Run returns the existing 409 conflict; a recording browser remains separately protected by the launch boundary.
+5. With no matching owner, the recovery transaction completes only the stale Guided Run records, releases their `RESERVED` Test Data rows to `SAFE`, and writes one `GUIDED_RUN_RECOVERED` audit event per recovered Run. It never attempts to resume an abandoned browser.
+6. The normal `launchRunBrowser` path then reclaims any untracked Selenium slot and launches the requested Run. A later second start remains blocked while that browser is truly owned.
+
+### Technology and tradeoffs
+
+The recorder uses native Promises and fetch rather than a queue dependency or polling loop. This is a small browser-side ordering boundary with no new service, database migration, or stored sequence metadata. The tradeoff is that very rapid streams wait for acknowledgement one event at a time; Phase 1 recordings are intentionally low-volume and correctness is more valuable than parallel request throughput. A client-sequence database redesign was considered, but it would require new persistence/migration semantics and recovery rules for reordered or restarted recorder sessions.
+
+The Guided Run recovery uses the existing in-memory `browserOwner` as the authority for the single local Chromium session and PostgreSQL as the durable lifecycle record. An old database row alone cannot prove a browser is live after a server restart. The tradeoff is intentional: this local single-process deployment does not support horizontally distributed Guided browser ownership. Any future multi-instance deployment needs a durable lease/heartbeat shared by all API instances before retaining this recovery policy.
+
+### Verification evidence
+
+```text
+docker compose exec -T sentinel npm test -- tests/run-api.test.ts
+
+✓ tests/run-api.test.ts (3 tests) 17862ms
+  ✓ creates a version-bound strict Run ... 9981ms
+  ✓ replays a manually bound Phase 4 variable ... 6213ms
+  ✓ recovers an orphaned Guided Run instead of blocking a new local browser session 1668ms
+Test Files  1 passed (1)
+Tests       3 passed (3)
+
+docker compose exec -T sentinel npx playwright test tests/phase-1-recording.spec.ts
+
+1 passed (20.7s)
+
+docker compose exec -T sentinel npx playwright test tests/browser-lock.spec.ts
+
+2 passed (2.2s)
+```
+
+`npx eslint lib/browser.ts`, `npx eslint app/api/[[...route]]/route.ts`, and file-scoped lint for both changed regression files passed. `npm run typecheck` currently fails before reaching this feature because the pre-existing marketing workspace imports five missing `marketing/components/*` files. No change was made to that unrelated workspace, so repository-wide type/build verification remains an explicit follow-up.
+
+### Priority-based diff learning review
+
+| Priority | Files | Review focus |
+| --- | --- | --- |
+| Highest — understand now | `lib/browser.ts`, `app/api/[[...route]]/route.ts` | The browser-side delivery chain and `isRunBrowserActive` define replay correctness; `recoverOrphanedGuidedRuns` changes Run lifecycle, Test Data reservation release, audit history, and the local concurrency boundary. Read now. |
+| Medium — understand next | `tests/phase-1-recording.spec.ts`, `tests/run-api.test.ts` | These prove the Sign in → dashboard ordering, real active-session block, and stale record recovery against the services. Read next. |
+| Lower — skim or defer | `srd.md`, `architecture.md`, `phases.md`, `decisions-log.md` | These synchronize the approved behavioral contract and verification status; they have no runtime behavior. Skim now. |
+
+### Ten-question understanding check
+
+1. Why could two independent `fetch` calls persist a navigation before the click that caused it?
+2. How does the recorder’s delivery promise preserve action order without changing the recorder API schema?
+3. Which values still receive redaction before any event is delivered, and why does ordering not weaken that protection?
+4. Which file owns the in-memory browser lock, and what exact condition makes a Guided Run genuinely live?
+5. Why is a `RUNNING` database row insufficient evidence that a local browser is still active after a restart?
+6. What exact Run, Test Data, evidence, and audit changes occur during orphaned-Run recovery?
+7. Why does a truly active Guided Run still return HTTP 409 instead of being recovered?
+8. How does the existing launch path handle a Selenium session that is untracked by Sentinel?
+9. What is the main tradeoff of serial recorder delivery, and when would a durable client-sequence protocol become appropriate?
+10. Which focused tests prove ordering, stale recovery, active-session safety, and Selenium-slot reclaim, and what unrelated verification remains blocked?
+
+#### Answers
+
+_Owner answers pending._
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the two highest-priority implementation files before this Phase 27 learning review is complete.
+- Restore or reconcile the missing `marketing/components/*` modules, then rerun repository-wide strict type checking and the production build; the failures predate and are outside this browser-correctness change.
+- Revisit the in-memory ownership assumption before running multiple Sentinel API instances; adopt a durable browser lease/heartbeat at that time.
+
+**Learning status:** Focused recorder, Guided Run, and Selenium-lock verification pass; decisions, priority review, and ten questions are recorded. Owner answers and the unrelated repository-wide marketing type/build failure remain open.
