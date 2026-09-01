@@ -854,3 +854,20 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 - [ ] Review the actual diff by learning priority, record every non-obvious decision and deviation, append one Phase 26 learning entry with exactly ten owner questions, and obtain or explicitly track owner answers before closing the learning gate.
 
 **Out of scope:** Product pricing or billing, customer logos/testimonials, a blog, comparison pages, newsletter, marketing automation, lead export, public account creation, automated confirmation email, a product UI redesign, changing authentication/session behavior, or treating this acquisition surface as completion of the existing product shipping gate.
+
+## Phase 27 — Recording-order integrity and Guided Run recovery
+
+**Depends on:** Phases 1, 2, 4, and the single local-browser boundary.
+
+**Outcome:** A redirect triggered by an interaction is replayed in the same order the tester performed it, and an abandoned Guided Run can never indefinitely block the only local browser.
+
+- [ ] Serialize browser recorder delivery so a click is persisted before the navigation it triggers, while retaining password redaction and normal duplicate suppression.
+- [ ] Add focused coverage that exercises a click followed immediately by a navigation event and proves the saved order is click then navigation.
+- [ ] Treat a `RUNNING` Guided Run as an active lock only when the current Sentinel process owns its browser session.
+- [ ] When no matching browser owner exists, atomically finalize stale Guided Runs as interrupted, release their reserved Test Data, and write an audit event before starting the requested Run.
+- [ ] Preserve the single-session block for an actually owned Guided Run and the separate block for an active recording browser.
+- [ ] Add focused API and browser-session recovery coverage for stale versus live ownership and verify the existing stale Selenium-session reclaim behavior remains intact.
+- [ ] Run lint, strict type checking, focused recording/Run/browser checks, a production build, and live local verification against the reported stale Run state.
+- [ ] Review the diff by learning priority, record the decision, and append exactly ten owner understanding questions before closing the learning gate.
+
+**Out of scope:** Changing replay selectors or action semantics, adding browser concurrency, retaining browser-video recordings, auto-resuming an abandoned Run, redesigning Guided Run UI, or changing Auto Run queue behavior.
