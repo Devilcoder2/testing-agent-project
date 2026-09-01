@@ -47,20 +47,58 @@ test('offers a navigation-only sample workspace and defers the walkthrough playe
 
 test('explores features through a horizontal rail and focus-safe dialog', async ({
   page,
-}) => {
+}, testInfo) => {
   await page.goto('/');
 
   const next = page.getByRole('button', { name: 'Next features' });
   await expect(next).toBeEnabled();
   await next.click();
   const featureTrigger = page.getByRole('button', { name: 'Learn more about Evidence timeline' });
+  if (!testInfo.project.name.startsWith('mobile')) {
+    await featureTrigger.hover();
+    const borderWidth = await featureTrigger.evaluate(
+      (element) => getComputedStyle(element).borderTopWidth,
+    );
+    expect(borderWidth).toBe('1px');
+    const cardBox = await featureTrigger.boundingBox();
+    const railBox = await page.locator('.feature-rail').boundingBox();
+    expect(cardBox && railBox && cardBox.y >= railBox.y).toBe(true);
+  }
   await featureTrigger.click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Evidence timeline' })).toBeVisible();
   await expect(dialog.getByText('Step-linked screenshots')).toBeVisible();
+  const dialogBox = await dialog.boundingBox();
+  const viewport = page.viewportSize();
+  expect(dialogBox && viewport).toBeTruthy();
+  expect(Math.abs((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - (viewport?.width ?? 0) / 2)).toBeLessThan(3);
+  expect(Math.abs((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0) / 2 - (viewport?.height ?? 0) / 2)).toBeLessThan(3);
   await page.getByRole('button', { name: 'Close feature detail' }).click();
   await expect(dialog).not.toBeVisible();
   await expect(featureTrigger).toBeFocused();
+});
+
+test('centers the wordmark and reveals below-fold content as it enters view', async ({
+  page,
+}) => {
+  await page.goto('/');
+
+  const header = page.getByRole('banner');
+  await expect(header.locator('.sentinel-logo-word')).toHaveCount(0);
+  const headerName = header.getByRole('link', { name: 'Sentinel', exact: true });
+  await expect(headerName).toBeVisible();
+  const nameBox = await headerName.boundingBox();
+  const viewport = page.viewportSize();
+  expect(nameBox && viewport).toBeTruthy();
+  expect(Math.abs((nameBox?.x ?? 0) + (nameBox?.width ?? 0) / 2 - (viewport?.width ?? 0) / 2)).toBeLessThan(3);
+  await expect
+    .poll(() => headerName.evaluate((element) => getComputedStyle(element).fontFamily))
+    .toContain('Geist');
+
+  const reveal = page.locator('.quiet-statement .scroll-reveal');
+  await expect.poll(() => reveal.evaluate((element) => getComputedStyle(element).opacity)).toBe('0');
+  await reveal.scrollIntoViewIfNeeded();
+  await expect.poll(() => reveal.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
 });
 
 test('submits the pilot qualifier and shows an address-safe confirmation', async ({
