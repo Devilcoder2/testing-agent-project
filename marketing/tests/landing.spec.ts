@@ -57,6 +57,37 @@ test('explores features through a horizontal rail and focus-safe dialog', async 
   expect(headingBox && firstCardBox).toBeTruthy();
   expect(Math.abs((headingBox?.x ?? 0) - (firstCardBox?.x ?? 0))).toBeLessThan(2);
 
+  const rail = page.locator('.feature-rail');
+  const secondCard = page.getByRole('button', { name: 'Learn more about Guided Runs' });
+  await rail.evaluate((element) => {
+    const card = element.querySelectorAll<HTMLElement>('.feature-card')[1];
+    const railBox = element.getBoundingClientRect();
+    const cardBox = card.getBoundingClientRect();
+    element.scrollLeft += cardBox.left - railBox.left;
+  });
+  await page.waitForTimeout(250);
+  const railBoxAtSecond = await rail.boundingBox();
+  const secondCardBox = await secondCard.boundingBox();
+  expect(railBoxAtSecond && secondCardBox).toBeTruthy();
+  expect(Math.abs((secondCardBox?.x ?? 0) - (railBoxAtSecond?.x ?? 0))).toBeLessThan(2);
+
+  await rail.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth - element.clientWidth;
+  });
+  await page.waitForTimeout(250);
+  const lastCardBox = await page
+    .getByRole('button', { name: 'Learn more about Workflows' })
+    .boundingBox();
+  const viewport = page.viewportSize();
+  expect(lastCardBox && viewport).toBeTruthy();
+  const trailingGutter = (viewport?.width ?? 0) - ((lastCardBox?.x ?? 0) + (lastCardBox?.width ?? 0));
+  expect(Math.abs(trailingGutter - (headingBox?.x ?? 0))).toBeLessThan(2);
+
+  await rail.evaluate((element) => {
+    element.scrollLeft = 0;
+  });
+  await page.waitForTimeout(250);
+
   const next = page.getByRole('button', { name: 'Next features' });
   await expect(next).toBeEnabled();
   await next.click();
@@ -76,10 +107,10 @@ test('explores features through a horizontal rail and focus-safe dialog', async 
   await expect(dialog.getByRole('heading', { name: 'Evidence timeline' })).toBeVisible();
   await expect(dialog.getByText('Step-linked screenshots')).toBeVisible();
   const dialogBox = await dialog.boundingBox();
-  const viewport = page.viewportSize();
-  expect(dialogBox && viewport).toBeTruthy();
-  expect(Math.abs((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - (viewport?.width ?? 0) / 2)).toBeLessThan(3);
-  expect(Math.abs((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0) / 2 - (viewport?.height ?? 0) / 2)).toBeLessThan(3);
+  const dialogViewport = page.viewportSize();
+  expect(dialogBox && dialogViewport).toBeTruthy();
+  expect(Math.abs((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - (dialogViewport?.width ?? 0) / 2)).toBeLessThan(3);
+  expect(Math.abs((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0) / 2 - (dialogViewport?.height ?? 0) / 2)).toBeLessThan(3);
   await page.getByRole('button', { name: 'Close feature detail' }).click();
   await expect(dialog).not.toBeVisible();
   await expect(featureTrigger).toBeFocused();
