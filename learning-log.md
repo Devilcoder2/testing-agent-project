@@ -3154,3 +3154,72 @@ Impeccable detector
 - Add the final sanitized walkthrough, captions, legal/contact content, production domains, Stream configuration, and Turnstile configuration before public launch.
 
 **Learning status:** The standalone preview, feature rail, modal, motion, logo, responsive behavior, tests, decision record, and priority review are complete. Owner answers and final production media/configuration remain open, so the Phase 26 learning and launch gates remain incomplete.
+
+## 2026-09-01 — Phase 26: landing motion and interaction-geometry polish
+
+### What changed and why
+
+The landing page now responds as a visitor moves through it instead of presenting every section as a static stack. A small `ScrollReveal` component observes each below-fold content group and runs one restrained entrance when that group reaches the viewport. The server-rendered HTML stays fully visible, and content is concealed only after React has hydrated, so slow or failed JavaScript cannot leave the page blank. Visitors who request reduced motion receive a short opacity change without translation or blur.
+
+The header now separates identity into three stable tracks: the compact signal mark sits on the left, the Sentinel wordmark is mathematically centered in the same Geist display face used by the landing page, and sign-in/pilot actions sit on the right. The feature rail gained enough internal top space for its 4px hover lift, preventing the card border from being clipped. The native feature dialog now uses explicit fixed inset geometry and automatic margins, so its center matches the viewport center across desktop and mobile while retaining native focus containment, Escape behavior, backdrop, and focus restoration.
+
+Motion for React was retained because it already powers the page and provides `useInView` and reduced-motion awareness without another dependency. The reveal uses `useSyncExternalStore` for a hydration-safe browser-ready signal. Native `dialog` remains preferable to a custom overlay because the browser supplies modal semantics and focus behavior; CSS now controls only placement and appearance. The unused local Cloudflare worker inspector was disabled so preview verification needs only the loopback website listener and does not expose a broad debugging surface.
+
+The tradeoff is that entrance motion depends on JavaScript after the initial visible render; this is intentional progressive enhancement rather than required navigation behavior. Reveals are grouped by meaningful page regions rather than attached to every small element, which avoids visual noise but means not every card animates independently. Sample content, marketing claims, waitlist data, APIs, and the standalone deployment boundary did not change.
+
+### Verification evidence
+
+```text
+npm run lint
+> oxlint
+exit 0
+
+npm run typecheck -- --pretty false
+> tsc --noEmit --pretty false
+exit 0
+
+npm run build
+Route (app): / and /privacy
+Build complete.
+exit 0
+
+npm run test:e2e
+Running 10 tests using 5 workers
+10 passed (18.9s)
+exit 0
+```
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | What changed, risk, and owner action |
+|---|---|---|
+| Highest — understand now | `marketing/components/scroll-reveal.tsx` (`ScrollReveal`) | This controls progressive concealment, intersection timing, reduced motion, and the no-JavaScript fallback. Review the hydrated/in-view state transition now. |
+| Highest — understand now | `marketing/components/feature-gallery.tsx` (`FeatureGallery`) and `marketing/app/globals.css` (`.feature-rail`, `.feature-dialog`) | These control hover geometry and modal placement while relying on native dialog focus behavior. Review why the rail needs internal top space and why fixed inset centering does not replace `showModal()`. |
+| Medium — understand next | `marketing/app/page.tsx` (`Home`, header, `ScrollReveal` groups) | This chooses which narrative regions move and in which direction. Check that the hero remains immediately visible and that reveals are grouped rather than applied to every child. |
+| Medium — understand next | `marketing/tests/landing.spec.ts` | These measure wordmark and modal centers, hover-border visibility, focus restoration, and the concealed-to-visible scroll transition on desktop and mobile. Re-run after motion or header changes. |
+| Medium — understand next | `marketing/vite.config.ts` (`inspectorPort`) | This disables an unused development inspector. The website preview remains available on its loopback port; revisit only if worker debugging becomes necessary. |
+| Lower — skim or defer | `marketing-design.md` and `decisions-log.md` | These record the approved motion, header, rail, and dialog rules; they add no runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why must below-fold content remain visible in the server-rendered HTML before the scroll-reveal enhancement runs?
+2. Which two conditions make `ScrollReveal` temporarily conceal a group, and what makes it reveal only once?
+3. How does reduced-motion mode change the reveal's translation, blur, and timing?
+4. Why is the hero deliberately excluded from the scroll-reveal system?
+5. How do three equal header grid tracks keep the Sentinel wordmark centered even when the left and right contents have different widths?
+6. Why is the logo word hidden in the left header slot while an accessible name still remains available?
+7. What caused the feature card's upper border to disappear on hover, and how does top padding inside the scrolling rail fix it?
+8. Why does the feature dialog still call `showModal()` even though CSS now explicitly centers it?
+9. Which browser-test measurements prove the header name and feature dialog are centered rather than merely looking centered in one screenshot?
+10. Why was the Cloudflare worker inspector disabled, and what would need to be reconsidered before enabling it again?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews both highest-priority areas before this polish pass is considered fully understood.
+- Re-run the geometry and reduced-motion browser checks after any future header, card-lift, dialog, or reveal-timing adjustment.
+
+**Learning status:** Implementation, one-file pushes, decision record, lint, strict TypeScript, and ten desktop/mobile browser checks are complete. Owner answers remain open, so the learning gate is not complete.
