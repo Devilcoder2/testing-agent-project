@@ -3479,6 +3479,12 @@ docker compose exec -T sentinel npx playwright test tests/product-creation.spec.
 Running 1 test using 1 worker
 [1/1] tests/product-creation.spec.ts:101:5 › requires explicit confirmation and reports background Product deletion
   1 passed (11.2s)
+
+docker compose exec -T sentinel npx playwright test tests/phase-13-github.spec.ts tests/product-creation.spec.ts --grep "optional GitHub controls|explicit confirmation" --reporter=line
+Running 2 tests using 1 worker
+[1/2] tests/phase-13-github.spec.ts:5:5 › keeps optional GitHub controls safe when no repository integration is configured
+[2/2] tests/product-creation.spec.ts:101:5 › requires explicit confirmation and reports background Product deletion
+  2 passed (14.6s)
 ```
 
 | Priority | Files and symbols | Why and owner action |
