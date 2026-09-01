@@ -3291,3 +3291,76 @@ Impeccable detector
 - Re-run the same geometry checks if the viewport gate, page maximum, feature-card width, or walkthrough grid changes.
 
 **Learning status:** The correction, one-file pushes, decision record, lint, strict TypeScript, production build, browser checks, and detector pass are complete. Owner answers remain open, so the learning gate is not complete.
+
+## 2026-09-01 — Phase 26: full-width feature-rail gutter correction
+
+### What changed and why
+
+The feature gallery now separates the scrolling viewport from the card track. The outer `.feature-rail` spans the complete viewport and owns horizontal scrolling. A new `.feature-track` is only as wide as its cards, uses flex layout, and carries equal leading and trailing padding calculated from the same inset as the section heading. This produces three distinct states: the first card begins on the content line before scrolling, intermediate cards can travel to the viewport edge, and the last card stops with a right gutter equal to the opening left gutter.
+
+Mandatory CSS scroll snapping was removed because the browser treated the padded track's first snap position as already offset and consumed the visible leading gutter on load. Excluding the first card from snapping made the browser choose the second card instead. Free native momentum scrolling matches the required edge travel, while the existing previous/next buttons still provide smooth controlled movement and keyboard access.
+
+The browser regression now measures geometry rather than relying on a screenshot. It compares the first card with the heading, moves the second card to the rail's left edge, scrolls to the maximum position, and compares the final right gutter with the heading inset. The same assertions run at desktop and mobile widths. No feature content, modal behavior, card ordering, API, waitlist, or standalone-deployment boundary changed.
+
+### Verification evidence
+
+```text
+npm run lint
+> oxlint
+exit 0
+
+npm run typecheck -- --pretty false
+> tsc --noEmit --pretty false
+exit 0
+
+npm run build
+Route (app): / and /privacy
+Build complete.
+exit 0
+
+npx playwright test -g "explores features"
+Running 2 tests using 2 workers
+2 passed (5.9s)
+exit 0
+
+npm run test:e2e
+Running 10 tests using 5 workers
+10 passed (12.3s)
+exit 0
+
+Impeccable detector
+[]
+```
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | What changed, risk, and owner action |
+|---|---|---|
+| Highest — understand now | `marketing/components/feature-gallery.tsx` (`FeatureGallery`, `.feature-track` wrapper) | The new inner wrapper creates the necessary separation between scroll viewport and content geometry. Review that the rail still owns its ref, scroll listener, and accessible controls while the track owns only layout. |
+| Highest — understand now | `marketing/app/globals.css` (`.feature-rail`, `.feature-track`, `.feature-card`) | The rail is full width; the max-content flex track owns equal inset padding; cards use fixed responsive flex bases; mandatory snap is removed. Read now because these rules define every initial, intermediate, and terminal position. |
+| Medium — understand next | `marketing/tests/landing.spec.ts` (feature-gallery journey) | The test measures the opening gutter, edge travel, and final gutter in both configured viewports. Re-run it after changing page inset, card width, gap, or scroll behavior. |
+| Lower — skim or defer | `marketing-design.md` and `decisions-log.md` | These synchronize the free-scrolling geometry and rejected snapping behavior; they add no runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why must the scrolling viewport and the card-sizing track be separate elements for this geometry?
+2. Which element owns horizontal overflow, and which element owns the leading and trailing gutters?
+3. How does `width: max-content` on the inner track help the last card preserve its trailing gutter?
+4. Why is `min-width: 100%` still useful when the total card content is narrower than the viewport?
+5. How is the shared rail inset calculated on narrow screens versus viewports wider than the page maximum?
+6. Why did placing the left margin on the scrolling rail cause cards to remain clipped while scrolling?
+7. Why did mandatory scroll snapping consume the first gutter or advance to the second card?
+8. What interaction behavior remains after snapping is removed for touch, pointer, keyboard, and previous/next-button users?
+9. Which three geometric assertions prove the requested behavior on desktop and mobile?
+10. If card widths, gaps, or the page maximum change later, which CSS rules, tests, and documentation should be reviewed together?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews both highest-priority files before this correction is considered fully understood.
+- Re-run the focused rail journey after any change to the shared inset, feature card basis, track gap, or scrolling controls.
+
+**Learning status:** Implementation, one-file pushes, decision record, lint, strict TypeScript, production build, focused desktop/mobile geometry checks, complete browser coverage, and detector review are complete. Owner answers remain open, so the Phase 26 learning gate remains incomplete.
