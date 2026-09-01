@@ -72,21 +72,21 @@ export function FeatureGallery() {
             aria-label={`Learn more about ${feature.title}`}
           >
             <span className="feature-number">{feature.number}</span>
-            <span className="feature-glyph" aria-hidden="true"><i /><i /><i /></span>
+            <span className={`feature-glyph feature-glyph-${index + 1}`} aria-hidden="true"><i /><i /><i /><b /></span>
             <span className="feature-card-copy"><strong>{feature.title}</strong><span>{feature.short}</span></span>
             <span className="feature-open" aria-hidden="true">+</span>
           </m.button>
         ))}
       </div>
 
-      <dialog className="feature-dialog" ref={dialogRef} onClose={() => setSelected(null)}>
+      <dialog className="feature-dialog" ref={dialogRef} onClose={() => setSelected(null)} aria-labelledby="feature-dialog-title" aria-describedby="feature-dialog-description">
         <AnimatePresence mode="wait">
           {selected ? (
             <m.div key={selected.title} className="feature-dialog-panel" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               <button className="feature-dialog-close" type="button" onClick={close} aria-label="Close feature detail">×</button>
               <span className="feature-number">{selected.number}</span>
-              <h3>{selected.title}</h3>
-              <p>{selected.detail}</p>
+              <h3 id="feature-dialog-title">{selected.title}</h3>
+              <p id="feature-dialog-description">{selected.detail}</p>
               <ul>{selected.points.map((point) => <li key={point}><span aria-hidden="true">✓</span>{point}</li>)}</ul>
               <a className="button button-primary" href="#pilot" onClick={close}>Join the pilot</a>
             </m.div>
