@@ -3223,3 +3223,71 @@ exit 0
 - Re-run the geometry and reduced-motion browser checks after any future header, card-lift, dialog, or reveal-timing adjustment.
 
 **Learning status:** Implementation, one-file pushes, decision record, lint, strict TypeScript, and ten desktop/mobile browser checks are complete. Owner answers remain open, so the learning gate is not complete.
+
+## 2026-09-01 — Phase 26: attention-zone reveal and media alignment correction
+
+### What changed and why
+
+Scroll reveals now wait until content crosses into the part of the viewport where a visitor is likely to be looking. Motion's intersection observer ignores the bottom 20% of the viewport and requires 8% of the observed group inside the remaining area. This replaces the earlier full-viewport threshold that could finish a reveal while the content was still below the visitor's reading position. The reveal remains one-time, hydration-safe, visible without JavaScript, and non-spatial for reduced-motion visitors.
+
+The walkthrough appeared smaller because `ScrollReveal` became the grid item and the nested native button retained intrinsic width instead of filling that item. Both the wrapper and poster now use the full track width, restoring the intended 16:9 media stage. The capability rail now owns a computed left inset equal to the larger of the responsive page gutter or centered maximum-canvas margin; its width ends at the right viewport edge. This aligns the first card with the heading without losing horizontal discovery space.
+
+No library, route, copy, media contract, sample data, form behavior, or API changed. The main tradeoff is a more deliberate reveal trigger: very fast scrolling can still move past an animation, but content never remains hidden because the observer runs once and the server HTML is visible by default.
+
+### Verification evidence
+
+```text
+npm run lint
+> oxlint
+exit 0
+
+npm run typecheck -- --pretty false
+> tsc --noEmit --pretty false
+exit 0
+
+npm run build
+Route (app): / and /privacy
+Build complete.
+exit 0
+
+npm run test:e2e
+Running 10 tests using 5 workers
+10 passed (13.6s)
+exit 0
+
+Impeccable detector
+[]
+```
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | What changed, risk, and owner action |
+|---|---|---|
+| Highest — understand now | `marketing/components/scroll-reveal.tsx` (`useInView`) | The `margin` and `amount` values determine exactly when content moves. Review how the negative bottom margin defines the attention zone and why the server-visible default remains important. |
+| Highest — understand now | `marketing/app/globals.css` (`.walkthrough-section`, `.walkthrough-poster`, `.feature-gallery`, `.feature-rail`) | These rules restore the media width and establish the rail's shared-canvas start. Review why moving the rail box works while padding the scrolling grid did not. |
+| Medium — understand next | `marketing/tests/landing.spec.ts` | The test positions content above and below the reveal gate, measures poster/wrapper width equality, and compares the heading/card x-coordinates on desktop and mobile. |
+| Lower — skim or defer | `marketing-design.md` and `decisions-log.md` | These record the intended attention-zone and alignment contracts without runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why did the previous full-viewport observer allow an animation to finish before the visitor reached the content?
+2. What does a bottom root margin of `-20%` remove from the observer's effective viewport?
+3. Why is the visible amount set to 8% instead of a much larger percentage for tall sections?
+4. What keeps content visible if JavaScript loads slowly or fails entirely?
+5. How does reduced-motion mode change the reveal while preserving the state transition?
+6. Why did wrapping the walkthrough poster in `ScrollReveal` make the native button appear smaller?
+7. Which two width rules restore the walkthrough poster to the complete media track?
+8. Why did padding on the horizontal grid fail to reliably align the first feature card?
+9. How does `max(page gutter, centered-canvas margin)` behave differently on narrow and very wide viewports?
+10. Which test measurements prove the reveal timing, walkthrough width, and feature alignment rather than relying only on visual judgment?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews both highest-priority files before this correction is considered fully understood.
+- Re-run the same geometry checks if the viewport gate, page maximum, feature-card width, or walkthrough grid changes.
+
+**Learning status:** The correction, one-file pushes, decision record, lint, strict TypeScript, production build, browser checks, and detector pass are complete. Owner answers remain open, so the learning gate is not complete.
