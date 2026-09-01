@@ -495,6 +495,10 @@ img {
   gap: clamp(3rem, 7vw, 7rem);
 }
 
+.walkthrough-section > .scroll-reveal {
+  width: 100%;
+}
+
 .walkthrough-copy h2,
 .pilot-copy h2,
 .faq-section h2 {
@@ -535,7 +539,9 @@ img {
 
 .walkthrough-poster {
   position: relative;
+  width: 100%;
   min-width: 0;
+  display: block;
   overflow: hidden;
   border: 0;
   border-radius: var(--radius-media);
@@ -1797,7 +1803,7 @@ img {
   overscroll-behavior-inline: contain;
   scroll-snap-type: inline mandatory;
   scrollbar-width: none;
-  padding: 0.6rem var(--page-gutter) 2rem;
+  padding: 0.6rem max(var(--page-gutter), calc((100% - var(--page-max)) / 2)) 2rem;
 }
 
 .feature-rail::-webkit-scrollbar {
