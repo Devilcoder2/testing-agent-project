@@ -85,12 +85,8 @@ img {
 }
 
 .site-header {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
   border-bottom: 1px solid color-mix(in oklch, var(--color-rule) 70%, transparent);
-  background: color-mix(in oklch, var(--color-canvas) 94%, transparent);
-  backdrop-filter: blur(16px);
+  background: var(--color-canvas);
 }
 
 .header-inner {
@@ -615,6 +611,13 @@ img {
   color: var(--color-ink);
   font-size: var(--text-sm);
   font-weight: 600;
+}
+
+.waitlist-form label small {
+  margin-left: var(--space-1);
+  color: var(--color-ink-muted);
+  font-size: inherit;
+  font-weight: 400;
 }
 
 .waitlist-form input,
