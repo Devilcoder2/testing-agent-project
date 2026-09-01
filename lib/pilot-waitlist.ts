@@ -14,12 +14,18 @@ const TURNSTILE_TEST_SECRETS = new Set([
 ]);
 
 const teamSizeValues = ["1", "2-5", "6-15", "16+"] as const;
+type PilotTeamSize = typeof teamSizeValues[number];
+
+const optionalText = (schema: z.ZodString) => z.preprocess(
+  (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+  schema.optional()
+);
 
 export const pilotWaitlistInputSchema = z.object({
   name: z.string().trim().min(2).max(80),
   email: z.string().trim().toLowerCase().email().max(254),
-  company: z.string().trim().min(2).max(120),
-  qaTeamSize: z.enum(teamSizeValues),
+  company: optionalText(z.string().trim().min(2).max(120)),
+  qaTeamSize: z.preprocess((value) => value === "" ? undefined : value, z.enum(teamSizeValues).optional()),
   turnstileToken: z.string().min(1).max(2048),
   companyWebsite: z.string().max(200).default("")
 }).strict();
@@ -28,14 +34,14 @@ export const pilotWaitlistStatusSchema = z.nativeEnum(PilotWaitlistLeadStatus);
 
 export type PilotWaitlistInput = z.infer<typeof pilotWaitlistInputSchema>;
 
-const teamSizeToDatabase: Record<PilotWaitlistInput["qaTeamSize"], PilotQaTeamSize> = {
+const teamSizeToDatabase: Record<PilotTeamSize, PilotQaTeamSize> = {
   "1": PilotQaTeamSize.SOLO,
   "2-5": PilotQaTeamSize.TWO_TO_FIVE,
   "6-15": PilotQaTeamSize.SIX_TO_FIFTEEN,
   "16+": PilotQaTeamSize.SIXTEEN_PLUS
 };
 
-const teamSizeToPublic: Record<PilotQaTeamSize, PilotWaitlistInput["qaTeamSize"]> = {
+const teamSizeToPublic: Record<PilotQaTeamSize, PilotTeamSize> = {
   [PilotQaTeamSize.SOLO]: "1",
   [PilotQaTeamSize.TWO_TO_FIVE]: "2-5",
   [PilotQaTeamSize.SIX_TO_FIFTEEN]: "6-15",
@@ -157,13 +163,13 @@ export async function acceptPilotWaitlistLead(input: PilotWaitlistInput) {
       organizationId,
       email: input.email,
       name: input.name,
-      company: input.company,
-      qaTeamSize: teamSizeToDatabase[input.qaTeamSize]
+      company: input.company ?? null,
+      qaTeamSize: input.qaTeamSize ? teamSizeToDatabase[input.qaTeamSize] : null
     },
     update: {
       name: input.name,
-      company: input.company,
-      qaTeamSize: teamSizeToDatabase[input.qaTeamSize]
+      company: input.company ?? null,
+      qaTeamSize: input.qaTeamSize ? teamSizeToDatabase[input.qaTeamSize] : null
     }
   });
 }
@@ -172,13 +178,13 @@ export function publicPilotLead(lead: {
   id: string;
   email: string;
   name: string;
-  company: string;
-  qaTeamSize: PilotQaTeamSize;
+  company: string | null;
+  qaTeamSize: PilotQaTeamSize | null;
   status: PilotWaitlistLeadStatus;
   createdAt: Date;
   updatedAt: Date;
 }) {
-  return { ...lead, qaTeamSize: teamSizeToPublic[lead.qaTeamSize] };
+  return { ...lead, qaTeamSize: lead.qaTeamSize ? teamSizeToPublic[lead.qaTeamSize] : null };
 }
 
 export async function listPilotWaitlistLeads(organizationId: string, status?: PilotWaitlistLeadStatus) {
