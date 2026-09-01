@@ -91,7 +91,7 @@ export function PageHeader({ eyebrow, title, detail, actions }: { eyebrow?: stri
   return <header className="page-header"><div className="page-header__copy"><p className="eyebrow">{eyebrow ?? "Sentinel"}</p><h1>{title}</h1>{detail && <p className="page-header__detail">{detail}</p>}</div>{actions && <div className="page-header__actions">{actions}</div>}<span className="page-header__rule" aria-hidden="true" /></header>;
 }
 
-export function Dialog({ title, eyebrow, detail, children, actions, onClose, className }: { title: string; eyebrow?: string; detail?: string; children?: ReactNode; actions?: ReactNode; onClose: () => void; className?: string }) {
+export function Dialog({ title, eyebrow, detail, children, actions, onClose, className, closeOnBackdrop = false }: { title: string; eyebrow?: string; detail?: string; children?: ReactNode; actions?: ReactNode; onClose: () => void; className?: string; closeOnBackdrop?: boolean }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLElement>(null);
   const onCloseRef = useRef(onClose);
@@ -113,7 +113,7 @@ export function Dialog({ title, eyebrow, detail, children, actions, onClose, cla
     document.addEventListener("keydown", onKeyDown);
     return () => { document.removeEventListener("keydown", onKeyDown); previous?.focus(); };
   }, []);
-  return <div className="modal-backdrop" role="presentation"><section ref={dialogRef} className={classes("modal", className)} role="dialog" aria-modal="true" aria-labelledby={titleId}><div className="modal__header"><div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{detail && <p>{detail}</p>}</div><IconButton label="Close dialog" type="button" onClick={onClose}><Icon name="close" /></IconButton></div>{children}{actions && <div className="modal__actions">{actions}</div>}</section></div>;
+  return <div className="modal-backdrop" role="presentation" onPointerDown={(event) => { if (closeOnBackdrop && event.target === event.currentTarget) onClose(); }}><section ref={dialogRef} className={classes("modal", className)} role="dialog" aria-modal="true" aria-labelledby={titleId}><div className="modal__header"><div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h2 id={titleId}>{title}</h2>{detail && <p>{detail}</p>}</div><IconButton label="Close dialog" type="button" onClick={onClose}><Icon name="close" /></IconButton></div>{children}{actions && <div className="modal__actions">{actions}</div>}</section></div>;
 }
 
 export function Pagination({ page, totalItems, pageSize = 25, onPageChange, label = "results" }: { page: number; totalItems: number; pageSize?: number; onPageChange: (page: number) => void; label?: string }) {
