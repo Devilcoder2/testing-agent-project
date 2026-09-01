@@ -1849,6 +1849,114 @@ img {
   transform: rotate(-60deg);
 }
 
+.feature-glyph b {
+  grid-area: 1 / 1;
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid var(--color-ink);
+  border-radius: 50%;
+  background: inherit;
+}
+
+.feature-glyph-1 {
+  border-radius: 1.5rem;
+}
+
+.feature-glyph-1 i:nth-child(1),
+.feature-glyph-1 i:nth-child(2),
+.feature-glyph-1 i:nth-child(3) {
+  width: 60%;
+  transform: none;
+}
+
+.feature-glyph-1 i:nth-child(2) {
+  transform: translateY(-2rem);
+}
+
+.feature-glyph-1 i:nth-child(3) {
+  transform: translateY(2rem);
+}
+
+.feature-glyph-2 i:nth-child(1) {
+  width: 65%;
+  border-top: 1px dashed var(--color-ink);
+  background: transparent;
+}
+
+.feature-glyph-2 i:nth-child(2) {
+  width: 34%;
+  transform: translateX(-1.55rem) rotate(60deg);
+}
+
+.feature-glyph-2 i:nth-child(3) {
+  width: 34%;
+  transform: translateX(1.55rem) rotate(-60deg);
+}
+
+.feature-glyph-3 i:nth-child(1) {
+  width: 58%;
+  transform: rotate(-28deg);
+}
+
+.feature-glyph-3 i:nth-child(2) {
+  width: 34%;
+  transform: translate(1.5rem, 1.2rem) rotate(28deg);
+}
+
+.feature-glyph-3 i:nth-child(3) {
+  width: 28%;
+  transform: translate(1.8rem, -1.2rem) rotate(-52deg);
+}
+
+.feature-glyph-4 {
+  border-radius: 1.5rem;
+}
+
+.feature-glyph-4 i:nth-child(1),
+.feature-glyph-4 i:nth-child(2),
+.feature-glyph-4 i:nth-child(3) {
+  width: 62%;
+  height: 0.6rem;
+  border-radius: 0.15rem;
+  transform: none;
+}
+
+.feature-glyph-4 i:nth-child(1) { transform: translateY(-2rem); }
+.feature-glyph-4 i:nth-child(3) { transform: translateY(2rem); }
+
+.feature-glyph-5 {
+  border-radius: 1.5rem;
+}
+
+.feature-glyph-5 i {
+  display: none;
+}
+
+.feature-glyph-5 b {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.3rem;
+  box-shadow: 2.7rem 0 0 -2px var(--color-canvas-soft), 0 2.7rem 0 -2px var(--color-canvas-soft), 2.7rem 2.7rem 0 -2px var(--color-canvas-soft);
+  transform: translate(-1.35rem, -1.35rem);
+}
+
+.feature-glyph-6 {
+  border-width: 0.7rem;
+  border-color: var(--color-rule);
+  border-top-color: var(--color-cobalt);
+  transform: rotate(35deg);
+}
+
+.feature-glyph-6 i,
+.feature-glyph-6 b {
+  transform: rotate(-35deg);
+}
+
+.feature-glyph-7 i:nth-child(1) { width: 62%; }
+.feature-glyph-7 i:nth-child(2) { width: 45%; transform: translate(-1.2rem, -1.3rem) rotate(-42deg); }
+.feature-glyph-7 i:nth-child(3) { width: 45%; transform: translate(1.2rem, 1.3rem) rotate(-42deg); }
+.feature-glyph-7 b { box-shadow: -3.1rem -2.25rem 0 -2px var(--color-canvas-soft), 3.1rem 2.25rem 0 -2px var(--color-canvas-soft); }
+
 .feature-card-copy {
   display: grid;
   gap: 0.65rem;
@@ -2022,44 +2130,72 @@ img {
 
 @media (max-width: 48rem) {
   .demo-shell {
-    height: 38rem;
+    height: auto;
     min-height: 0;
-    grid-template-columns: 4.25rem minmax(36rem, 1fr);
-    overflow-x: auto;
+    display: block;
+    overflow: hidden;
   }
 
   .demo-sidebar {
-    position: sticky;
-    left: 0;
-    z-index: 2;
-    align-items: center;
-    padding-inline: 0.55rem;
+    display: block;
+    padding: 0.75rem;
   }
 
-  .demo-brand .sentinel-logo-word,
+  .demo-brand {
+    min-height: 0;
+  }
+
   .demo-brand > span:last-child,
-  .demo-sidebar nav button > span,
-  .demo-account span:last-child {
+  .demo-account {
     display: none;
   }
 
+  .demo-sidebar nav {
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    margin-top: 0.75rem;
+    padding-bottom: 0.2rem;
+  }
+
   .demo-sidebar nav button {
-    grid-template-columns: 1.2rem;
-    justify-content: center;
-    padding-inline: 0.65rem;
+    grid-template-columns: 1.1rem auto auto;
+    padding-inline: 0.8rem;
   }
 
   .demo-sidebar nav b {
-    position: absolute;
-    transform: translate(0.7rem, -0.65rem);
+    position: static;
+    transform: none;
   }
 
-  .demo-account {
-    padding-inline: 0;
+  .demo-topbar {
+    min-height: 3.75rem;
+    padding-inline: 1rem;
   }
 
   .demo-view {
-    padding: 1.6rem;
+    padding: 1.4rem 1rem 1.75rem;
+  }
+
+  .demo-stat-grid,
+  .demo-two-column,
+  .run-layout,
+  .demo-product-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .demo-stat-grid article {
+    min-height: 5.8rem;
+  }
+
+  .demo-product-card dl {
+    border-top: 1px solid var(--color-rule);
+    padding-top: 1rem;
+  }
+
+  .demo-product-card dl > div:first-child {
+    border-left: 0;
   }
 
   .feature-heading {
