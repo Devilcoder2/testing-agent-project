@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { apiRequest } from "@/lib/client-api";
 import { ThemeControl } from "./theme-control";
 import { Button, Card, Dialog, EmptyState, Feedback, Field, Icon, IconButton, Pagination, PageHeader, SelectInput, SentinelMark, Skeleton, StatusBadge, TextArea, TextInput } from "./ui";
@@ -197,6 +198,7 @@ export function ProductsView() {
   const [isCreateProductOpen, setIsCreateProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletions, setDeletions] = useState<ProductDeletionRequest[]>([]);
+  const [completedDeletion, setCompletedDeletion] = useState<ProductDeletionRequest | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [deleteImpact, setDeleteImpact] = useState<ProductDeletionImpact | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
@@ -206,9 +208,10 @@ export function ProductsView() {
   async function refreshDeletions(reloadCompleted = false) {
     try {
       const next = await request("product-deletions") as ProductDeletionRequest[];
-      const completedWhileOpen = reloadCompleted && deletions.some((previous) => (previous.status === "QUEUED" || previous.status === "PROCESSING") && next.some((current) => current.id === previous.id && current.status === "COMPLETED"));
-      setDeletions(next);
-      if (completedWhileOpen) await load();
+      const completed = reloadCompleted ? next.find((current) => current.status === "COMPLETED" && deletions.some((previous) => previous.id === current.id && (previous.status === "QUEUED" || previous.status === "PROCESSING"))) : undefined;
+      setDeletions(next.filter((deletion) => deletion.status !== "COMPLETED"));
+      if (completed) setCompletedDeletion(completed);
+      if (completed) await load();
     } catch {
       // This endpoint is intentionally Admin-only. Other roles simply have no deletion status UI.
     }
@@ -220,6 +223,11 @@ export function ProductsView() {
     const timer = window.setTimeout(() => void refreshDeletions(true), 1500);
     return () => window.clearTimeout(timer);
   }, [deletions]);
+  useEffect(() => {
+    if (!completedDeletion) return;
+    const timer = window.setTimeout(() => setCompletedDeletion(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [completedDeletion]);
 
   function openProductModal(product?: Product) {
     setEditingProduct(product ?? null);
@@ -287,7 +295,8 @@ export function ProductsView() {
   return <div className="dashboard-grid">
     <PageHeader eyebrow="Product configuration" title="Products" detail="Create and manage the Product contexts available for guided Test Case recording." actions={<Button className="product-create-action" type="button" onClick={() => openProductModal()}>New product <span aria-hidden="true">+</span></Button>} />
     {error && <Feedback tone="danger">{error}</Feedback>}{productMessage && !isCreateProductOpen && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}
-    {latestDeletion && <Feedback tone={latestDeletion.status === "FAILED" ? "danger" : latestDeletion.status === "COMPLETED" ? "success" : "info"}>{latestDeletion.status === "QUEUED" ? `Deleting “${latestDeletion.productName}” has been queued. You can continue working or leave this page.` : latestDeletion.status === "PROCESSING" ? `Deleting “${latestDeletion.productName}” is in progress. This page will update automatically.` : latestDeletion.status === "COMPLETED" ? `“${latestDeletion.productName}” and its related data were deleted. Releases were preserved.` : `“${latestDeletion.productName}” could not be deleted safely. No partial database deletion was committed; use Delete to retry.`}</Feedback>}
+    {completedDeletion && <Feedback tone="success">“${completedDeletion.productName}” and its related data were deleted. Releases were preserved.</Feedback>}
+    {latestDeletion && <Feedback tone={latestDeletion.status === "FAILED" ? "danger" : "info"}>{latestDeletion.status === "QUEUED" ? `Deleting “${latestDeletion.productName}” has been queued. You can continue working or leave this page.` : latestDeletion.status === "PROCESSING" ? `Deleting “${latestDeletion.productName}” is in progress. This page will update automatically.` : `“${latestDeletion.productName}” could not be deleted safely. No partial database deletion was committed; use Delete to retry.`}</Feedback>}
     <section className="products-layout products-layout--single"><Card className="panel-card"><div className="panel-card__head"><div><p className="eyebrow">Accessible Products</p><h2>Your Product contexts</h2><p>Products are private to their members and persist between sessions.</p></div><StatusBadge tone="info">{products.length} total</StatusBadge></div>{loading ? <StatusBadge tone="info">Loading Products</StatusBadge> : products.length === 0 ? <EmptyState title="No Products yet" detail="Create your first Product to start a guided recording." /> : <div className="product-list">{products.map((product) => { const testCount = testCases.filter((testCase) => testCase.product.id === product.id).length; const deletion = deletions.find((item) => item.productId === product.id) ?? product.deletionRequest; const deleting = deletion?.status === "QUEUED" || deletion?.status === "PROCESSING"; return <article className={`product-list__item ${deleting ? "product-list__item--deleting" : ""}`} key={product.id}><div><h3>{product.name}</h3><p>{testCount} saved Test Case{testCount === 1 ? "" : "s"}</p>{deleting && <StatusBadge tone="warning">{deletion.status === "QUEUED" ? "Deletion queued" : "Deleting"}</StatusBadge>}</div><ProductActions product={product} disabled={deleting} onEdit={() => openProductModal(product)} onDelete={() => void openDeleteDialog(product)} /></article>; })}</div>}</Card></section>
     {isCreateProductOpen && <div className="modal-backdrop" role="presentation"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title"><div className="modal__header"><div><p className="eyebrow">{isEditing ? "Product settings" : "New Product"}</p><h2 id="product-modal-title">{isEditing ? "Edit Product" : "Create new Product"}</h2><p>{isEditing ? "Update the Product name used to organize your Test Cases." : "A Product needs a name and is immediately available for your next recording."}</p></div><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Close</Button></div><form className="form-stack" onSubmit={saveProduct}><Field label="Product name"><TextInput value={newProductName} onChange={(event) => setNewProductName(event.target.value)} placeholder="e.g. Billing Portal" autoFocus required /></Field>{productMessage && <Feedback tone={toneForMessage(productMessage)}>{productMessage}</Feedback>}<div className="modal__actions"><Button type="button" variant="ghost" onClick={() => setIsCreateProductOpen(false)}>Cancel</Button><Button type="submit">{isEditing ? "Save changes" : "Create Product"} <span aria-hidden="true">{isEditing ? "→" : "+"}</span></Button></div></form></section></div>}
     {deletingProduct && <Dialog className="product-delete-dialog" eyebrow="Permanent deletion" title={`Delete “${deletingProduct.name}”?`} detail="This runs safely in the background. You can keep using Sentinel and the status will update here." onClose={() => { if (!deleteWorking) setDeletingProduct(null); }} actions={<><Button type="button" variant="ghost" onClick={() => setDeletingProduct(null)} disabled={deleteWorking}>Cancel</Button><Button type="button" variant="danger" onClick={() => void confirmProductDeletion()} disabled={!deleteImpact || deleteConfirmation !== "DELETE" || deleteWorking}>{deleteWorking ? "Queueing…" : "Delete Product"}</Button></>}>
@@ -307,6 +316,7 @@ function ProductActions({ product, disabled, onEdit, onDelete }: { product: Prod
 
 function ProductActionMenu({ product }: { product: Product }) {
   const [open, setOpen] = useState(false);
+  const [isGitHubOpen, setIsGitHubOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -327,11 +337,10 @@ function ProductActionMenu({ product }: { product: Product }) {
       document.removeEventListener("keydown", closeWithKeyboard);
     };
   }, [open]);
-  return <div ref={menuRef} className="product-action-menu"><IconButton type="button" label={`More actions for ${product.name}`} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((current) => !current)}><Icon name="more" /></IconButton>{open && <div className="product-action-menu__panel" role="menu"><Link role="menuitem" href={`/test-cases?productId=${product.id}`} onClick={() => setOpen(false)}>View Test Cases</Link><GitHubProjectSettings product={product} /><JiraProjectSettings product={product} />{product.createdById && <OwnershipTransfer label="Product" currentOwnerId={product.createdById} membersPath={`products/${product.id}/members`} transferPath={`products/${product.id}/owner`} onTransferred={() => window.location.reload()} onOpen={() => setOpen(false)} triggerRole="menuitem" />}</div>}</div>;
+  return <div ref={menuRef} className="product-action-menu"><IconButton type="button" label={`More actions for ${product.name}`} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((current) => !current)}><Icon name="more" /></IconButton>{open && <div className="product-action-menu__panel" role="menu"><Link role="menuitem" href={`/test-cases?productId=${product.id}`} onClick={() => setOpen(false)}>View Test Cases</Link><Button role="menuitem" type="button" variant="secondary" onClick={() => { setOpen(false); setIsGitHubOpen(true); }}>GitHub</Button><JiraProjectSettings product={product} />{product.createdById && <OwnershipTransfer label="Product" currentOwnerId={product.createdById} membersPath={`products/${product.id}/members`} transferPath={`products/${product.id}/owner`} onTransferred={() => window.location.reload()} onOpen={() => setOpen(false)} triggerRole="menuitem" />}</div>}{isGitHubOpen && <GitHubProjectSettings product={product} onClose={() => setIsGitHubOpen(false)} />}</div>;
 }
 
-function GitHubProjectSettings({ product }: { product: Product }) {
-  const [open, setOpen] = useState(false);
+function GitHubProjectSettings({ product, onClose }: { product: Product; onClose: () => void }) {
   const [settings, setSettings] = useState<GitHubProductSettings | null>(null);
   const [activity, setActivity] = useState<Array<{ id: string; status: string; decisionReason?: string | null; queuedRunCount: number; excludedTests?: Array<{ name: string; reason: string }> | null; delivery: { branch?: string | null; afterSha?: string | null; receivedAt: string }; connection: { label: string; repositoryFullName: string }; runs: Array<{ id: string; status: string; outcome?: string | null; testCaseName: string; sourceAnalysisStatus?: string | null }> }>>([]);
   const [label, setLabel] = useState("");
@@ -355,7 +364,7 @@ function GitHubProjectSettings({ product }: { product: Product }) {
     }
   };
 
-  useEffect(() => { if (open) void load(); }, [open, product.id]);
+  useEffect(() => { void load(); }, [product.id]);
 
   async function connect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -366,7 +375,7 @@ function GitHubProjectSettings({ product }: { product: Product }) {
       setLabel("");
       setRepositoryFullName("");
       setBranches("main");
-      setMessage("GitHub repository connected. Link saved Test Cases to let allowed pushes queue Auto Runs.");
+      setMessage("Repository connected.");
       await load();
     } catch (error) {
       setMessage(errorMessage(error, "Could not connect the GitHub repository."));
@@ -380,7 +389,7 @@ function GitHubProjectSettings({ product }: { product: Product }) {
     setMessage("");
     try {
       await request(`products/${product.id}/github/connections/${connection.id}`, "PATCH", body);
-      setMessage("Repository settings updated.");
+      setMessage("Repository updated.");
       setEditingConnection(null);
       await load();
     } catch (error) {
@@ -415,7 +424,7 @@ function GitHubProjectSettings({ product }: { product: Product }) {
     setMessage("");
     try {
       await request(`products/${product.id}/github/connections/${connection.id}`, "DELETE");
-      setMessage("Repository disconnected. Historical Runs and analyses remain available to authorized members.");
+      setMessage("Repository disconnected.");
       await load();
     } catch (error) {
       setMessage(errorMessage(error, "Could not disconnect the GitHub repository."));
@@ -424,24 +433,7 @@ function GitHubProjectSettings({ product }: { product: Product }) {
     }
   }
 
-  return <>
-    <Button type="button" variant="secondary" onClick={() => setOpen(true)}>GitHub</Button>
-    {open && <div className="modal-backdrop" role="presentation">
-      <section className="modal github-settings-modal" role="dialog" aria-modal="true" aria-labelledby={`github-settings-${product.id}`}>
-        <div className="modal__header"><div><p className="eyebrow">Optional source automation</p><h2 id={`github-settings-${product.id}`}>GitHub repositories</h2><p>Connect frontend, backend, or other repositories separately. GitHub App credentials and source content remain server-side.</p></div><Button type="button" variant="ghost" onClick={() => setOpen(false)}>Close</Button></div>
-        {message && <Feedback tone={message.startsWith("GitHub repository") || message.startsWith("Repository disconnected") || message.startsWith("Repository settings") ? "success" : "danger"}>{message}</Feedback>}
-        {!settings ? <Skeleton lines={4} /> : !settings.available ? <EmptyState title="GitHub App is not configured" detail="Add the server-only GitHub App settings before connecting a disposable sandbox repository." /> : <div className="form-stack">
-          <section className="github-settings__section">
-            <div className="panel-card__head"><div><p className="eyebrow">Connected repositories</p><h3>{settings.connections.length} connection{settings.connections.length === 1 ? "" : "s"}</h3></div><StatusBadge tone="info">Product-scoped</StatusBadge></div>
-            {settings.connections.length === 0 ? <p className="health-empty-copy">No repository is connected yet. Existing Product workflows remain unchanged.</p> : <div className="run-list">{settings.connections.map((connection) => <article className="run-list__item" key={connection.id}><div><div className="run-list__head"><h3>{connection.label}</h3><StatusBadge tone={connection.status === "ACTIVE" ? "success" : connection.status === "PAUSED" ? "warning" : "neutral"}>{connection.status.toLowerCase()}</StatusBadge><StatusBadge tone={connection.analysisEnabled ? "info" : "neutral"}>{connection.analysisEnabled ? "analysis on" : "analysis off"}</StatusBadge></div><p><code>{connection.repositoryFullName}</code> · default {connection.defaultBranch} · allowed {connection.branchAllowlist.join(", ")} · {connection.linkedTestCaseCount ?? 0} linked Test Cases</p></div>{settings.canConfigure && connection.status !== "DISCONNECTED" && <div className="run-step__actions"><Button type="button" variant="secondary" onClick={() => beginEdit(connection)} disabled={working}>Edit</Button><Button type="button" variant="secondary" onClick={() => void changeConnection(connection, { status: connection.status === "ACTIVE" ? "PAUSED" : "ACTIVE" })} disabled={working}>{connection.status === "ACTIVE" ? "Pause" : "Resume"}</Button><Button type="button" variant="danger" onClick={() => void disconnect(connection)} disabled={working}>Disconnect</Button></div>}</article>)}</div>}
-          </section>
-          {editingConnection && <form className="form-stack github-settings__section" onSubmit={saveConnection}><div className="panel-card__head"><div><p className="eyebrow">Edit connection</p><h3>{editingConnection.repositoryFullName}</h3><p>Changes affect future webhook routing only. Existing Run history is unchanged.</p></div><Button type="button" variant="ghost" onClick={() => setEditingConnection(null)}>Close</Button></div><Field label="Connection label"><TextInput value={editingLabel} onChange={(event) => setEditingLabel(event.target.value)} maxLength={64} required /></Field><Field label="Default branch"><TextInput value={editingDefaultBranch} onChange={(event) => setEditingDefaultBranch(event.target.value)} placeholder="main" required /></Field><Field label="Allowed branches" hint="Separate literal branch names with commas. Use * only to allow every branch."><TextInput value={editingBranches} onChange={(event) => setEditingBranches(event.target.value)} placeholder="main, release-2026" required /></Field><label className="github-settings__checkbox"><input type="checkbox" checked={editingAnalysisEnabled} onChange={(event) => setEditingAnalysisEnabled(event.target.checked)} /> Enable automatic failure analysis for GitHub-triggered failed Runs</label><Button type="submit" disabled={working}>{working ? "Saving…" : "Save repository settings"}</Button></form>}
-          {settings.canConfigure && <form className="form-stack github-settings__section" onSubmit={connect}><div><p className="eyebrow">Connect repository</p><h3>Use a GitHub App-installed repository</h3><p>Sentinel verifies the repository through the server-only App. No token belongs in this form.</p></div><Field label="Connection label"><TextInput value={label} onChange={(event) => setLabel(event.target.value)} placeholder="e.g. Frontend" maxLength={64} required /></Field><Field label="Repository"><TextInput value={repositoryFullName} onChange={(event) => setRepositoryFullName(event.target.value)} placeholder="organization/repository" required /></Field><Field label="Allowed branches" hint="Separate literal branch names with commas. Use * only to allow every branch."><TextInput value={branches} onChange={(event) => setBranches(event.target.value)} placeholder="main, release-2026" required /></Field><Button type="submit" disabled={working}>{working ? "Verifying…" : "Connect repository"}</Button></form>}
-          <section className="github-settings__section"><div><p className="eyebrow">GitHub activity</p><h3>Recent delivery decisions</h3><p>Only safe routing metadata is retained; webhook payloads and source code are never displayed.</p></div>{activity.length === 0 ? <p className="health-empty-copy">No signed push deliveries have reached this Product yet.</p> : <div className="run-list">{activity.map((item) => <article className="run-list__item" key={item.id}><div><div className="run-list__head"><h3>{item.connection.label}</h3><StatusBadge tone={item.status === "PROCESSED" ? "success" : item.status === "IGNORED" ? "neutral" : "warning"}>{item.status.toLowerCase()}</StatusBadge></div><p><code>{item.delivery.branch ?? "unknown branch"}</code> · {(item.delivery.afterSha ?? "unknown").slice(0, 12)} · {item.queuedRunCount} queued · {item.excludedTests?.length ?? 0} excluded</p>{item.decisionReason && <p>{item.decisionReason.replaceAll("_", " ").toLowerCase()}</p>}{item.runs.map((run) => <Link key={run.id} href={`/runs/${run.id}`}>{run.testCaseName} · {run.outcome?.toLowerCase() ?? run.status.toLowerCase()}{run.sourceAnalysisStatus ? ` · diagnosis ${run.sourceAnalysisStatus.toLowerCase()}` : ""}</Link>)}</div></article>)}</div>}</section>
-        </div>}
-      </section>
-    </div>}
-  </>;
+  return createPortal(<Dialog className="github-settings-modal" title="GitHub repositories" detail="Connect a repository to run linked tests after approved pushes." onClose={onClose} closeOnBackdrop actions={<Button type="button" variant="secondary" onClick={onClose}>Done</Button>}><div className="github-settings-modal__content">{message && <Feedback tone={message.startsWith("Repository ") ? "success" : "danger"}>{message}</Feedback>}{!settings ? <Skeleton lines={4} /> : !settings.available ? <section className="github-settings__section"><h3>GitHub is not available</h3><p>Ask a workspace administrator to set up the GitHub App.</p></section> : <div className="form-stack"><section className="github-settings__section"><div className="panel-card__head"><h3>Connected repositories</h3><StatusBadge tone="info">{settings.connections.length}</StatusBadge></div>{settings.connections.length === 0 ? <p className="health-empty-copy">No repository is connected.</p> : <div className="run-list">{settings.connections.map((connection) => <article className="run-list__item" key={connection.id}><div><div className="run-list__head"><h3>{connection.label}</h3><StatusBadge tone={connection.status === "ACTIVE" ? "success" : connection.status === "PAUSED" ? "warning" : "neutral"}>{connection.status.toLowerCase()}</StatusBadge></div><p><code>{connection.repositoryFullName}</code> · {connection.defaultBranch} · {connection.branchAllowlist.join(", ")} · {connection.linkedTestCaseCount ?? 0} linked Tests</p></div>{settings.canConfigure && connection.status !== "DISCONNECTED" && <div className="run-step__actions"><Button type="button" variant="secondary" onClick={() => beginEdit(connection)} disabled={working}>Edit</Button><Button type="button" variant="secondary" onClick={() => void changeConnection(connection, { status: connection.status === "ACTIVE" ? "PAUSED" : "ACTIVE" })} disabled={working}>{connection.status === "ACTIVE" ? "Pause" : "Resume"}</Button><Button type="button" variant="danger" onClick={() => void disconnect(connection)} disabled={working}>Disconnect</Button></div>}</article>)}</div>}</section>{editingConnection && <form className="form-stack github-settings__section" onSubmit={saveConnection}><div className="panel-card__head"><h3>Edit {editingConnection.repositoryFullName}</h3><Button type="button" variant="ghost" onClick={() => setEditingConnection(null)}>Cancel edit</Button></div><Field label="Connection name"><TextInput value={editingLabel} onChange={(event) => setEditingLabel(event.target.value)} maxLength={64} required /></Field><Field label="Default branch"><TextInput value={editingDefaultBranch} onChange={(event) => setEditingDefaultBranch(event.target.value)} placeholder="main" required /></Field><Field label="Allowed branches" hint="Use commas. Use * for every branch."><TextInput value={editingBranches} onChange={(event) => setEditingBranches(event.target.value)} placeholder="main, release-2026" required /></Field><label className="github-settings__checkbox"><input type="checkbox" checked={editingAnalysisEnabled} onChange={(event) => setEditingAnalysisEnabled(event.target.checked)} />Analyze GitHub-run failures automatically</label><Button type="submit" disabled={working}>{working ? "Saving…" : "Save changes"}</Button></form>}{settings.canConfigure ? <form className="form-stack github-settings__section" onSubmit={connect}><div><h3>Connect a repository</h3><p>Choose a repository where the GitHub App is already installed. No token is needed.</p></div><Field label="Connection name"><TextInput value={label} onChange={(event) => setLabel(event.target.value)} placeholder="e.g. Frontend" maxLength={64} required /></Field><Field label="Repository"><TextInput value={repositoryFullName} onChange={(event) => setRepositoryFullName(event.target.value)} placeholder="organization/repository" required /></Field><Field label="Allowed branches" hint="Use commas. Use * for every branch."><TextInput value={branches} onChange={(event) => setBranches(event.target.value)} placeholder="main, release-2026" required /></Field><Button type="submit" disabled={working}>{working ? "Checking…" : "Connect repository"}</Button></form> : <section className="github-settings__section"><p>You can view repository status. Ask a Product Manager to make changes.</p></section>}{activity.length > 0 && <section className="github-settings__section"><h3>Recent GitHub activity</h3><div className="run-list">{activity.map((item) => <article className="run-list__item" key={item.id}><div><div className="run-list__head"><h3>{item.connection.label}</h3><StatusBadge tone={item.status === "PROCESSED" ? "success" : item.status === "IGNORED" ? "neutral" : "warning"}>{item.status.toLowerCase()}</StatusBadge></div><p><code>{item.delivery.branch ?? "unknown branch"}</code> · {(item.delivery.afterSha ?? "unknown").slice(0, 12)} · {item.queuedRunCount} queued</p>{item.decisionReason && <p>{item.decisionReason.replaceAll("_", " ").toLowerCase()}</p>}{item.runs.map((run) => <Link key={run.id} href={`/runs/${run.id}`}>{run.testCaseName} · {run.outcome?.toLowerCase() ?? run.status.toLowerCase()}</Link>)}</div></article>)}</div></section>}</div>}</div></Dialog>, document.body);
 }
 
 function JiraProjectSettings({ product }: { product: Product }) {
