@@ -93,7 +93,7 @@ function TestCasesView() {
 }
 
 function TestDataView() {
-  return <div className="demo-panel data-panel"><header><div><span className="demo-kicker">Reusable · redacted in evidence</span><h4>Pilot customer set</h4></div><Status>3 variables</Status></header><div className="demo-table" role="table" aria-label="Sample test data"><div role="row"><strong role="columnheader">Variable</strong><strong role="columnheader">Sample value</strong><strong role="columnheader">Policy</strong></div><div role="row"><span role="cell">accountEmail</span><span role="cell">pilot@example.test</span><span role="cell">Reusable</span></div><div role="row"><span role="cell">cardAlias</span><span role="cell">saved-visa</span><span role="cell">Reusable</span></div><div role="row"><span role="cell">securityCode</span><span role="cell">•••</span><span role="cell">Single use</span></div></div></div>;
+  return <div className="demo-panel data-panel"><header><div><span className="demo-kicker">Reusable · redacted in evidence</span><h4>Pilot customer set</h4></div><Status>3 variables</Status></header><table className="demo-table"><caption className="sr-only">Sample test data</caption><thead><tr><th>Variable</th><th>Sample value</th><th>Policy</th></tr></thead><tbody><tr><td>accountEmail</td><td>pilot@example.test</td><td>Reusable</td></tr><tr><td>cardAlias</td><td>saved-visa</td><td>Reusable</td></tr><tr><td>securityCode</td><td>•••</td><td>Single use</td></tr></tbody></table></div>;
 }
 
 function RunsView() {
