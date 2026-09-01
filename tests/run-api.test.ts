@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { RecordingStatus, StepKind } from "@prisma/client";
+import { RecordingStatus, RunMode, RunOutcome, RunStatus, StepKind } from "@prisma/client";
 import { encryptVariableValue, variablePlaceholder } from "../lib/variables";
 import { prisma } from "../lib/prisma";
 
@@ -170,6 +170,35 @@ describe("Phase 2 guided Run API", () => {
     }
     const browserValue = await runInActiveBrowser("return document.querySelector('input[name=\"email\"]')?.value;");
     expect(browserValue).toMatchObject({ value: customerEmail });
+    expect((await request(ava, `runs/${run.id}/interrupt`, "POST")).status).toBe(200);
+  }, 30_000);
+
+  it("recovers an orphaned Guided Run instead of blocking a new local browser session", async () => {
+    const ava = await login("ava.tester@example.test");
+    const testCase = await createSavedTest(ava, `Recovered Guided Run ${Date.now()}`);
+    const version = await prisma.testCaseVersion.findFirstOrThrow({ where: { testCaseId: testCase.id } });
+    const owner = await prisma.user.findUniqueOrThrow({ where: { email: "ava.tester@example.test" } });
+    const stale = await prisma.run.create({
+      data: {
+        testCaseId: testCase.id,
+        testCaseVersionId: version.id,
+        productId: testCase.productId,
+        initiatedById: owner.id,
+        targetUrl: "http://demo-target",
+        mode: RunMode.GUIDED,
+        status: RunStatus.RUNNING,
+        activeStepOrder: 1,
+        startedAt: new Date("2026-08-22T14:12:33.018Z")
+      }
+    });
+
+    const startResponse = await request(ava, `test-cases/${testCase.id}/runs`, "POST");
+    expect(startResponse.status).toBe(201);
+    const { run } = await startResponse.json() as { run: { id: string } };
+    const recovered = await prisma.run.findUniqueOrThrow({ where: { id: stale.id } });
+    expect(recovered).toMatchObject({ status: RunStatus.COMPLETED, outcome: RunOutcome.INTERRUPTED, failureReason: "INFRASTRUCTURE_ERROR", activeStepOrder: null });
+    expect(await prisma.auditEvent.count({ where: { action: "GUIDED_RUN_RECOVERED", entityId: stale.id } })).toBe(1);
+
     expect((await request(ava, `runs/${run.id}/interrupt`, "POST")).status).toBe(200);
   }, 30_000);
 });
