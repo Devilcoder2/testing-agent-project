@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { FeatureGallery } from '@/components/feature-gallery';
 import { InteractiveProductDemo } from '@/components/interactive-product-demo';
+import { ScrollReveal } from '@/components/scroll-reveal';
 import { SentinelLogo } from '@/components/sentinel-logo';
 import { WaitlistForm } from '@/components/waitlist-form';
 
@@ -110,7 +111,11 @@ export default function Home() {
       <header className="site-header">
         <div className="header-inner">
           <a className="brand" href="#main" aria-label="Sentinel home">
-            <SentinelLogo animated />
+            <SentinelLogo compact animated />
+          </a>
+
+          <a className="header-name" href="#main">
+            Sentinel
           </a>
 
           <div className="header-actions">
@@ -155,20 +160,24 @@ export default function Home() {
         </section>
 
         <section className="quiet-statement" aria-labelledby="problem-title">
-          <h2 id="problem-title">
-            Release week shouldn’t mean replaying the same browser journeys by
-            hand.
-          </h2>
+          <ScrollReveal>
+            <h2 id="problem-title">
+              Release week shouldn’t mean replaying the same browser journeys by
+              hand.
+            </h2>
+          </ScrollReveal>
         </section>
 
         <section className="product-story" id="how-it-works" aria-label="How Sentinel works">
           {productScenes.map((scene, index) => (
             <article className="product-scene" key={scene.title}>
-              <div className="scene-copy">
-                <span className="scene-step">0{index + 1}</span>
-                <h2>{scene.title}</h2>
-                <p>{scene.body}</p>
-              </div>
+              <ScrollReveal delay={index * 0.07}>
+                <div className="scene-copy">
+                  <span className="scene-step">0{index + 1}</span>
+                  <h2>{scene.title}</h2>
+                  <p>{scene.body}</p>
+                </div>
+              </ScrollReveal>
             </article>
           ))}
         </section>
@@ -176,85 +185,105 @@ export default function Home() {
         <FeatureGallery />
 
         <section className="human-call">
-          <div>
-            <h2>The evidence arrives. The decision stays human.</h2>
-          </div>
-          <p>
-            Readiness, approvals, and Jira, GitHub, or Telegram follow-up stay
-            visible without turning an integration into a silent decision maker.
-          </p>
+          <ScrollReveal direction="left">
+            <div>
+              <h2>The evidence arrives. The decision stays human.</h2>
+            </div>
+          </ScrollReveal>
+          <ScrollReveal direction="right" delay={0.08}>
+            <p>
+              Readiness, approvals, and Jira, GitHub, or Telegram follow-up stay
+              visible without turning an integration into a silent decision maker.
+            </p>
+          </ScrollReveal>
         </section>
 
         <section className="safety-section" id="safety">
           <div className="safety-intro">
-            <h2>Autonomy that knows when to stop.</h2>
-            <p>
-              Sentinel moves quickly inside the boundaries your team sets—and
-              stops cleanly when it needs a person.
-            </p>
+            <ScrollReveal direction="left">
+              <h2>Autonomy that knows when to stop.</h2>
+            </ScrollReveal>
+            <ScrollReveal direction="right" delay={0.08}>
+              <p>
+                Sentinel moves quickly inside the boundaries your team sets—and
+                stops cleanly when it needs a person.
+              </p>
+            </ScrollReveal>
           </div>
-          <dl className="safeguard-list">
-            {safeguards.map(([term, description]) => (
-              <div key={term}>
-                <dt>{term}</dt>
-                <dd>{description}</dd>
-              </div>
-            ))}
-          </dl>
+          <ScrollReveal delay={0.1}>
+            <dl className="safeguard-list">
+              {safeguards.map(([term, description]) => (
+                <div key={term}>
+                  <dt>{term}</dt>
+                  <dd>{description}</dd>
+                </div>
+              ))}
+            </dl>
+          </ScrollReveal>
         </section>
 
         <section className="walkthrough-section" aria-labelledby="walkthrough-title">
-          <div className="walkthrough-copy">
-            <h2 id="walkthrough-title">See the complete loop.</h2>
-            <p>From a taught journey to the evidence behind a release signal.</p>
+          <ScrollReveal direction="left">
+            <div className="walkthrough-copy">
+              <h2 id="walkthrough-title">See the complete loop.</h2>
+              <p>From a taught journey to the evidence behind a release signal.</p>
+              <button
+                className="text-action"
+                onClick={openWalkthrough}
+                disabled={!hydrated}
+              >
+                {walkthroughLabel} <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </ScrollReveal>
+          <ScrollReveal direction="right" delay={0.08}>
             <button
-              className="text-action"
+              className="walkthrough-poster"
+              type="button"
               onClick={openWalkthrough}
               disabled={!hydrated}
+              aria-label={streamVideoId ? 'Play the Sentinel product walkthrough' : 'Read the Sentinel walkthrough summary'}
             >
-              {walkthroughLabel} <span aria-hidden="true">→</span>
+              <span className="poster-surface" aria-hidden="true">
+                <span className="poster-sidebar"><i /><i /><i /><i /><i /></span>
+                <span className="poster-canvas"><i /><strong>Teach</strong><i /><strong>Replay</strong><i /><strong>Decide</strong></span>
+              </span>
+              <span className="poster-play" aria-hidden="true">
+                ▶
+              </span>
             </button>
-          </div>
-          <button
-            className="walkthrough-poster"
-            type="button"
-            onClick={openWalkthrough}
-            disabled={!hydrated}
-            aria-label={streamVideoId ? 'Play the Sentinel product walkthrough' : 'Read the Sentinel walkthrough summary'}
-          >
-            <span className="poster-surface" aria-hidden="true">
-              <span className="poster-sidebar"><i /><i /><i /><i /><i /></span>
-              <span className="poster-canvas"><i /><strong>Teach</strong><i /><strong>Replay</strong><i /><strong>Decide</strong></span>
-            </span>
-            <span className="poster-play" aria-hidden="true">
-              ▶
-            </span>
-          </button>
+          </ScrollReveal>
         </section>
 
         <section className="pilot-section" id="pilot" aria-labelledby="pilot-title">
-          <div className="pilot-copy">
-            <h2 id="pilot-title">Bring one real journey.</h2>
-            <p>
-              Tell us about your QA team. Selected pilot teams receive personal
-              follow-up.
-            </p>
-          </div>
-          <div className="pilot-form-wrap">
-            <WaitlistForm />
-          </div>
+          <ScrollReveal>
+            <div className="pilot-copy">
+              <h2 id="pilot-title">Bring one real journey.</h2>
+              <p>
+                Tell us about your QA team. Selected pilot teams receive personal
+                follow-up.
+              </p>
+            </div>
+          </ScrollReveal>
+          <ScrollReveal delay={0.08}>
+            <div className="pilot-form-wrap">
+              <WaitlistForm />
+            </div>
+          </ScrollReveal>
         </section>
 
         <section className="faq-section" aria-labelledby="faq-title">
-          <h2 id="faq-title">A few useful answers.</h2>
-          <div className="faq-list">
-            {questions.map(([question, answer]) => (
-              <details key={question}>
-                <summary>{question}</summary>
-                <p>{answer}</p>
-              </details>
-            ))}
-          </div>
+          <ScrollReveal>
+            <h2 id="faq-title">A few useful answers.</h2>
+            <div className="faq-list">
+              {questions.map(([question, answer]) => (
+                <details key={question}>
+                  <summary>{question}</summary>
+                  <p>{answer}</p>
+                </details>
+              ))}
+            </div>
+          </ScrollReveal>
         </section>
       </main>
 
