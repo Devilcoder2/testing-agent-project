@@ -78,7 +78,7 @@ flowchart TD
 1. The dashboard provides **Add New Test**.
 2. The creation form requires Test Name and Website Link and associates the selected product and current named owner.
 3. The Recording Workspace shows an interactive live website beside a real-time plain-English Step Log.
-4. Clicks, text entry, navigation, and page loads create step entries automatically.
+4. Clicks, text entry, navigation, and page loads create step entries automatically. The recorder must preserve the tester's causal action order even when the target application redirects immediately: a click that triggers navigation is saved before its resulting navigation milestone.
 5. Each step can be edited and can contain a description, expected outcome, conditional instruction, checkpoint flag, and important-screenshot flag.
 6. Typed values can be marked inline as variables.
 7. The tester can save at any point or discard the recording without creating a Test Case.
@@ -96,7 +96,7 @@ For every Run, capture and retain the applicable evidence bundle:
 - localStorage, sessionStorage, and cookie state at step boundaries.
 - Screenshots at start, end, failure, and—when later implemented—explicitly flagged steps.
 
-Full browser-video recordings must not be captured or retained. Phase 2 provides an explicitly tester-guided Demo CRM Run: the tester approves saved steps in strict order, and Sentinel applies each approved step visibly in the isolated browser before marking it passed. The tester can fail the active step instead. This is reviewed, step-by-step replay rather than an autonomous Run: it has no queue, retry, checkpoint, or unattended execution. All evidence is accessible from one Run Detail view and is timeline-linked to the Step Log for passed, failed, and interrupted Runs.
+Full browser-video recordings must not be captured or retained. Phase 2 provides an explicitly tester-guided Demo CRM Run: the tester approves saved steps in strict order, and Sentinel applies each approved step visibly in the isolated browser before marking it passed. The tester can fail the active step instead. This is reviewed, step-by-step replay rather than an autonomous Run: it has no queue, retry, checkpoint, or unattended execution. A Guided Run may be blocked only by the browser session currently owned by another live Guided Run. If Sentinel has restarted or the Selenium slot is empty, an orphaned `RUNNING` Guided Run is finalized as interrupted, any reserved Test Data is released, and the new Guided Run can start. All evidence is accessible from one Run Detail view and is timeline-linked to the Step Log for passed, failed, and interrupted Runs.
 
 ### F3. Autonomous replay
 
