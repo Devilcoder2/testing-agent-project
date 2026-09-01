@@ -99,6 +99,7 @@ test("creates, persists, and authorizes a Product through the portal", async ({ 
 });
 
 test("requires explicit confirmation and reports background Product deletion", async ({ page }) => {
+  test.setTimeout(45_000);
   const productName = `Delete UI Product ${Date.now()}`;
   try {
     await signIn(page, "ava.tester@example.test", "sentinel-dev");
@@ -131,7 +132,12 @@ test("requires explicit confirmation and reports background Product deletion", a
 
     await expect(page.getByText(new RegExp(`Deleting .*${productName}.*(queued|progress)`, "i"))).toBeVisible();
     await expect(page.getByRole("heading", { name: productName })).toHaveCount(0, { timeout: 15_000 });
-    await expect(page.getByText(new RegExp(`${productName}.*deleted`, "i"))).toBeVisible();
+    const completion = page.getByText(new RegExp(`${productName}.*deleted`, "i"));
+    await expect(completion).toBeVisible();
+    await expect(completion).toBeHidden({ timeout: 6_500 });
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
+    await expect(page.getByText(new RegExp(`${productName}.*deleted`, "i"))).toHaveCount(0);
   } finally {
     await cleanupProduct(productName);
   }
