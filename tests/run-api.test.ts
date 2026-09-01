@@ -105,6 +105,10 @@ describe("Phase 2 guided Run API", () => {
     expect(started.run.status).toBe("RUNNING");
     expect(started.viewerUrl).toContain("7900");
 
+    const secondStart = await request(ava, `test-cases/${testCase.id}/runs`, "POST");
+    expect(secondStart.status).toBe(409);
+    expect(await secondStart.json()).toMatchObject({ error: "Another local browser session is active. Finish it before starting a Run." });
+
     const detailResponse = await request(ava, `runs/${started.run.id}`);
     expect(detailResponse.status).toBe(200);
     const detail = await detailResponse.json() as { stepResults: Array<{ id: string; order: number; status: string }>; evidence: Array<{ id: string; kind: string; metadata?: unknown }> };
