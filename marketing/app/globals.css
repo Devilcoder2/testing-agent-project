@@ -98,9 +98,20 @@ img {
   min-height: 4.75rem;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(10rem, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-6);
+}
+
+.header-name {
+  justify-self: center;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 640;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  text-decoration: none;
 }
 
 .brand {
@@ -890,7 +901,7 @@ img {
 
 @media (max-width: 64rem) {
   .header-inner {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   }
 
   .product-scene {
@@ -1786,7 +1797,7 @@ img {
   overscroll-behavior-inline: contain;
   scroll-snap-type: inline mandatory;
   scrollbar-width: none;
-  padding: 0 var(--page-gutter) 2rem;
+  padding: 0.6rem var(--page-gutter) 2rem;
 }
 
 .feature-rail::-webkit-scrollbar {
@@ -1990,15 +2001,22 @@ img {
 }
 
 .feature-dialog {
+  position: fixed;
+  inset: 0;
   width: min(calc(100% - 2rem), 43rem);
   max-height: calc(100svh - 2rem);
   overflow: auto;
   border: 0;
   border-radius: var(--radius-dialog);
+  margin: auto;
   padding: 0;
   background: var(--color-surface);
   color: var(--color-ink);
   box-shadow: var(--shadow-dialog);
+}
+
+.scroll-reveal {
+  min-width: 0;
 }
 
 .feature-dialog::backdrop,
