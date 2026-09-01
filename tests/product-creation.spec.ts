@@ -115,7 +115,7 @@ test("requires explicit confirmation and reports background Product deletion", a
     const moreActions = product.getByRole("button", { name: `More actions for ${productName}` });
     await expect(moreActions).toBeVisible();
     await moreActions.click();
-    await expect(product.getByRole("link", { name: "View Test Cases" })).toBeVisible();
+    await expect(product.getByRole("menuitem", { name: "View Test Cases" })).toBeVisible();
     await moreActions.click();
     await product.getByRole("button", { name: `Delete ${productName}` }).click();
 
