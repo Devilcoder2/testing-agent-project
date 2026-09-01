@@ -203,7 +203,7 @@ export function WaitlistForm() {
         <h3>Thank you for raising your hand.</h3>
         <p>
           We review every application personally. If your team is a fit for this
-          pilot, we’ll reach out to the work email you provided.
+          pilot, we’ll reach out to the email you provided.
         </p>
       </output>
     );
@@ -223,7 +223,7 @@ export function WaitlistForm() {
           />
         </label>
         <label>
-          <span>Work email</span>
+          <span>Email</span>
           <input
             name="email"
             type="email"
@@ -233,20 +233,18 @@ export function WaitlistForm() {
           />
         </label>
         <label>
-          <span>Company</span>
+          <span>Company <small>Optional</small></span>
           <input
             name="company"
             autoComplete="organization"
-            minLength={2}
             maxLength={120}
-            required
           />
         </label>
         <label>
-          <span>QA team size</span>
-          <select name="qaTeamSize" defaultValue="" required>
-            <option value="" disabled>
-              Select team size
+          <span>QA team size <small>Optional</small></span>
+          <select name="qaTeamSize" defaultValue="">
+            <option value="">
+              Not specified
             </option>
             <option value="1">1</option>
             <option value="2-5">2–5</option>
