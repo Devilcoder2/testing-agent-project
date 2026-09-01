@@ -1,4 +1,4 @@
-/* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5
  * macrostructure: Workbench · nav: N9 edge-aligned · footer: Ft1 minimal
  * theme: studied-DNA (Apple and Cursor interaction principles; Quiet Flight identity retained)
  * tone: calm · anchor hue: cobalt · studied: yes · direction: Quiet Flight Workbench
@@ -23,6 +23,21 @@
   --color-error: oklch(55% 0.18 28);
   --color-error-soft: oklch(96% 0.018 28);
   --color-backdrop: oklch(14% 0.02 260 / 0.72);
+  --color-backdrop-soft: oklch(18% 0.02 260 / 0.48);
+  --color-demo-sidebar: oklch(19% 0.026 260);
+  --color-demo-sidebar-hover: oklch(28% 0.025 260);
+  --color-demo-sidebar-active: oklch(31% 0.06 258);
+  --color-demo-sidebar-rule: oklch(35% 0.02 260);
+  --color-demo-sidebar-text: oklch(94% 0.008 255);
+  --color-demo-sidebar-muted: oklch(72% 0.015 255);
+  --color-demo-sidebar-nav: oklch(76% 0.012 255);
+  --color-demo-sidebar-account: oklch(69% 0.012 255);
+  --color-demo-canvas: oklch(98.3% 0.004 255);
+  --color-demo-evidence: oklch(24% 0.025 260);
+  --color-warning-ink: oklch(43% 0.11 75);
+  --color-feature-cobalt: oklch(95.5% 0.022 258);
+  --color-feature-sage: oklch(94.5% 0.018 160);
+  --shadow-workbench: 0 2rem 6rem oklch(20% 0.025 260 / 0.12);
 
   --font-display: "Geist Variable", "Geist", sans-serif;
   --font-body: "IBM Plex Sans Variable", "IBM Plex Sans", sans-serif;
