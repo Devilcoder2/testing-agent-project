@@ -1,0 +1,197 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e45] [cursor=pointer]
+  - alert [ref=e39]
+  - generic [ref=e420]:
+    - banner [ref=e421]:
+      - generic [ref=e422]:
+        - button "Back to Runs" [ref=e423] [cursor=pointer]
+        - heading "Phase 3 testing" [level=1] [ref=e424]
+      - generic [ref=e425]:
+        - generic [ref=e426]: Auto Run
+        - generic [ref=e428]: Passed
+    - generic [ref=e430]:
+      - complementary [ref=e431]:
+        - generic [ref=e432]:
+          - generic [ref=e433]:
+            - paragraph [ref=e434]: Autonomous replay
+            - heading "Replay progress" [level=2] [ref=e435]
+            - paragraph [ref=e436]: Sentinel performs recorded actions in strict order and stops for a marked checkpoint.
+          - generic [ref=e437]: Evidence complete
+        - paragraph [ref=e440]:
+          - strong [ref=e441]: Attempt history
+          - text: "#1 completed"
+        - generic [ref=e442]:
+          - article [ref=e443]:
+            - generic [ref=e444]:
+              - heading "Step 1" [level=3] [ref=e445]
+              - generic [ref=e446]: passed
+            - paragraph [ref=e448]: http://demo-target
+          - article [ref=e449]:
+            - generic [ref=e450]:
+              - heading "Step 2" [level=3] [ref=e451]
+              - generic [ref=e452]: passed
+            - paragraph [ref=e454]: email
+          - article [ref=e455]:
+            - generic [ref=e456]:
+              - heading "Step 3" [level=3] [ref=e457]
+              - generic [ref=e458]: passed
+            - paragraph [ref=e460]: qa.tester@example.test
+          - article [ref=e461]:
+            - generic [ref=e462]:
+              - heading "Step 4" [level=3] [ref=e463]
+              - generic [ref=e464]: passed
+            - paragraph [ref=e466]: "[REDACTED]"
+          - article [ref=e467]:
+            - generic [ref=e468]:
+              - heading "Step 5" [level=3] [ref=e469]
+              - generic [ref=e470]: passed
+            - paragraph [ref=e472]: Sign in
+          - article [ref=e473]:
+            - generic [ref=e474]:
+              - heading "Step 6" [level=3] [ref=e475]
+              - generic [ref=e476]: passed
+            - paragraph [ref=e478]: http://demo-target/#dashboard
+          - article [ref=e479]:
+            - generic [ref=e480]:
+              - heading "Step 7" [level=3] [ref=e481]
+              - generic [ref=e482]: passed
+            - paragraph [ref=e484]: New customer
+          - article [ref=e485]:
+            - generic [ref=e486]:
+              - heading "Step 8" [level=3] [ref=e487]
+              - generic [ref=e488]: passed
+            - paragraph [ref=e490]: http://demo-target/#customer-new
+          - article [ref=e491]:
+            - generic [ref=e492]:
+              - heading "Step 9" [level=3] [ref=e493]
+              - generic [ref=e494]: passed
+            - paragraph [ref=e496]: firstName
+          - article [ref=e497]:
+            - generic [ref=e498]:
+              - heading "Step 10" [level=3] [ref=e499]
+              - generic [ref=e500]: passed
+            - paragraph [ref=e502]: testing phase 3
+          - article [ref=e503]:
+            - generic [ref=e504]:
+              - heading "Step 11" [level=3] [ref=e505]
+              - generic [ref=e506]: passed
+            - paragraph [ref=e508]: test
+          - article [ref=e509]:
+            - generic [ref=e510]:
+              - heading "Step 12" [level=3] [ref=e511]
+              - generic [ref=e512]: passed
+            - paragraph [ref=e514]: test@test.com
+          - article [ref=e515]:
+            - generic [ref=e516]:
+              - heading "Step 13" [level=3] [ref=e517]
+              - generic [ref=e518]: passed
+            - paragraph [ref=e520]: Create customer
+          - article [ref=e521]:
+            - generic [ref=e522]:
+              - heading "Step 14" [level=3] [ref=e523]
+              - generic [ref=e524]: passed
+            - paragraph [ref=e526]: http://demo-target/#customer-saved
+      - region "Auto Run evidence" [ref=e527]:
+        - generic [ref=e528]:
+          - generic [ref=e529]:
+            - paragraph [ref=e530]: Headless execution
+            - heading "Execution evidence" [level=2] [ref=e531]
+            - paragraph [ref=e532]: Auto Run uses an isolated headless browser. No browser video is retained.
+            - paragraph [ref=e533]:
+              - strong [ref=e534]: "Active duration:"
+              - text: 0.3s · Guided benchmark unavailable
+          - generic [ref=e535]:
+            - generic [ref=e536]:
+              - paragraph [ref=e537]: Run Detail
+              - heading "Evidence timeline" [level=2] [ref=e538]
+              - paragraph [ref=e539]: Outcome and capture status remain separate. Sensitive values are redacted before persistence.
+            - generic [ref=e540]:
+              - heading "Screenshots" [level=3] [ref=e541]
+              - generic [ref=e542]:
+                - article [ref=e543]:
+                  - generic [ref=e544]:
+                    - strong [ref=e545]: START
+                    - generic [ref=e546]: SHA-256 8fe65cd58dda…
+                  - button "Open" [ref=e547] [cursor=pointer]
+                - article [ref=e548]:
+                  - generic [ref=e549]:
+                    - strong [ref=e550]: END
+                    - generic [ref=e551]: SHA-256 d0bd482f26db…
+                  - button "Open" [ref=e552] [cursor=pointer]
+            - generic [ref=e553]:
+              - heading "network" [level=3] [ref=e554]
+              - table [ref=e556]:
+                - rowgroup [ref=e557]:
+                  - row [ref=e558]:
+                    - columnheader "Method" [ref=e559]
+                    - columnheader "Status" [ref=e560]
+                    - columnheader "Request" [ref=e561]
+                    - columnheader "Duration" [ref=e562]
+                - rowgroup [ref=e563]:
+                  - row [ref=e564]:
+                    - cell "GET" [ref=e565]
+                    - cell "200" [ref=e566]
+                    - cell [ref=e567]:
+                      - code [ref=e568]: http://demo-target/
+                    - cell "9 ms" [ref=e569]
+                  - row [ref=e570]:
+                    - cell "GET" [ref=e571]
+                    - cell "200" [ref=e572]
+                    - cell [ref=e573]:
+                      - code [ref=e574]: http://demo-target/events.json?event=sign-in
+                    - cell "62 ms" [ref=e575]
+                  - row [ref=e576]:
+                    - cell "GET" [ref=e577]
+                    - cell "200" [ref=e578]
+                    - cell [ref=e579]:
+                      - code [ref=e580]: http://demo-target/events.json?event=customer-created
+                    - cell "58 ms" [ref=e581]
+              - generic [ref=e582]:
+                - group [ref=e583]:
+                  - generic "network boundary 1 · View raw data" [ref=e584] [cursor=pointer]
+                - group [ref=e585]:
+                  - generic "network boundary 2 · View raw data" [ref=e586] [cursor=pointer]
+                - group [ref=e587]:
+                  - generic "network boundary 3 · View raw data" [ref=e588] [cursor=pointer]
+            - generic [ref=e589]:
+              - heading "console" [level=3] [ref=e590]
+              - paragraph [ref=e591]: No console evidence at this Run boundary.
+            - generic [ref=e592]:
+              - heading "storage" [level=3] [ref=e593]
+              - paragraph [ref=e594]: 14 captured storage boundaries. Open raw data only when the summary is insufficient.
+              - generic [ref=e595]:
+                - group [ref=e596]:
+                  - generic "storage boundary 1 · View raw data" [ref=e597] [cursor=pointer]
+                - group [ref=e598]:
+                  - generic "storage boundary 2 · View raw data" [ref=e599] [cursor=pointer]
+                - group [ref=e600]:
+                  - generic "storage boundary 3 · View raw data" [ref=e601] [cursor=pointer]
+                - group [ref=e602]:
+                  - generic "storage boundary 4 · View raw data" [ref=e603] [cursor=pointer]
+                - group [ref=e604]:
+                  - generic "storage boundary 5 · View raw data" [ref=e605] [cursor=pointer]
+                - group [ref=e606]:
+                  - generic "storage boundary 6 · View raw data" [ref=e607] [cursor=pointer]
+                - group [ref=e608]:
+                  - generic "storage boundary 7 · View raw data" [ref=e609] [cursor=pointer]
+                - group [ref=e610]:
+                  - generic "storage boundary 8 · View raw data" [ref=e611] [cursor=pointer]
+                - group [ref=e612]:
+                  - generic "storage boundary 9 · View raw data" [ref=e613] [cursor=pointer]
+                - group [ref=e614]:
+                  - generic "storage boundary 10 · View raw data" [ref=e615] [cursor=pointer]
+                - group [ref=e616]:
+                  - generic "storage boundary 11 · View raw data" [ref=e617] [cursor=pointer]
+                - group [ref=e618]:
+                  - generic "storage boundary 12 · View raw data" [ref=e619] [cursor=pointer]
+                - group [ref=e620]:
+                  - generic "storage boundary 13 · View raw data" [ref=e621] [cursor=pointer]
+                - group [ref=e622]:
+                  - generic "storage boundary 14 · View raw data" [ref=e623] [cursor=pointer]
+            - generic [ref=e624]:
+              - heading "capture error" [level=3] [ref=e625]
+              - paragraph [ref=e626]: No capture error evidence at this Run boundary.
+            - generic [ref=e628]:
+              - paragraph [ref=e629]: After a failed Run
+              - heading "Follow-up actions" [level=3] [ref=e630]
+              - paragraph [ref=e631]: Diagnostics, external filing, intentional-change review, and source analysis remain explicit and independently authorized.

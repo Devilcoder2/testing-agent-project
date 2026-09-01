@@ -1,0 +1,76 @@
+- generic [ref=f1e2]:
+  - link "Skip to content" [ref=f1e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=f1e4]:
+    - generic [ref=f1e5]:
+      - generic [ref=f1e6]:
+        - link "Sentinel dashboard" [ref=f1e7] [cursor=pointer]:
+          - /url: /dashboard
+          - generic [ref=f1e8]: Sentinel
+        - generic [ref=f1e16]:
+          - generic [ref=f1e17]: QA workspace
+          - strong [ref=f1e18]: Dashboard
+      - generic [ref=f1e19]:
+        - generic [ref=f1e20]: Search workspace
+        - generic [ref=f1e21]:
+          - combobox "Search workspace" [ref=f1e25]
+          - generic [ref=f1e26]:
+            - generic [ref=f1e27]: ⌘
+            - text: K
+        - status [ref=f1e28]
+      - generic [ref=f1e29]:
+        - button "Use dark theme" [ref=f1e30] [cursor=pointer]:
+          - generic [ref=f1e38]: Theme ready
+        - link "Open notifications" [ref=f1e39] [cursor=pointer]:
+          - /url: /notifications
+        - link "Open account integrations" [ref=f1e42] [cursor=pointer]:
+          - /url: /account/integrations
+        - button "New recording" [ref=f1e46] [cursor=pointer]
+        - button "Sign out" [ref=f1e49] [cursor=pointer]
+  - navigation "Workspace sections" [ref=f1e53]:
+    - generic [ref=f1e54]:
+      - generic [ref=f1e55]: Overview
+      - link "Dashboard" [ref=f1e57] [cursor=pointer]:
+        - /url: /dashboard
+    - generic [ref=f1e59]:
+      - generic [ref=f1e60]: Build
+      - generic [ref=f1e61]:
+        - link "Products" [ref=f1e62] [cursor=pointer]:
+          - /url: /products
+        - link "Test Cases" [ref=f1e64] [cursor=pointer]:
+          - /url: /test-cases
+        - link "Test Data" [ref=f1e66] [cursor=pointer]:
+          - /url: /test-data
+    - generic [ref=f1e68]:
+      - generic [ref=f1e69]: Operate
+      - generic [ref=f1e70]:
+        - link "Runs" [ref=f1e71] [cursor=pointer]:
+          - /url: /runs
+        - link "Releases" [ref=f1e73] [cursor=pointer]:
+          - /url: /releases
+    - generic [ref=f1e75]:
+      - generic [ref=f1e76]: Decide
+      - generic [ref=f1e77]:
+        - link "Review" [ref=f1e78] [cursor=pointer]:
+          - /url: /review
+        - link "Notifications" [ref=f1e80] [cursor=pointer]:
+          - /url: /notifications
+    - generic [ref=f1e82]:
+      - generic [ref=f1e83]: Manage
+      - link "Administration" [ref=f1e85] [cursor=pointer]:
+        - /url: /admin
+  - main [ref=f1e87]:
+    - status [ref=f1e88]
+    - generic [ref=f1e89]:
+      - generic [ref=f1e90]:
+        - generic [ref=f1e91]:
+          - paragraph [ref=f1e92]: Quality health · rolling 30-day UTC window
+          - heading "Dashboard" [level=1] [ref=f1e93]
+          - paragraph [ref=f1e94]: Recent Test health across the Products you can currently access.
+        - generic [ref=f1e96]:
+          - generic [ref=f1e97]: Product drill-down
+          - generic [ref=f1e98]:
+            - combobox "Product drill-down ⌄" [disabled] [ref=f1e99]:
+              - option "All accessible Products" [selected]
+            - text: ⌄
+      - status "Loading content" [ref=f1e101]

@@ -1,0 +1,92 @@
+{
+  "title": "Choose Sentinel’s new visual world",
+  "question": "Each direction keeps the same product truth, real screenshots, walkthrough, and pilot flow. Choose the world that should make Sentinel unmistakable.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Release Proof",
+      "kicker": "THE ROLL",
+      "lineage": "press-room preflight proofs and registration sheets",
+      "thesis": "The landing page is a release proof waiting for a human sign-off.",
+      "palette": ["#1527A4", "#DAFF3F", "#ECEDE6", "#11131C"],
+      "materials": ["ultramarine proof stock", "vellum overlays", "registration ticks"],
+      "viewport": "One saturated proof sheet fills the first screen; the product run cuts through it as the evidence layer, and the pilot action sits where an approval mark belongs.",
+      "risk": "The production-proof metaphor must stay subordinate to the real product, or it can become graphic-design theatre.",
+      "raised": [
+        {
+          "from": "Data-Sublime Field",
+          "raise": "The run trace becomes a real information spine, not a decorative line."
+        },
+        {
+          "from": "Provenance Ribbon",
+          "raise": "Every claim stays visibly attached to its evidence and human decision point."
+        },
+        {
+          "from": "Toy Catalogue",
+          "raise": "The page commits to full-viewport color fields instead of timid accent dots."
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/assigned.png"
+    },
+    {
+      "id": "model-pick",
+      "label": "Flight Recorder",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "aircraft flight strips and incident-recorder traces",
+      "thesis": "One taught journey becomes a trace you can replay, inspect, and trust.",
+      "palette": ["#0A1117", "#F1F5E9", "#E8FF55", "#6F8796"],
+      "materials": ["recorder paper", "signal ink", "indexed evidence tabs"],
+      "viewport": "A continuous run trace crosses the first screen, carries the headline inside it, and opens directly into a real evidence view.",
+      "risk": "Flight-recorder language fits the mechanism closely, so it can drift toward the familiar dark observability aesthetic unless kept materially restrained.",
+      "comp": ".impeccable/mocks/decision/model-pick.png"
+    },
+    {
+      "id": "challenger-data-field",
+      "label": "Data-Sublime Field",
+      "verdict": "competitive",
+      "lineage": "barcode fields, sine lattices, and high-contrast data art",
+      "thesis": "Sentinel turns each browser journey into an inspectable signal field.",
+      "palette": ["#050505", "#F7F7F2"],
+      "materials": ["pixel-crisp bars", "monospace numerics", "single sine trace"],
+      "viewport": "A black-and-white run field fills the screen; the journey trace separates signal from failure while the pilot action remains stark and obvious.",
+      "case": "Strong audience recognition and the most radical departure from the rejected page; slightly weaker at explaining human judgment without supporting copy.",
+      "risk": "The abstraction can overpower the product screenshot and reduce trust if density is not carefully paced.",
+      "comp": ".impeccable/mocks/decision/challenger-data-field.png",
+      "hero": "https://impeccable.style/worlds/cards/ikeda-datamatics-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/ikeda-datamatics.webp"
+    },
+    {
+      "id": "challenger-provenance",
+      "label": "Evidence Ribbon",
+      "verdict": "declined",
+      "lineage": "chain-of-custody ledgers and provenance timelines",
+      "thesis": "Every test result keeps an unbroken route back to its evidence and owner.",
+      "palette": ["#E8E9E2", "#26324A", "#9DA3A6"],
+      "materials": ["archival ledger", "woven custody line", "verification stamps"],
+      "viewport": "A single evidence ribbon unrolls through the page from taught journey to release decision.",
+      "case": "Product clarity is excellent, but the museum-led language identifies less directly with startup engineering teams.",
+      "kept": "Attach uncertainty and human ownership to every transition.",
+      "risk": "Too much archival language could make Sentinel feel retrospective instead of operational.",
+      "hero": "https://impeccable.style/worlds/cards/exhibition-museum-curation-provenance-ribbon-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/exhibition-museum-curation-provenance-ribbon.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "A polished blue SaaS page with a conventional hero, product frame, feature grid, and closing CTA.",
+    "palette": ["#FFFFFF", "#111827", "#2563EB", "#E5E7EB"],
+    "materials": ["clean grid", "soft UI frames"],
+    "viewport": "Headline and CTA on the left, dashboard screenshot on the right, navigation above.",
+    "risk": "Clear and familiar, but intentionally close to the common website structure you already rejected.",
+    "comp": ".impeccable/mocks/decision/canon.png"
+  },
+  "steer": true
+}

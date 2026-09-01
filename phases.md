@@ -524,6 +524,8 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 - [x] Add focused account-helper tests and live Docker acceptance checks for sign-in, Admin denial, Manager Product creation, invitation acceptance, and immediate session revocation. Remaining broader Playwright permission-matrix coverage is tracked as a hardening follow-up.
 - [x] Update required documentation and add an append-only learning-log entry with exactly 10 owner questions. Owner manual authorization testing is now ready.
 
+**Manual acceptance (2026-08-31):** The owner tested Organization sign-in, bootstrap Admin access, member management, new and existing-user invitations, password reset, role and Product assignment, Admin/Manager/Tester permissions, immediate disable and session revocation, last-Admin protection, ownership and historical-data preservation, controlled pilot-data migration, and local email safety. All reported Phase 12 features worked as expected. The separate learning-log answers and broader permission-matrix hardening remain documented follow-up gates.
+
 **Out of scope:** SSO/SAML/SCIM implementation unless selected during the approval gate, billing, self-service public signup, arbitrary custom roles, and production deployment.
 
 ## Phase 13 — Optional multi-repository GitHub automation and source-aware failure analysis

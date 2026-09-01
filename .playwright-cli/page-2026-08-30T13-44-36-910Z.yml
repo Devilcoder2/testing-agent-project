@@ -1,0 +1,307 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e45] [cursor=pointer]
+  - alert [ref=e39]
+  - generic [ref=e49]:
+    - link "Skip to content" [ref=e50] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - link "Sentinel dashboard" [ref=e54] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=e55]: Sentinel
+          - generic [ref=e63]:
+            - generic [ref=e64]: QA workspace
+            - strong [ref=e65]: Dashboard
+        - generic [ref=e66]:
+          - generic [ref=e67]: Search workspace
+          - generic [ref=e68]:
+            - combobox "Search workspace" [ref=e72]
+            - generic [ref=e73]:
+              - generic [ref=e74]: ⌘
+              - text: K
+          - status [ref=e75]
+        - generic [ref=e76]:
+          - button "Use dark theme" [ref=e77] [cursor=pointer]:
+            - generic [ref=e85]: light theme active
+          - link "Open notifications" [ref=e86] [cursor=pointer]:
+            - /url: /notifications
+          - link "Open account integrations" [ref=e89] [cursor=pointer]:
+            - /url: /account/integrations
+          - button "New recording" [ref=e93] [cursor=pointer]
+          - button "Sign out" [ref=e96] [cursor=pointer]
+    - navigation "Workspace sections" [ref=e100]:
+      - generic [ref=e101]:
+        - generic [ref=e401]: Overview
+        - link "Dashboard" [ref=e103] [cursor=pointer]:
+          - /url: /dashboard
+      - generic [ref=e105]:
+        - generic [ref=e402]: Build
+        - generic [ref=e106]:
+          - link "Products" [ref=e107] [cursor=pointer]:
+            - /url: /products
+          - link "Test Cases" [ref=e109] [cursor=pointer]:
+            - /url: /test-cases
+          - link "Test Data" [ref=e111] [cursor=pointer]:
+            - /url: /test-data
+      - generic [ref=e113]:
+        - generic [ref=e403]: Operate
+        - generic [ref=e114]:
+          - link "Runs" [ref=e115] [cursor=pointer]:
+            - /url: /runs
+          - link "Releases" [ref=e117] [cursor=pointer]:
+            - /url: /releases
+      - generic [ref=e119]:
+        - generic [ref=e404]: Decide
+        - generic [ref=e120]:
+          - link "Review" [ref=e121] [cursor=pointer]:
+            - /url: /review
+          - link "Notifications" [ref=e123] [cursor=pointer]:
+            - /url: /notifications
+      - generic [ref=e125]:
+        - generic [ref=e405]: Manage
+        - link "Administration" [ref=e127] [cursor=pointer]:
+          - /url: /admin
+    - main [ref=e129]:
+      - status [ref=e130]
+      - generic [ref=e131]:
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - paragraph [ref=e134]: Quality health · rolling 30-day UTC window
+            - heading "Dashboard" [level=1] [ref=e135]
+            - paragraph [ref=e136]: Recent Test health across the Products you can currently access.
+          - generic [ref=e138]:
+            - generic [ref=e139]: Product drill-down
+            - generic [ref=e140]:
+              - combobox "Product drill-down ⌄" [disabled] [ref=e141]:
+                - option "All accessible Products"
+                - option "Auto Run UI 1786413442702"
+                - option "Ben's Sandbox"
+                - option "Billing Portal" [selected]
+                - option "Change proposal product 1787215561328"
+                - option "Delete cascade 1787911777507"
+                - option "Delete cascade 1787976277922"
+                - option "Demo CRM"
+                - option "Demo Search 1787587897028 Product 0"
+                - option "Demo Search 1787589031028 Product 0"
+                - option "Demo Search 1787591682931 Product 0"
+                - option "Demo Search 1787949045494 Product 0"
+                - option "Demo Search 1787949115651 Product 0"
+                - option "Demo Search 1787949184205 Product 0"
+                - option "Demo Search 1787976312749 Product 0"
+                - option "Demo Search 1787976365532 Product 0"
+                - option "Demo Search 1787977060137 Product 0"
+                - option "Phase 7 Testing"
+                - option "Phase Twelve Manager Product"
+                - option "Retain release 1787911777507"
+                - option "Retain release 1787976277922"
+              - text: ⌄
+        - region "All accessible Products health metrics" [ref=e149]:
+          - generic [ref=e150]:
+            - paragraph [ref=e151]: Saved Test Cases
+            - paragraph [ref=e152]: "46"
+            - paragraph [ref=e153]: All accessible Products
+          - generic [ref=e154]:
+            - paragraph [ref=e155]: Completed Runs
+            - paragraph [ref=e156]: "67"
+            - paragraph [ref=e157]: Finished in this window
+          - generic [ref=e158]:
+            - paragraph [ref=e159]: Pass rate
+            - paragraph [ref=e160]: 62%
+            - paragraph [ref=e161]: Interrupted Runs excluded
+          - generic [ref=e162]:
+            - paragraph [ref=e163]: Failed Runs
+            - paragraph [ref=e164]: "23"
+            - paragraph [ref=e165]: Needs investigation
+          - generic [ref=e166]:
+            - paragraph [ref=e167]: Flaky Tests
+            - paragraph [ref=e168]: "1"
+            - paragraph [ref=e169]: Both Passed and Failed
+          - generic [ref=e170]:
+            - paragraph [ref=e171]: Coverage change
+            - paragraph [ref=e172]: "+46"
+            - paragraph [ref=e173]: 46 saved vs 0 prior
+        - generic [ref=e174]:
+          - generic [ref=e175]:
+            - generic [ref=e176]:
+              - generic [ref=e177]:
+                - paragraph [ref=e178]: Run trend
+                - heading "All accessible Products" [level=2] [ref=e179]
+                - paragraph [ref=e180]: Daily completed outcomes; empty days are shown intentionally.
+              - generic [ref=e181]: UTC
+            - img "Daily passed and failed Run trend for the last 30 days" [ref=e183]:
+              - 'generic "2026-08-01: 0 passed, 0 failed" [ref=e184]'
+              - 'generic "2026-08-02: 0 passed, 0 failed" [ref=e185]'
+              - 'generic "2026-08-03: 0 passed, 0 failed" [ref=e186]'
+              - 'generic "2026-08-04: 0 passed, 0 failed" [ref=e187]'
+              - 'generic "2026-08-05: 0 passed, 0 failed" [ref=e188]'
+              - 'generic "2026-08-06: 0 passed, 0 failed" [ref=e189]'
+              - 'generic "2026-08-07: 0 passed, 0 failed" [ref=e190]'
+              - 'generic "2026-08-08: 0 passed, 0 failed" [ref=e191]'
+              - 'generic "2026-08-09: 1 passed, 0 failed" [ref=e192]'
+              - 'generic "2026-08-10: 9 passed, 1 failed" [ref=e194]'
+              - 'generic "2026-08-11: 0 passed, 0 failed" [ref=e197]'
+              - 'generic "2026-08-12: 10 passed, 2 failed" [ref=e198]'
+              - 'generic "2026-08-13: 0 passed, 1 failed" [ref=e201]'
+              - 'generic "2026-08-14: 1 passed, 7 failed" [ref=e203]'
+              - 'generic "2026-08-15: 0 passed, 0 failed" [ref=e206]'
+              - 'generic "2026-08-16: 0 passed, 0 failed" [ref=e207]'
+              - 'generic "2026-08-17: 0 passed, 0 failed" [ref=e208]'
+              - 'generic "2026-08-18: 0 passed, 0 failed" [ref=e209]'
+              - 'generic "2026-08-19: 2 passed, 3 failed" [ref=e210]'
+              - 'generic "2026-08-20: 0 passed, 1 failed" [ref=e213]'
+              - 'generic "2026-08-21: 2 passed, 7 failed" [ref=e215]'
+              - 'generic "2026-08-22: 3 passed, 1 failed" [ref=e218]'
+              - 'generic "2026-08-23: 0 passed, 0 failed" [ref=e221]'
+              - 'generic "2026-08-24: 3 passed, 0 failed" [ref=e222]'
+              - 'generic "2026-08-25: 0 passed, 0 failed" [ref=e224]'
+              - 'generic "2026-08-26: 0 passed, 0 failed" [ref=e225]'
+              - 'generic "2026-08-27: 0 passed, 0 failed" [ref=e226]'
+              - 'generic "2026-08-28: 3 passed, 0 failed" [ref=e227]'
+              - 'generic "2026-08-29: 3 passed, 0 failed" [ref=e229]'
+              - 'generic "2026-08-30: 0 passed, 0 failed" [ref=e231]'
+            - generic [ref=e232]:
+              - generic [ref=e233]: Passed
+              - generic [ref=e235]: Failed
+          - generic [ref=e237]:
+            - generic [ref=e239]:
+              - paragraph [ref=e240]: Latest activity
+              - heading "Current signal" [level=2] [ref=e241]
+            - generic [ref=e242]:
+              - generic [ref=e243]: passed
+              - link "Demo Search 1787977060137 Test" [ref=e245] [cursor=pointer]:
+                - /url: /runs/cmtdvdl4x000lperc7apii01h
+              - paragraph [ref=e246]: 29 Aug, 9:47
+        - generic [ref=e247]:
+          - generic [ref=e248]:
+            - generic [ref=e249]:
+              - generic [ref=e250]:
+                - paragraph [ref=e251]: Stability
+                - heading "Flaky current Tests" [level=2] [ref=e252]
+              - generic [ref=e253]: Review
+            - link "phase 3 testing 2" [ref=e256] [cursor=pointer]:
+              - /url: /test-cases/cmsqbq0m8005kk05bmrmiqna4
+              - text: phase 3 testing 2
+              - generic [ref=e257]: →
+          - generic [ref=e258]:
+            - generic [ref=e259]:
+              - generic [ref=e260]:
+                - paragraph [ref=e261]: Needs attention
+                - heading "Unread action items" [level=2] [ref=e262]
+              - link "Open inbox" [ref=e263] [cursor=pointer]:
+                - /url: /notifications
+            - paragraph [ref=e264]: No unread failure or checkpoint items need your attention.
+        - generic [ref=e265]:
+          - generic [ref=e266]:
+            - generic [ref=e267]:
+              - paragraph [ref=e268]: All accessible Products
+              - heading "Health overview" [level=2] [ref=e269]
+            - generic [ref=e270]: 20 Products
+          - generic [ref=e272]:
+            - button "Auto Run UI 1786413442702 16 Tests 39% pass passed" [ref=e273] [cursor=pointer]:
+              - strong [ref=e274]: Auto Run UI 1786413442702
+              - generic [ref=e275]: 16 Tests
+              - generic [ref=e276]: 39% pass
+              - generic [ref=e277]: passed
+            - button "Ben's Sandbox 0 Tests No pass rate No Runs" [ref=e279] [cursor=pointer]:
+              - strong [ref=e280]: Ben's Sandbox
+              - generic [ref=e281]: 0 Tests
+              - generic [ref=e282]: No pass rate
+              - generic [ref=e283]: No Runs
+            - button "Billing Portal 14 Tests 93% pass passed" [ref=e285] [cursor=pointer]:
+              - strong [ref=e286]: Billing Portal
+              - generic [ref=e287]: 14 Tests
+              - generic [ref=e288]: 93% pass
+              - generic [ref=e289]: passed
+            - button "Change proposal product 1787215561328 1 Tests 0% pass failed" [ref=e291] [cursor=pointer]:
+              - strong [ref=e292]: Change proposal product 1787215561328
+              - generic [ref=e293]: 1 Tests
+              - generic [ref=e294]: 0% pass
+              - generic [ref=e295]: failed
+            - button "Delete cascade 1787911777507 0 Tests No pass rate No Runs" [ref=e297] [cursor=pointer]:
+              - strong [ref=e298]: Delete cascade 1787911777507
+              - generic [ref=e299]: 0 Tests
+              - generic [ref=e300]: No pass rate
+              - generic [ref=e301]: No Runs
+            - button "Delete cascade 1787976277922 0 Tests No pass rate No Runs" [ref=e303] [cursor=pointer]:
+              - strong [ref=e304]: Delete cascade 1787976277922
+              - generic [ref=e305]: 0 Tests
+              - generic [ref=e306]: No pass rate
+              - generic [ref=e307]: No Runs
+            - button "Demo CRM 4 Tests No pass rate interrupted" [ref=e309] [cursor=pointer]:
+              - strong [ref=e310]: Demo CRM
+              - generic [ref=e311]: 4 Tests
+              - generic [ref=e312]: No pass rate
+              - generic [ref=e313]: interrupted
+            - button "Demo Search 1787587897028 Product 0 1 Tests 100% pass passed" [ref=e315] [cursor=pointer]:
+              - strong [ref=e316]: Demo Search 1787587897028 Product 0
+              - generic [ref=e317]: 1 Tests
+              - generic [ref=e318]: 100% pass
+              - generic [ref=e319]: passed
+            - button "Demo Search 1787589031028 Product 0 1 Tests 100% pass passed" [ref=e321] [cursor=pointer]:
+              - strong [ref=e322]: Demo Search 1787589031028 Product 0
+              - generic [ref=e323]: 1 Tests
+              - generic [ref=e324]: 100% pass
+              - generic [ref=e325]: passed
+            - button "Demo Search 1787591682931 Product 0 1 Tests 100% pass passed" [ref=e327] [cursor=pointer]:
+              - strong [ref=e328]: Demo Search 1787591682931 Product 0
+              - generic [ref=e329]: 1 Tests
+              - generic [ref=e330]: 100% pass
+              - generic [ref=e331]: passed
+            - button "Demo Search 1787949045494 Product 0 1 Tests 100% pass passed" [ref=e333] [cursor=pointer]:
+              - strong [ref=e334]: Demo Search 1787949045494 Product 0
+              - generic [ref=e335]: 1 Tests
+              - generic [ref=e336]: 100% pass
+              - generic [ref=e337]: passed
+            - button "Demo Search 1787949115651 Product 0 1 Tests 100% pass passed" [ref=e339] [cursor=pointer]:
+              - strong [ref=e340]: Demo Search 1787949115651 Product 0
+              - generic [ref=e341]: 1 Tests
+              - generic [ref=e342]: 100% pass
+              - generic [ref=e343]: passed
+            - button "Demo Search 1787949184205 Product 0 1 Tests 100% pass passed" [ref=e345] [cursor=pointer]:
+              - strong [ref=e346]: Demo Search 1787949184205 Product 0
+              - generic [ref=e347]: 1 Tests
+              - generic [ref=e348]: 100% pass
+              - generic [ref=e349]: passed
+            - button "Demo Search 1787976312749 Product 0 1 Tests 100% pass passed" [ref=e351] [cursor=pointer]:
+              - strong [ref=e352]: Demo Search 1787976312749 Product 0
+              - generic [ref=e353]: 1 Tests
+              - generic [ref=e354]: 100% pass
+              - generic [ref=e355]: passed
+            - button "Demo Search 1787976365532 Product 0 1 Tests 100% pass passed" [ref=e357] [cursor=pointer]:
+              - strong [ref=e358]: Demo Search 1787976365532 Product 0
+              - generic [ref=e359]: 1 Tests
+              - generic [ref=e360]: 100% pass
+              - generic [ref=e361]: passed
+            - button "Demo Search 1787977060137 Product 0 1 Tests 100% pass passed" [ref=e363] [cursor=pointer]:
+              - strong [ref=e364]: Demo Search 1787977060137 Product 0
+              - generic [ref=e365]: 1 Tests
+              - generic [ref=e366]: 100% pass
+              - generic [ref=e367]: passed
+            - button "Phase 7 Testing 2 Tests 100% pass passed" [ref=e369] [cursor=pointer]:
+              - strong [ref=e370]: Phase 7 Testing
+              - generic [ref=e371]: 2 Tests
+              - generic [ref=e372]: 100% pass
+              - generic [ref=e373]: passed
+            - button "Phase Twelve Manager Product 0 Tests No pass rate No Runs" [ref=e375] [cursor=pointer]:
+              - strong [ref=e376]: Phase Twelve Manager Product
+              - generic [ref=e377]: 0 Tests
+              - generic [ref=e378]: No pass rate
+              - generic [ref=e379]: No Runs
+            - button "Retain release 1787911777507 0 Tests No pass rate No Runs" [ref=e381] [cursor=pointer]:
+              - strong [ref=e382]: Retain release 1787911777507
+              - generic [ref=e383]: 0 Tests
+              - generic [ref=e384]: No pass rate
+              - generic [ref=e385]: No Runs
+            - button "Retain release 1787976277922 0 Tests No pass rate No Runs" [ref=e387] [cursor=pointer]:
+              - strong [ref=e388]: Retain release 1787976277922
+              - generic [ref=e389]: 0 Tests
+              - generic [ref=e390]: No pass rate
+              - generic [ref=e391]: No Runs
+        - group [ref=e393]:
+          - generic "Controlled internal pilot Operational readiness Local services and access boundary Ready" [ref=e394] [cursor=pointer]:
+            - generic [ref=e395]:
+              - generic [ref=e396]: Controlled internal pilot
+              - strong [ref=e397]: Operational readiness
+              - generic [ref=e398]: Local services and access boundary
+            - generic [ref=e399]: Ready

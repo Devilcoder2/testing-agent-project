@@ -1,0 +1,166 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - link "Skip to content" [ref=f2e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=f2e4]:
+      - generic [ref=f2e5]:
+        - generic [ref=f2e6]:
+          - link "Sentinel dashboard" [ref=f2e7] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=f2e8]: Sentinel
+          - generic [ref=f2e16]:
+            - generic [ref=f2e17]: QA workspace
+            - strong [ref=f2e18]: Releases
+        - generic [ref=f2e19]:
+          - generic [ref=f2e20]: Search workspace
+          - generic [ref=f2e21]:
+            - combobox "Search workspace" [ref=f2e25]
+            - generic [ref=f2e26]:
+              - generic [ref=f2e27]: ⌘
+              - text: K
+          - status [ref=f2e28]
+        - generic [ref=f2e29]:
+          - button "Use dark theme" [ref=f2e30] [cursor=pointer]:
+            - generic [ref=f2e38]: light theme active
+          - link "Open notifications" [ref=f2e39] [cursor=pointer]:
+            - /url: /notifications
+          - link "Open account integrations" [ref=f2e42] [cursor=pointer]:
+            - /url: /account/integrations
+          - button "New recording" [ref=f2e46] [cursor=pointer]
+          - button "Sign out" [ref=f2e49] [cursor=pointer]
+    - navigation "Workspace sections" [ref=f2e53]:
+      - generic [ref=f2e54]:
+        - generic [ref=f2e55]: Overview
+        - link "Dashboard" [ref=f2e57] [cursor=pointer]:
+          - /url: /dashboard
+      - generic [ref=f2e59]:
+        - generic [ref=f2e60]: Build
+        - generic [ref=f2e61]:
+          - link "Products" [ref=f2e62] [cursor=pointer]:
+            - /url: /products
+          - link "Test Cases" [ref=f2e64] [cursor=pointer]:
+            - /url: /test-cases
+          - link "Test Data" [ref=f2e66] [cursor=pointer]:
+            - /url: /test-data
+      - generic [ref=f2e68]:
+        - generic [ref=f2e69]: Operate
+        - generic [ref=f2e70]:
+          - link "Runs" [ref=f2e71] [cursor=pointer]:
+            - /url: /runs
+          - link "Releases" [ref=f2e73] [cursor=pointer]:
+            - /url: /releases
+      - generic [ref=f2e75]:
+        - generic [ref=f2e76]: Decide
+        - generic [ref=f2e77]:
+          - link "Review" [ref=f2e78] [cursor=pointer]:
+            - /url: /review
+          - link "Notifications" [ref=f2e80] [cursor=pointer]:
+            - /url: /notifications
+      - generic [ref=f2e82]:
+        - generic [ref=f2e83]: Manage
+        - link "Administration" [ref=f2e85] [cursor=pointer]:
+          - /url: /admin
+    - main [ref=f2e87]:
+      - status [ref=f2e88]
+      - generic [ref=f2e146]:
+        - generic [ref=f2e147]:
+          - link "Releases" [ref=f2e148] [cursor=pointer]:
+            - /url: /releases
+          - generic [ref=f2e149]: /
+          - generic [ref=f2e150]: Phase 4
+        - generic [ref=f2e151]:
+          - generic [ref=f2e152]:
+            - generic [ref=f2e153]:
+              - paragraph [ref=f2e154]: Release readiness
+              - heading "Phase 4" [level=1] [ref=f2e155]
+              - paragraph [ref=f2e156]: Tags can change between batches. Each started batch retains an immutable Test Case version snapshot.
+            - generic [ref=f2e157]:
+              - button "Transfer Release ownership" [ref=f2e158] [cursor=pointer]
+              - button "Edit Test Cases" [ref=f2e159] [cursor=pointer]
+              - button "Start Release Run" [ref=f2e160] [cursor=pointer]
+          - generic [ref=f2e162]:
+            - generic [ref=f2e163]: ready
+            - generic [ref=f2e165]: 1 persisted item
+        - generic [ref=f2e166]:
+          - generic [ref=f2e168]:
+            - paragraph [ref=f2e169]: Current composition
+            - heading "Tagged Test Cases" [level=2] [ref=f2e170]
+          - article [ref=f2e172]:
+            - generic [ref=f2e173]:
+              - heading "Tesitng phase 4" [level=2] [ref=f2e174]
+              - paragraph [ref=f2e175]: Auto Run UI 1786413442702 · Current Version 1
+            - link "Open Test" [ref=f2e176] [cursor=pointer]:
+              - /url: /test-cases/cmssmxauf01a4qr5fq96zp1l6
+        - generic [ref=f2e177]:
+          - generic [ref=f2e179]:
+            - paragraph [ref=f2e180]: Batch history
+            - heading "Release Runs" [level=2] [ref=f2e181]
+            - paragraph [ref=f2e182]: Excluded items remain visible so a batch never silently skips a Test Case.
+          - generic [ref=f2e183]:
+            - generic [ref=f2e184]:
+              - generic [ref=f2e185]:
+                - generic [ref=f2e186]:
+                  - heading "Batch 22/08/2026, 19:43:30" [level=3] [ref=f2e187]
+                  - paragraph [ref=f2e188]: Ava Tester
+                - generic [ref=f2e189]: ready
+              - article [ref=f2e192]:
+                - generic [ref=f2e193]:
+                  - generic [ref=f2e194]:
+                    - heading "Tesitng phase 4" [level=2] [ref=f2e195]
+                    - generic [ref=f2e196]: passed
+                  - paragraph [ref=f2e198]: Auto Run UI 1786413442702 · Version 1
+                - link "Open Run" [ref=f2e199] [cursor=pointer]:
+                  - /url: /runs/cmt4gkvz700bso25py6v74fre
+            - generic [ref=f2e200]:
+              - generic [ref=f2e201]:
+                - generic [ref=f2e202]:
+                  - heading "Batch 21/08/2026, 15:13:22" [level=3] [ref=f2e203]
+                  - paragraph [ref=f2e204]: Ava Tester
+                - generic [ref=f2e205]: ready
+              - article [ref=f2e208]:
+                - generic [ref=f2e209]:
+                  - generic [ref=f2e210]:
+                    - heading "Tesitng phase 4" [level=2] [ref=f2e211]
+                    - generic [ref=f2e212]: passed
+                  - paragraph [ref=f2e214]: Auto Run UI 1786413442702 · Version 1
+                - link "Open Run" [ref=f2e215] [cursor=pointer]:
+                  - /url: /runs/cmt2rhmk400rorw5phfyr1evy
+            - generic [ref=f2e216]:
+              - generic [ref=f2e217]:
+                - generic [ref=f2e218]:
+                  - heading "Batch 19/08/2026, 23:52:47" [level=3] [ref=f2e219]
+                  - paragraph [ref=f2e220]: Ava Tester
+                - generic [ref=f2e221]: ready
+              - article [ref=f2e224]:
+                - generic [ref=f2e225]:
+                  - generic [ref=f2e226]:
+                    - heading "Tesitng phase 4" [level=2] [ref=f2e227]
+                    - generic [ref=f2e228]: passed
+                  - paragraph [ref=f2e230]: Auto Run UI 1786413442702 · Version 1
+                - link "Open Run" [ref=f2e231] [cursor=pointer]:
+                  - /url: /runs/cmt0f5wtp00b3t45ey9sx02y8
+            - generic [ref=f2e232]:
+              - generic [ref=f2e233]:
+                - generic [ref=f2e234]:
+                  - heading "Batch 19/08/2026, 23:51:47" [level=3] [ref=f2e235]
+                  - paragraph [ref=f2e236]: Ava Tester
+                - generic [ref=f2e237]: not ready
+              - generic [ref=f2e239]:
+                - article [ref=f2e240]:
+                  - generic [ref=f2e241]:
+                    - generic [ref=f2e242]:
+                      - heading "testing phase 4 - shared variable names" [level=2] [ref=f2e243]
+                      - generic [ref=f2e244]: failed
+                    - paragraph [ref=f2e246]: Auto Run UI 1786413442702 · Version 1 · navigation timeout
+                  - link "Open Run" [ref=f2e247] [cursor=pointer]:
+                    - /url: /runs/cmt0f4me6009vt45el1ha2x2a
+                - article [ref=f2e248]:
+                  - generic [ref=f2e249]:
+                    - generic [ref=f2e250]:
+                      - heading "Tesitng phase 4" [level=2] [ref=f2e251]
+                      - generic [ref=f2e252]: passed
+                    - paragraph [ref=f2e254]: Auto Run UI 1786413442702 · Version 1
+                  - link "Open Run" [ref=f2e255] [cursor=pointer]:
+                    - /url: /runs/cmt0f4mee00ajt45e6ysgfk3l
+  - button "Open Next.js Dev Tools" [ref=f2e142] [cursor=pointer]
+  - alert [ref=f2e108]
