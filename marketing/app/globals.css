@@ -1104,7 +1104,7 @@ img {
   border: 1px solid var(--color-rule);
   border-radius: 1.35rem;
   background: var(--color-surface);
-  box-shadow: 0 2rem 6rem oklch(20% 0.025 260 / 0.12), 0 0 0 0.45rem color-mix(in oklch, var(--color-surface) 70%, transparent);
+  box-shadow: var(--shadow-workbench), 0 0 0 0.45rem color-mix(in oklch, var(--color-surface) 70%, transparent);
   text-align: left;
 }
 
@@ -1112,8 +1112,8 @@ img {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: oklch(19% 0.026 260);
-  color: oklch(94% 0.008 255);
+  background: var(--color-demo-sidebar);
+  color: var(--color-demo-sidebar-text);
   padding: 1.15rem 0.85rem;
 }
 
@@ -1125,7 +1125,7 @@ img {
 .demo-brand .sentinel-logo-mark {
   width: 1.65rem;
   height: 1.65rem;
-  color: oklch(94% 0.008 255);
+  color: var(--color-demo-sidebar-text);
 }
 
 .demo-brand .sentinel-logo-word {
@@ -1135,7 +1135,7 @@ img {
 .demo-brand > span:last-child {
   display: block;
   margin: 0.25rem 0 0 2.28rem;
-  color: oklch(72% 0.015 255);
+  color: var(--color-demo-sidebar-muted);
   font-size: 0.65rem;
 }
 
@@ -1155,7 +1155,7 @@ img {
   border-radius: 0.6rem;
   padding: 0.62rem 0.72rem;
   background: transparent;
-  color: oklch(76% 0.012 255);
+  color: var(--color-demo-sidebar-nav);
   cursor: pointer;
   font-size: 0.78rem;
   text-align: left;
@@ -1163,12 +1163,12 @@ img {
 }
 
 .demo-sidebar nav button:hover {
-  background: oklch(28% 0.025 260);
+  background: var(--color-demo-sidebar-hover);
   color: var(--color-surface);
 }
 
 .demo-sidebar nav button.active {
-  background: oklch(31% 0.06 258);
+  background: var(--color-demo-sidebar-active);
   color: var(--color-surface);
 }
 
@@ -1192,7 +1192,7 @@ img {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  border-top: 1px solid oklch(35% 0.02 260);
+  border-top: 1px solid var(--color-demo-sidebar-rule);
   padding: 1rem 0.55rem 0.1rem;
 }
 
@@ -1220,12 +1220,12 @@ img {
 }
 
 .demo-account small {
-  color: oklch(69% 0.012 255);
+  color: var(--color-demo-sidebar-account);
 }
 
 .demo-main {
   min-width: 0;
-  background: oklch(98.3% 0.004 255);
+  background: var(--color-demo-canvas);
 }
 
 .demo-topbar {
@@ -1370,7 +1370,7 @@ img {
 
 .demo-status-wait {
   background: color-mix(in oklch, var(--color-warning) 13%, var(--color-surface));
-  color: oklch(43% 0.11 75);
+  color: var(--color-warning-ink);
 }
 
 .release-score {
@@ -1592,7 +1592,7 @@ img {
   display: grid;
   place-items: center;
   border-radius: 0.6rem;
-  background: oklch(24% 0.025 260);
+  background: var(--color-demo-evidence);
 }
 
 .checkout-mini {
@@ -1676,7 +1676,7 @@ img {
   place-items: center;
   border-radius: 50%;
   background: color-mix(in oklch, var(--color-warning) 14%, var(--color-surface));
-  color: oklch(43% 0.11 75);
+  color: var(--color-warning-ink);
   font-weight: 750;
 }
 
@@ -1810,11 +1810,11 @@ img {
 }
 
 .feature-card-2 {
-  background: oklch(95.5% 0.022 258);
+  background: var(--color-feature-cobalt);
 }
 
 .feature-card-3 {
-  background: oklch(94.5% 0.018 160);
+  background: var(--color-feature-sage);
 }
 
 .feature-number {
@@ -1895,7 +1895,7 @@ img {
 
 .feature-dialog::backdrop,
 .video-dialog::backdrop {
-  background: oklch(18% 0.02 260 / 0.48);
+  background: var(--color-backdrop-soft);
   backdrop-filter: blur(12px);
 }
 
@@ -1962,7 +1962,7 @@ img {
   display: grid;
   align-content: start;
   gap: 1rem;
-  background: oklch(19% 0.026 260);
+  background: var(--color-demo-sidebar);
   padding: 15% 18%;
 }
 
@@ -1970,7 +1970,7 @@ img {
   width: 100%;
   height: 0.35rem;
   border-radius: 1rem;
-  background: oklch(72% 0.012 255);
+  background: var(--color-demo-sidebar-muted);
   opacity: 0.55;
 }
 
