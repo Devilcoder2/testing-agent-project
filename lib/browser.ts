@@ -97,10 +97,14 @@ function recorderScript(endpoint: string, token: string) {
     (() => {
       if (window.__sentinelRecorderInstalled) return;
       window.__sentinelRecorderInstalled = true;
-      const emit = (kind, target, value, isRedacted) => fetch(${JSON.stringify(endpoint)}, {
-        method: 'POST', mode: 'cors', keepalive: true, headers: {'content-type':'application/json', 'x-recording-token': ${JSON.stringify(token)}},
-        body: JSON.stringify({kind, target, value, isRedacted, timestamp: new Date().toISOString()})
-      }).catch(() => undefined);
+      let delivery = Promise.resolve();
+      const emit = (kind, target, value, isRedacted) => {
+        const payload = JSON.stringify({kind, target, value, isRedacted, timestamp: new Date().toISOString()});
+        delivery = delivery.then(() => fetch(${JSON.stringify(endpoint)}, {
+          method: 'POST', mode: 'cors', keepalive: true, headers: {'content-type':'application/json', 'x-recording-token': ${JSON.stringify(token)}}, body: payload
+        })).catch(() => undefined);
+        return delivery;
+      };
       const describe = (element) => {
         const textControl = element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
         return {
@@ -219,6 +223,10 @@ export async function launchRecordingBrowser(targetUrl: string, token: string, r
 
 export async function launchRunBrowser(targetUrl: string, runId: string) {
   return launchOwnedBrowser(targetUrl, { kind: "run", id: runId }, runEvidenceScript());
+}
+
+export function isRunBrowserActive(runId: string) {
+  return Boolean(driver && browserOwner?.kind === "run" && browserOwner.id === runId);
 }
 
 function requireRunDriver(runId: string) {
