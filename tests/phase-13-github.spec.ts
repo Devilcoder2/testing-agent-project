@@ -15,11 +15,16 @@ test("keeps optional GitHub controls safe when no repository integration is conf
   await page.getByRole("button", { name: "GitHub", exact: true }).first().click();
   const dialog = page.getByRole("dialog", { name: "GitHub repositories" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText(/GitHub App is not configured|Connected repositories/)).toBeVisible();
+  await expect(dialog.getByText(/GitHub is not available|Connected repositories/)).toBeVisible();
   await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
   await expect(dialog).not.toContainText("GITHUB_APP_PRIVATE_KEY");
   await expect(dialog).not.toContainText("GITHUB_WEBHOOK_SECRET");
-  await page.getByRole("button", { name: "Close" }).click();
+  await expect(dialog).toHaveCSS("overflow-y", "hidden");
+  await expect(dialog.locator(".github-settings-modal__content")).toHaveCSS("overflow-y", "auto");
+  await expect(page.locator(".modal-backdrop")).toHaveCSS("z-index", "100");
+  await dialog.getByText(/GitHub is not available|Connected repositories/).click();
+  await expect(dialog).toBeVisible();
+  await page.locator(".modal-backdrop").click({ position: { x: 4, y: 4 } });
   await expect(dialog).toHaveCount(0);
 
   await page.goto(`${baseUrl}/test-cases`);
