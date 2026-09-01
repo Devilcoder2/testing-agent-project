@@ -3092,6 +3092,8 @@ A native horizontal feature rail now presents Recording, Guided Runs, Autonomous
 
 The main tradeoff is that the preview demonstrates information architecture and navigation rather than executing Sentinel. That keeps the acquisition surface fast, safe, and independently deployable, but sample fixtures must be kept synchronized when the real product changes. It is intentionally not a demo account or iframe: either would require deploying and securing the product, handling session lifecycle, and preventing mutation at every server route. Native overflow and dialog behavior were chosen over a carousel dependency because they preserve touch momentum, keyboard behavior, and a smaller bundle. The walkthrough remains poster-first until the final sanitized video and captions are supplied.
 
+The independent finish review found four important edge cases before handoff. Hero content now renders visible in the server HTML, so failed or delayed hydration cannot produce a blank first viewport. On mobile, the preview changes into a labelled horizontal navigation strip and single-column data views instead of hiding labels beside a desktop-width canvas. Both native dialogs explicitly connect their titles and descriptions, and browser coverage confirms focus returns to the feature card that opened the dialog. Until a Stream ID exists, the action truthfully says **Read the walkthrough**; production configuration changes it to **Watch the walkthrough**. The seven feature cards also use different small diagrams rather than repeating one generic glyph.
+
 ### Verification evidence
 
 ```text
