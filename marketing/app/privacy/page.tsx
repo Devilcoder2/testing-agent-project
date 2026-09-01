@@ -32,9 +32,9 @@ export default function PrivacyPage() {
           <section>
             <h2>What we collect</h2>
             <p>
-              The qualifier asks for your name, work email, company, and QA team
-              size. Cloudflare Turnstile also processes technical signals needed
-              to distinguish a person from automated abuse.
+              The qualifier requires your name and email. Company and QA team
+              size are optional. Cloudflare Turnstile also processes technical
+              signals needed to distinguish a person from automated abuse.
             </p>
           </section>
 
