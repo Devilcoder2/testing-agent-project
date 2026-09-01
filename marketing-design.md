@@ -112,6 +112,7 @@ Motion uses Motion for React through lazy features and stays subordinate to comp
 3. The primary product surface settles into view once using a subtle scale from 0.985 to 1 and a short opacity transition.
 4. Workspace views crossfade with no more than 6px of travel when the visitor changes destination.
 5. Feature cards use native momentum scrolling and snap; the detail dialog fades and settles without spring overshoot.
+6. Below-the-fold narrative groups reveal once as they enter the viewport, using varied 12–20px lifts, short lateral movement, or a soft 4px de-focus. Content remains visible in server HTML and when JavaScript is unavailable. Reduced motion removes translation and blur rather than removing content.
 
 Buttons use color and a 1px press, not hover scaling. There is no parallax, custom cursor, marquee, text scrambling, repeating ambient animation, carousel autoplay, or scroll-jacked narrative. Reduced motion removes translation and scale while preserving state changes within 150ms.
 
@@ -126,7 +127,9 @@ Buttons use color and a 1px press, not hover scaling. There is no parallax, cust
 
 ## 9. Identity mark
 
-The old three-bar placeholder is replaced by a simple signal-path mark: three checkpoints joined by one rising route inside a restrained rounded frame. It communicates a taught journey, observable progress, and a controlled finish without using a shield, robot, spark, or generic AI glyph. The same authored SVG geometry is used in the header and favicon, with a text wordmark beside it where space permits.
+The old three-bar placeholder is replaced by a simple signal-path mark: three checkpoints joined by one rising route inside a restrained rounded frame. It communicates a taught journey, observable progress, and a controlled finish without using a shield, robot, spark, or generic AI glyph. The same authored SVG geometry is used in the header and favicon. In the site header the mark stands alone at the left edge while the **Sentinel** wordmark is independently centered in the same Geist display family as the landing page.
+
+The feature rail reserves breathing room above its cards so the restrained hover lift never clips a border. Its native detail dialog is explicitly fixed and centered in the top layer at every viewport, with the blurred backdrop, focus containment, Escape dismissal, and focus restoration preserved.
 
 ## 10. Form, accessibility, performance, and non-scope
 
