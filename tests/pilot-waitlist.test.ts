@@ -68,6 +68,13 @@ describe("pilot waitlist validation", () => {
     expect(parsed).toMatchObject({ name: "Riley Lead", email: "riley@example.test", company: "Example Labs", qaTeamSize: "2-5" });
   });
 
+  it("accepts name and email without optional qualification fields", () => {
+    const parsed = pilotWaitlistInputSchema.parse({ name: "Riley Lead", email: "riley@example.test", company: "", qaTeamSize: "", turnstileToken: "valid-token", companyWebsite: "" });
+    expect(parsed).toMatchObject({ name: "Riley Lead", email: "riley@example.test" });
+    expect(parsed.company).toBeUndefined();
+    expect(parsed.qaTeamSize).toBeUndefined();
+  });
+
   it("rejects unsupported fields, team sizes, and malformed emails", () => {
     expect(pilotWaitlistInputSchema.safeParse({ ...validBody(), email: "not-an-email" }).success).toBe(false);
     expect(pilotWaitlistInputSchema.safeParse({ ...validBody(), qaTeamSize: "50+" }).success).toBe(false);
@@ -82,6 +89,12 @@ describe("pilot waitlist validation", () => {
 });
 
 describe("public pilot waitlist endpoint", () => {
+  it("stores absent qualification fields as null", async () => {
+    const email = `minimal-${suffix}@example.test`;
+    expect((await POST(publicRequest({ name: "Minimal Lead", email, company: "", qaTeamSize: "", turnstileToken: "valid-token", companyWebsite: "" }))).status).toBe(202);
+    expect(await prisma.pilotWaitlistLead.findUnique({ where: { organizationId_email: { organizationId, email } } })).toMatchObject({ company: null, qaTeamSize: null });
+  });
+
   it("accepts, normalizes, and idempotently refreshes one organization-owned lead", async () => {
     const email = `idempotent-${suffix}@example.test`;
     const first = await POST(publicRequest(validBody(email)));
