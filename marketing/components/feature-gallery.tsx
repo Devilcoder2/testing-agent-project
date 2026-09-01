@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, m } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 const features = [
   { number: '01', title: 'Recording', short: 'Teach a browser journey while its intent is still obvious.', detail: 'Sentinel records the browser actions beside a plain-English step log, so the durable asset is the journey—not a pile of selectors.', points: ['Live browser capture', 'Readable step intent', 'Versioned Test Case'] },
@@ -20,6 +20,11 @@ export function FeatureGallery() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [selected, setSelected] = useState<Feature | null>(null);
   const [edge, setEdge] = useState<'start' | 'middle' | 'end'>('start');
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -50,8 +55,8 @@ export function FeatureGallery() {
       <div className="feature-heading">
         <div><span className="section-kicker">Inside Sentinel</span><h2 id="features-title">More capability. Less page.</h2></div>
         <div className="rail-controls" aria-label="Feature gallery controls">
-          <button type="button" onClick={() => move(-1)} disabled={edge === 'start'} aria-label="Previous features">←</button>
-          <button type="button" onClick={() => move(1)} disabled={edge === 'end'} aria-label="Next features">→</button>
+          <button type="button" onClick={() => move(-1)} disabled={!hydrated || edge === 'start'} aria-label="Previous features">←</button>
+          <button type="button" onClick={() => move(1)} disabled={!hydrated || edge === 'end'} aria-label="Next features">→</button>
         </div>
       </div>
       <div className="feature-rail" ref={railRef} onScroll={updateEdge}>
@@ -60,6 +65,7 @@ export function FeatureGallery() {
             className={`feature-card feature-card-${(index % 3) + 1}`}
             type="button"
             key={feature.title}
+            disabled={!hydrated}
             onClick={() => setSelected(feature)}
             whileHover={{ y: -4 }}
             transition={{ duration: 0.2 }}
