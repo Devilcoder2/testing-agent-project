@@ -3445,6 +3445,76 @@ Impeccable detector
 
 **Learning status:** Documentation, migration, implementation, one-file pushes, focused API coverage, marketing lint/type/build, complete desktop/mobile browser coverage, and detector review are complete. Owner answers remain open, so the Phase 26 learning gate remains incomplete.
 
+## Phase 28 — Product modal and completion-feedback refinement
+
+### What changed and why
+
+The Product GitHub settings dialog used to live inside the three-dot menu. The menu correctly closes when a pointer or focus event occurs outside it, but that also meant any interaction inside the visually separate dialog could close the menu and unmount the dialog. The dialog also inherited whole-dialog scrolling and could be placed below the sticky workspace header. It now renders through a React portal at the document body, uses the shared focus-trapping `Dialog`, and has a fixed header/footer with only its middle content region scrollable.
+
+Completed Product deletion requests remain durable database records for audit and retry history. The Products page no longer treats every historical `COMPLETED` request as a permanent banner. It observes a deletion that was queued or processing in the open page, displays its completion acknowledgement, then clears that presentation state after five seconds. Reloading or returning later does not recreate the acknowledgement from the durable history.
+
+### Complete flow, technology, and tradeoffs
+
+1. A user opens the Product overflow menu and selects GitHub. The menu closes, but the GitHub settings component remains mounted beside the menu state.
+2. The component requests the existing Product GitHub settings and activity endpoints, then portals the shared dialog into `document.body` so it is no longer contained by the menu or the app-shell stacking context.
+3. The shared dialog focuses its first usable control, traps Tab navigation, restores focus on close, accepts Escape, and now optionally accepts a backdrop pointer event only when the event target is the backdrop itself. Clicks inside the dialog do not meet that condition.
+4. CSS makes the GitHub dialog a three-row grid: header, scrollable content, and footer. The portal plus backdrop layer above the masthead keeps the dialog visible; mobile retains the product's existing bottom-sheet treatment.
+5. A successful Product DELETE request still returns a durable queued request. Polling continues until the same request becomes completed. The component filters completed historical records from persistent page status, sets an in-memory completion acknowledgement for the newly observed transition, reloads the Product list, and schedules one cleanup timer for 5,000 ms.
+6. Cleanup clears the timer when the acknowledgement changes or the component unmounts, preventing stale callbacks. The API, worker, audit request, Release-preservation rule, and deletion cascade are untouched.
+
+React portals were chosen over weakening the Product menu's outside-dismiss behavior, because the dialog must survive independently while the menu correctly closes. A local-only `stopPropagation` was rejected because document-level native listeners and focus changes would still be fragile. Replacing durable deletion status with browser storage was rejected because it would hide useful queued/failed state and duplicate server truth. A generic toast dependency was unnecessary: the existing accessible feedback component and a small in-memory timer cover the requested behaviour.
+
+### Verification evidence and priority-based diff review
+
+```text
+npx eslint components/ui.tsx components/sentinel-views.tsx tests/phase-13-github.spec.ts tests/product-creation.spec.ts
+exit 0
+
+docker compose exec -T sentinel npx playwright test tests/phase-13-github.spec.ts --reporter=line
+Running 1 test using 1 worker
+[1/1] tests/phase-13-github.spec.ts:5:5 › keeps optional GitHub controls safe when no repository integration is configured
+  1 passed (3.7s)
+
+docker compose exec -T sentinel npx playwright test tests/product-creation.spec.ts --grep "explicit confirmation" --reporter=line
+Running 1 test using 1 worker
+[1/1] tests/product-creation.spec.ts:101:5 › requires explicit confirmation and reports background Product deletion
+  1 passed (11.2s)
+```
+
+| Priority | Files and symbols | Why and owner action |
+|---|---|---|
+| Highest — understand now | `components/sentinel-views.tsx` (`ProductActionMenu`, `GitHubProjectSettings`, `ProductsView.refreshDeletions`, `completedDeletion` effect) | This is the behaviour-critical boundary between menu dismissal, portal lifetime, GitHub controls, durable deletion polling, and timer cleanup. Read now. |
+| Highest — understand now | `components/ui.tsx` (`Dialog`, `closeOnBackdrop`) | This shared component controls focus trapping, Escape, focus restoration, and the exact `event.target === event.currentTarget` backdrop guard. Read now. |
+| Medium — understand next | `app/globals.css` (`.modal-backdrop`, `.github-settings-modal`, `.github-settings-modal__content`) | These rules establish the layer above the shell and prevent the whole modal from scrolling. Verify desktop and mobile modifications before changing dialog styles. |
+| Medium — understand next | `tests/phase-13-github.spec.ts`, `tests/product-creation.spec.ts` | These are the executable contract for containment, safe copy, scroll ownership, backdrop dismissal, expiry, and reload behavior. Read next. |
+| Lower — skim or defer | `frontend.md`, `phases.md`, `decisions-log.md` | These record scope, acceptance criteria, and D-064 without changing runtime behaviour. |
+
+Repository-wide `npm run lint` was not a valid signal: it currently reports 4,581 errors in pre-existing generated `marketing/dist` and `marketing/.next` files. Root strict TypeScript also remains blocked by five pre-existing missing `marketing/components/*` modules. The focused source lint and both Product browser workflows above pass.
+
+### Ten-question understanding check
+
+1. Why did clicking inside the old GitHub modal close it even though the modal had its own visual container?
+2. Why does mounting the GitHub dialog through a portal solve both the menu-lifetime and stacking-context issues?
+3. What exact event condition allows the shared dialog to close on a backdrop pointer event, and why does that preserve controls inside the dialog?
+4. How do the shared dialog's Tab trap, Escape handler, and focus-restoration behavior work together for keyboard users?
+5. Which three layout rows make the GitHub dialog scroll correctly, and which one owns `overflow-y: auto`?
+6. Why is a completion acknowledgement stored in component state instead of in the durable deletion request or browser storage?
+7. What transition must occur before the Products page shows the five-second completion acknowledgement?
+8. Why are failed deletion statuses still shown from durable state while completed statuses are filtered on the initial Products load?
+9. What cleanup prevents the five-second timer from setting state after the acknowledgement has changed or the page has unmounted?
+10. Which focused test proves the modal stays open after an inside click but closes from the backdrop, and which proves the deletion acknowledgement does not return after reload?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews the two highest-priority component files before this refinement is considered fully understood.
+- Restore or exclude the unrelated generated marketing output and missing marketing component imports, then rerun root lint and strict TypeScript before treating repository-wide verification as green.
+
+**Learning status:** Focused implementation, one-file pushes, source lint, GitHub dialog containment coverage, and Product deletion expiry/reload coverage are complete. Owner answers and the unrelated repository-wide marketing verification blockers remain open.
+
 ## 2026-09-02 — Phase 27: Recording-order integrity and Guided Run recovery
 
 ### What changed and why
