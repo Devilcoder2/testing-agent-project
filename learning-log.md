@@ -3081,3 +3081,74 @@ exit 0
 - Complete the final launch review with production domains, Turnstile keys, legal identity/contact details, privacy wording, and a fresh screenshot sanitization check.
 
 **Learning status:** The Quiet Flight design, implementation, build, focused browser coverage, decision record, and priority review are complete. Final production media/configuration and owner answers remain open, so the public-launch and learning gates are not complete.
+
+## 2026-09-01 — Phase 26: interactive marketing Workbench
+
+### What changed and why
+
+The screenshot-led proof was replaced with a code-native, read-only Sentinel workspace because the earlier captures were soft, visually inconsistent, and could not demonstrate how the product is organized. A visitor can now move through Dashboard, Products, Test Cases, Test Data, Runs, Releases, and Review using one clearly disclosed sample workspace. The preview is bundled entirely inside the marketing application: its immutable fixtures do not authenticate, call a product API, set a cookie, persist a change, or expose create, record, execute, edit, approve, or delete controls. This allows the landing page to deploy independently while still giving a visitor something meaningful to operate.
+
+A native horizontal feature rail now presents Recording, Guided Runs, Autonomous Runs, Evidence timeline, Test Data, Release readiness, and Workflows without turning the page into seven full sections. Each card opens a native dialog with focus containment, Escape dismissal, focus restoration, and a blurred backdrop. Motion for React crossfades selected preview views and settles dialogs with small bounded movement; CSS and `MotionConfig` remove travel for reduced-motion visitors. `useSyncExternalStore` prevents preview and gallery buttons from accepting an early click before hydration. The old placeholder bars were replaced with an authored SVG signal path that connects checkpoints to a controlled finish and is reused in the favicon.
+
+The main tradeoff is that the preview demonstrates information architecture and navigation rather than executing Sentinel. That keeps the acquisition surface fast, safe, and independently deployable, but sample fixtures must be kept synchronized when the real product changes. It is intentionally not a demo account or iframe: either would require deploying and securing the product, handling session lifecycle, and preventing mutation at every server route. Native overflow and dialog behavior were chosen over a carousel dependency because they preserve touch momentum, keyboard behavior, and a smaller bundle. The walkthrough remains poster-first until the final sanitized video and captions are supplied.
+
+### Verification evidence
+
+```text
+npm run lint
+> oxlint
+exit 0
+
+npm run typecheck -- --pretty false
+> tsc --noEmit --pretty false
+exit 0
+
+npm run build
+Route (app): / and /privacy
+Build complete.
+exit 0
+
+npm run test:e2e
+Running 8 tests using 5 workers
+8 passed (10.9s)
+exit 0
+
+Impeccable detector
+[]
+```
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | What changed, risk, and owner action |
+|---|---|---|
+| Highest — understand now | `marketing/components/interactive-product-demo.tsx` (`InteractiveProductDemo`, local fixtures, `ActiveView`) | This defines the public simulation boundary. Review that every interaction is view selection only, sample data is disclosed, no production import/request exists, and mobile navigation retains accessible names. Read now. |
+| Highest — understand now | `marketing/components/feature-gallery.tsx` (`FeatureGallery`, native dialog lifecycle) | This controls horizontal discovery and modal focus. Review hydration gating, scroll-edge state, `showModal`, close behavior, and the absence of autoplay. Read now. |
+| Medium — understand next | `marketing/app/page.tsx` and `marketing/app/globals.css` | These place the interactive proof in the narrative and encode the Workbench, feature rail, backdrop blur, poster surface, responsive layout, and reduced motion. Inspect the 1280×800 first fold and 320–414px rules next. |
+| Medium — understand next | `marketing/components/sentinel-logo.tsx`, `marketing/public/favicon.svg`, and `marketing/tokens.css` | These provide the new signal-path identity and named color roles. The SVG is authored code, not a generated raster; review mark legibility at small sizes. |
+| Medium — understand next | `marketing/tests/landing.spec.ts` | These tests prove desktop/mobile navigation, lack of mutation controls, deferred video, gallery dialog behavior, focus, reduced motion, zoom, waitlist confirmation, and removed sign-off copy. |
+| Lower — skim or defer | Phase 26 requirements, architecture, technology, design, decisions, and Hallmark memory | These synchronize the approved deployment boundary and visual fingerprint; they add no runtime behavior. |
+
+### Ten-question understanding check
+
+1. Why is the interactive workspace part of the marketing bundle instead of an iframe or authenticated demo account?
+2. Which visitor actions are intentionally possible in the preview, and which mutation classes are intentionally impossible?
+3. How does the preview disclose that its records and counts are sample data rather than customer proof?
+4. What makes the marketing deployment independent from the product application when the preview is visible?
+5. Why does `useSyncExternalStore` temporarily disable preview and gallery controls, and what failure did the browser test expose before this guard?
+6. How do the horizontal rail, previous/next controls, and CSS snap points work together across mouse, keyboard, and touch input?
+7. Which native dialog behaviors protect keyboard and screen-reader users, and what does the custom code still need to manage?
+8. How do Motion for React and the reduced-motion CSS change view transitions and feature-card movement?
+9. What does the signal-path logo communicate, and why is it preferable to the old three-bar placeholder or a generic shield/robot mark?
+10. If Sentinel adds a new product area or changes a Run contract, which fixtures, views, tests, and documentation should be updated safely?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews both highest-priority components before this revision is considered fully understood.
+- Recheck local fixtures against the authenticated product before each public release; never copy real customer or credential data into the marketing bundle.
+- Add the final sanitized walkthrough, captions, legal/contact content, production domains, Stream configuration, and Turnstile configuration before public launch.
+
+**Learning status:** The standalone preview, feature rail, modal, motion, logo, responsive behavior, tests, decision record, and priority review are complete. Owner answers and final production media/configuration remain open, so the Phase 26 learning and launch gates remain incomplete.
