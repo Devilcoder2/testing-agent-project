@@ -50,6 +50,13 @@ test('explores features through a horizontal rail and focus-safe dialog', async 
 }, testInfo) => {
   await page.goto('/');
 
+  const headingBox = await page.locator('.feature-heading').boundingBox();
+  const firstCardBox = await page
+    .getByRole('button', { name: 'Learn more about Recording' })
+    .boundingBox();
+  expect(headingBox && firstCardBox).toBeTruthy();
+  expect(Math.abs((headingBox?.x ?? 0) - (firstCardBox?.x ?? 0))).toBeLessThan(2);
+
   const next = page.getByRole('button', { name: 'Next features' });
   await expect(next).toBeEnabled();
   await next.click();
@@ -97,8 +104,25 @@ test('centers the wordmark and reveals below-fold content as it enters view', as
 
   const reveal = page.locator('.quiet-statement .scroll-reveal');
   await expect.poll(() => reveal.evaluate((element) => getComputedStyle(element).opacity)).toBe('0');
-  await reveal.scrollIntoViewIfNeeded();
+  await reveal.evaluate((element) => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    const pageTop = element.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo(0, pageTop - window.innerHeight * 0.85);
+  });
+  await page.waitForTimeout(200);
+  await expect.poll(() => reveal.evaluate((element) => getComputedStyle(element).opacity)).toBe('0');
+  await reveal.evaluate((element) => {
+    const pageTop = element.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo(0, pageTop - window.innerHeight * 0.72);
+  });
   await expect.poll(() => reveal.evaluate((element) => getComputedStyle(element).opacity)).toBe('1');
+
+  const walkthroughWrapper = page.locator('.walkthrough-section > .scroll-reveal').nth(1);
+  const walkthroughPoster = page.locator('.walkthrough-poster');
+  const wrapperBox = await walkthroughWrapper.boundingBox();
+  const posterBox = await walkthroughPoster.boundingBox();
+  expect(wrapperBox && posterBox).toBeTruthy();
+  expect(Math.abs((wrapperBox?.width ?? 0) - (posterBox?.width ?? 0))).toBeLessThan(2);
 });
 
 test('submits the pilot qualifier and shows an address-safe confirmation', async ({
