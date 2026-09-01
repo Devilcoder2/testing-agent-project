@@ -873,3 +873,22 @@ Run Docker lint, type-check, full Vitest and Playwright suites. Use a mocked Jir
 **Out of scope:** Changing replay selectors or action semantics, adding browser concurrency, retaining browser-video recordings, auto-resuming an abandoned Run, redesigning Guided Run UI, or changing Auto Run queue behavior.
 
 **Implementation verification (2026-09-02):** The live local stack contained one August 22 `RUNNING` Guided Run while Selenium reported its only slot empty. The focused Guided Run integration suite passes all three cases in 18.08 seconds, including explicit live-session blocking and orphaned-run recovery. The remote Selenium recording journey passes in 20.7 seconds and asserts `CLICK Sign in` precedes navigation to `#dashboard`; the browser-lock regression passes both target-policy and untracked-Selenium-session recovery checks in 2.2 seconds. File-scoped lint passes for every implementation and test file. The repository-wide strict type check remains blocked by five pre-existing missing `marketing/components/*` modules, so the static/build checklist stays open until that unrelated marketing workspace is restored.
+
+## Phase 28 — Product modal and completion-feedback refinement
+
+**Depends on:** Phases 13, 16, 22, and 25.
+
+**Outcome:** A Product member can configure GitHub without accidental modal dismissal or shell overlap, and an Admin receives a clear but temporary completion acknowledgement after a Product deletion.
+
+- [x] Move GitHub settings out of the dismissible Product menu into a portal-backed shared dialog while preserving every existing repository action and authorization boundary.
+- [x] Close the GitHub dialog only through Escape, explicit close controls, or a true backdrop pointer event; keep focus trapping and restoration.
+- [x] Keep the GitHub dialog above the command masthead, with a fixed header/footer and an internal scroll area at desktop and mobile widths.
+- [x] Reduce GitHub copy to the current connection state and the next safe action without exposing credentials, secrets, source content, or changing connection behavior.
+- [x] Preserve durable deletion requests and queued/processing/failed feedback, but show a completion acknowledgement for five seconds only when this open Products page observes its own deletion finish.
+- [x] Ensure historical completed deletions do not restore a completion banner after reload or a later Products visit.
+- [x] Add focused browser checks for inside/backdrop modal interaction, scroll containment, stacking order, completion expiry, and reload behavior.
+- [x] Run file-scoped lint and both focused browser workflows; record exact evidence, decision, and exactly ten owner learning questions.
+
+**Out of scope:** Changing GitHub connection/routing APIs, repository authorization, Product deletion authorization/cascade behavior, audit retention, worker polling intervals, Release preservation, or introducing a toast library.
+
+**Implementation verification (2026-09-02):** `npx eslint components/ui.tsx components/sentinel-views.tsx tests/phase-13-github.spec.ts tests/product-creation.spec.ts` passes. The GitHub dialog workflow passes in 3.7 seconds; the Product deletion workflow passes in 11.2 seconds and proves the acknowledgement disappears after five seconds and stays absent after reload. Repository-wide `npm run lint` is blocked by 4,581 existing generated `marketing/dist` and `marketing/.next` errors; root strict type checking is blocked by five pre-existing missing `marketing/components/*` modules. These unrelated generated/marketing workspace conditions did not affect either focused Product workflow.
