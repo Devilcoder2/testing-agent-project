@@ -3364,3 +3364,83 @@ Impeccable detector
 - Re-run the focused rail journey after any change to the shared inset, feature card basis, track gap, or scrolling controls.
 
 **Learning status:** Implementation, one-file pushes, decision record, lint, strict TypeScript, production build, focused desktop/mobile geometry checks, complete browser coverage, and detector review are complete. Owner answers remain open, so the Phase 26 learning gate remains incomplete.
+
+## 2026-09-01 — Phase 26: minimal pilot application and scrolling header
+
+### What changed and why
+
+The pilot application now requires only name and email. Company and QA-team size remain visible but are explicitly marked optional, and the first select option is a real “Not specified” value. The marketing client sends empty optional values, the public validation boundary normalizes them to absence, and Prisma stores them as null rather than inventing a company or team size. The Administration ledger translates null back into clear “not provided” language.
+
+The database migration drops only the two `NOT NULL` constraints. It does not rewrite existing lead values, uniqueness, status, ownership, or timestamps. A duplicate application still returns the same safe response and refreshes qualification details; omitting optional details on that repeat sets them to null. Name, normalized email, Turnstile, honeypot, origin, body-size, and rate-limit requirements remain intact.
+
+The landing header no longer uses sticky positioning, a viewport offset, sticky stacking, or backdrop blur. It renders in normal document flow and scrolls away with the opening content. Browser coverage checks this with geometry after scrolling, and the form journey intentionally submits only name and email on both desktop and mobile.
+
+### Verification evidence
+
+```text
+docker compose exec sentinel npm run db:migrate
+Applying migration 20260901194500_make_pilot_qualification_optional
+All migrations have been successfully applied.
+exit 0
+
+docker compose exec sentinel npm test -- tests/pilot-waitlist.test.ts
+Test Files 1 passed (1)
+Tests 10 passed (10)
+exit 0
+
+npm run lint (marketing)
+> oxlint
+exit 0
+
+npm run typecheck -- --pretty false (marketing)
+> tsc --noEmit --pretty false
+exit 0
+
+npm run build (marketing)
+Route (app): / and /privacy
+Build complete.
+exit 0
+
+npm run test:e2e (marketing)
+Running 10 tests using 5 workers
+10 passed (14.3s)
+exit 0
+
+Impeccable detector
+[]
+```
+
+### Priority-based diff learning review
+
+| Priority | Files and symbols | What changed, risk, and owner action |
+|---|---|---|
+| Highest — understand now | `prisma/schema.prisma`, `prisma/migrations/20260901194500_make_pilot_qualification_optional/migration.sql`, and `lib/pilot-waitlist.ts` (`pilotWaitlistInputSchema`, `acceptPilotWaitlistLead`, `publicPilotLead`) | These files change the public data contract and persisted nullability. Review how empty strings become absent values, how null is written on create/update, and how public output maps nullable enums. |
+| Highest — understand now | `marketing/components/waitlist-form.tsx` (`WaitlistForm`) | This is the visitor conversion path. Review the two required fields, optional labels, submitted empty values, verification boundary, and email-only success copy. |
+| Medium — understand next | `components/admin-views.tsx` (`PilotLead`, waitlist ledger) | Nullable values are rendered as explicit missing-data text instead of blank UI or fabricated qualification. |
+| Medium — understand next | `marketing/app/globals.css` (`.site-header`, optional label styling) and `marketing/tests/landing.spec.ts` | These remove viewport pinning and prove the header leaves the viewport while a minimal application still succeeds at desktop and mobile widths. |
+| Medium — understand next | `tests/pilot-waitlist.test.ts` | These tests prove schema normalization and actual null persistence without weakening malformed-email, unsupported-field, bot, origin, rate-limit, or organization-isolation checks. |
+| Lower — skim or defer | `srd.md`, `phases.md`, `marketing-design.md`, `marketing/app/privacy/page.tsx`, and `decisions-log.md` | These synchronize the public promise, acceptance criteria, privacy wording, and rationale; they add no hidden runtime behavior. |
+
+### Ten-question understanding check
+
+1. Which two pilot fields are required at both the browser and public API boundaries?
+2. Why are company and QA-team size stored as null instead of empty strings or invented defaults?
+3. How does the validation schema distinguish an omitted optional field from a malformed non-empty value?
+4. What happens to existing company and team-size data when the migration drops the two `NOT NULL` constraints?
+5. What happens when the same email resubmits later without either optional qualification field?
+6. Which abuse-protection and privacy controls remain mandatory even for a name-and-email-only submission?
+7. How does the Administration ledger communicate missing qualification without leaving an ambiguous blank?
+8. Which CSS properties previously made the header sticky, and why is removing them sufficient for normal document flow?
+9. Which API and browser assertions prove the minimal submission and scrolling-header behavior?
+10. If company later becomes required again, which schema, migration, validation, form, tests, privacy copy, and administration states must be changed safely together?
+
+#### Answers
+
+- Owner answers pending.
+
+#### Follow-up learning tasks
+
+- The owner answers all ten questions and reviews both highest-priority areas before this final landing refinement is considered fully understood.
+- Re-run migration and minimal-submission coverage before deployment against the production release candidate.
+
+**Learning status:** Documentation, migration, implementation, one-file pushes, focused API coverage, marketing lint/type/build, complete desktop/mobile browser coverage, and detector review are complete. Owner answers remain open, so the Phase 26 learning gate remains incomplete.
