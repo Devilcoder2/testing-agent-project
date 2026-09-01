@@ -2,6 +2,7 @@
 
 import { AnimatePresence, m } from 'motion/react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { ScrollReveal } from './scroll-reveal';
 
 const features = [
   { number: '01', title: 'Recording', short: 'Teach a browser journey while its intent is still obvious.', detail: 'Sentinel records the browser actions beside a plain-English step log, so the durable asset is the journey—not a pile of selectors.', points: ['Live browser capture', 'Readable step intent', 'Versioned Test Case'] },
@@ -52,32 +53,36 @@ export function FeatureGallery() {
 
   return (
     <section className="feature-gallery" aria-labelledby="features-title">
-      <div className="feature-heading">
-        <div><span className="section-kicker">Inside Sentinel</span><h2 id="features-title">More capability. Less page.</h2></div>
-        <div className="rail-controls" aria-label="Feature gallery controls">
-          <button type="button" onClick={() => move(-1)} disabled={!hydrated || edge === 'start'} aria-label="Previous features">←</button>
-          <button type="button" onClick={() => move(1)} disabled={!hydrated || edge === 'end'} aria-label="Next features">→</button>
+      <ScrollReveal>
+        <div className="feature-heading">
+          <div><span className="section-kicker">Inside Sentinel</span><h2 id="features-title">More capability. Less page.</h2></div>
+          <div className="rail-controls" aria-label="Feature gallery controls">
+            <button type="button" onClick={() => move(-1)} disabled={!hydrated || edge === 'start'} aria-label="Previous features">←</button>
+            <button type="button" onClick={() => move(1)} disabled={!hydrated || edge === 'end'} aria-label="Next features">→</button>
+          </div>
         </div>
-      </div>
-      <div className="feature-rail" ref={railRef} onScroll={updateEdge}>
-        {features.map((feature, index) => (
-          <m.button
-            className={`feature-card feature-card-${(index % 3) + 1}`}
-            type="button"
-            key={feature.title}
-            disabled={!hydrated}
-            onClick={() => setSelected(feature)}
-            whileHover={{ y: -4 }}
-            transition={{ duration: 0.2 }}
-            aria-label={`Learn more about ${feature.title}`}
-          >
-            <span className="feature-number">{feature.number}</span>
-            <span className={`feature-glyph feature-glyph-${index + 1}`} aria-hidden="true"><i /><i /><i /><b /></span>
-            <span className="feature-card-copy"><strong>{feature.title}</strong><span>{feature.short}</span></span>
-            <span className="feature-open" aria-hidden="true">+</span>
-          </m.button>
-        ))}
-      </div>
+      </ScrollReveal>
+      <ScrollReveal delay={0.08}>
+        <div className="feature-rail" ref={railRef} onScroll={updateEdge}>
+          {features.map((feature, index) => (
+            <m.button
+              className={`feature-card feature-card-${(index % 3) + 1}`}
+              type="button"
+              key={feature.title}
+              disabled={!hydrated}
+              onClick={() => setSelected(feature)}
+              whileHover={{ y: -4 }}
+              transition={{ duration: 0.2 }}
+              aria-label={`Learn more about ${feature.title}`}
+            >
+              <span className="feature-number">{feature.number}</span>
+              <span className={`feature-glyph feature-glyph-${index + 1}`} aria-hidden="true"><i /><i /><i /><b /></span>
+              <span className="feature-card-copy"><strong>{feature.title}</strong><span>{feature.short}</span></span>
+              <span className="feature-open" aria-hidden="true">+</span>
+            </m.button>
+          ))}
+        </div>
+      </ScrollReveal>
 
       <dialog className="feature-dialog" ref={dialogRef} onClose={() => setSelected(null)} aria-labelledby="feature-dialog-title" aria-describedby="feature-dialog-description">
         <AnimatePresence mode="wait">
