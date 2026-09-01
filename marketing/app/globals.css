@@ -1797,17 +1797,18 @@ img {
 }
 
 .feature-rail {
-  width: calc(100% - var(--feature-rail-inset));
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(19rem, 25rem);
-  gap: 1rem;
+  width: 100%;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
-  scroll-snap-type: inline mandatory;
   scrollbar-width: none;
-  margin-left: var(--feature-rail-inset);
-  padding: 0.6rem 0 2rem;
+}
+
+.feature-track {
+  width: max-content;
+  min-width: 100%;
+  display: flex;
+  gap: 1rem;
+  padding: 0.6rem var(--feature-rail-inset) 2rem;
 }
 
 .feature-rail::-webkit-scrollbar {
@@ -1816,10 +1817,10 @@ img {
 
 .feature-card {
   position: relative;
+  flex: 0 0 25rem;
   min-height: 30rem;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  scroll-snap-align: start;
   overflow: hidden;
   border: 1px solid var(--color-rule);
   border-radius: 1.25rem;
@@ -2234,11 +2235,8 @@ img {
     font-size: clamp(2.8rem, 14vw, 4.5rem);
   }
 
-  .feature-rail {
-    grid-auto-columns: min(82vw, 22rem);
-  }
-
   .feature-card {
+    flex-basis: min(82vw, 22rem);
     min-height: 27rem;
   }
 }
