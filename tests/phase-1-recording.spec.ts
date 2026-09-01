@@ -7,7 +7,7 @@ const baseUrl = process.env.SENTINEL_BASE_URL ?? "http://localhost:3000";
 const demoUrl = "http://demo-target";
 
 type RecordingResponse = { recording: { id: string }; token: string };
-type Step = { id: string; kind: string; value: string | null; isRedacted: boolean; description: string | null; expectedOutcome: string | null; variableName: string | null };
+type Step = { id: string; kind: string; target: { text?: string; url?: string }; value: string | null; isRedacted: boolean; description: string | null; expectedOutcome: string | null; variableName: string | null };
 
 async function signIn(page: Page, email = "ava.tester@example.test", navigate = true) {
   if (navigate) await page.goto(baseUrl);
@@ -115,6 +115,10 @@ test("records the remote demo journey and preserves saved annotations after refr
     expect(captured.filter((step) => step.kind === "TEXT_ENTRY").length).toBeGreaterThanOrEqual(2);
     expect(captured.some((step) => step.value === "[REDACTED]" && step.isRedacted)).toBe(true);
     expect(JSON.stringify(captured)).not.toContain("TestPassword!");
+    const signInClick = captured.findIndex((step) => step.kind === "CLICK" && step.target.text === "Sign in");
+    const dashboardNavigation = captured.findIndex((step) => step.kind === "NAVIGATION" && step.target.url?.endsWith("#dashboard"));
+    expect(signInClick).toBeGreaterThanOrEqual(0);
+    expect(dashboardNavigation).toBeGreaterThan(signInClick);
     const capturedStepCount = captured.length;
 
     const passwordStep = page.locator(".step").filter({ hasText: "[REDACTED]" }).first();
